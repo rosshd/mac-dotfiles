@@ -1,0 +1,416 @@
+================================================================================
+ROSS'S MAC SETUP — REFERENCE DOC
+MacBook Pro M5 Pro
+Last updated: June 2026
+================================================================================
+
+This file is a complete reference for everything installed, configured, and
+customized on this machine. Use it to onboard an AI assistant, restore the
+setup, or remember what things do.
+
+
+================================================================================
+SHELL — Fish
+================================================================================
+
+Fish is the default shell (/opt/homebrew/bin/fish).
+Config: ~/.config/fish/config.fish
+
+What's configured:
+  - PATH: ~/.local/bin (wrappers) → /opt/homebrew/bin → pyenv
+  - pyenv initialized for Python version management
+  - SSH agent auto-started, loads ~/.ssh/id_ed25519
+  - Starship prompt initialized
+  - Fish greeting suppressed
+  - fastfetch (custom) runs automatically on new tmux windows (not splits)
+
+Aliases:
+  dev         cd ~/Developer/projects
+  school      cd ~/School
+  sandbox     cd ~/Developer/sandbox
+  g           git
+  gs          git status
+  ga          git add
+  gc          git commit
+  gp          git push
+  gl          git log --oneline --graph --decorate -15
+  gd          git diff
+  ll          ls -lah
+  ..          cd ..
+  ...         cd ../..
+  grep        grep --color=auto
+  py          python3
+  vi          nvim
+  matrix      cmatrix -a -C cyan
+  pipes       pipes.sh -t 0
+  spaceship   python3 ~/.config/fish/spaceship.py    (full-screen animation)
+  fastfetch   python3 ~/.config/fish/launch.py --no-timeout
+
+
+================================================================================
+PROMPT — Starship
+================================================================================
+
+Config: ~/.config/starship.toml
+Theme: orange/space, two-line layout
+
+Line 1: ╭ ~/path  branch ±modified  took Xs  HH:MM
+Line 2: ╰❯
+
+Modules enabled:
+  - directory       (bold yellow, truncates to 4 levels)
+  - git_branch      (purple, shows branch name)
+  - git_status      (blue, shows ⇡⇣ ahead/behind, ~modified, +staged, etc.)
+  - python          (shows version + virtualenv when active)
+  - golang          (shows version when in Go project)
+  - nodejs          (shows version when in Node project)
+  - rust            (shows version when in Rust project)
+  - cmd_duration    (shows "took Xs" for commands over 2s)
+  - jobs            (shows ✦ N when background jobs exist)
+  - time            (dimmed purple, HH:MM)
+  - character       (disabled — arrow is hardcoded in format)
+
+
+================================================================================
+TERMINAL — iTerm2
+================================================================================
+
+Profile: "Ross" (Dynamic Profile at ~/Library/Application Support/iTerm2/DynamicProfiles/Ross.json)
+
+On open: launches tmux and attaches/creates session "main"
+  Command: /opt/homebrew/bin/tmux new-session -A -s main
+
+Visual:
+  Font:         JetBrains Mono 14
+  Background:   dark blue (R:0.04 G:0.06 B:0.14), 15% transparency, blur 10
+  Cursor:       orange, blinking block
+  Theme:        Minimal (set manually: Preferences → Appearance → Theme → Minimal)
+  Dimming:      disabled (inactive panes do NOT grey out)
+
+Useful iTerm2 features:
+  Cmd+D         split vertically (iTerm native, outside tmux)
+  Cmd+Shift+D   split horizontally
+  Cmd+[/]       switch panes
+  Cmd+T         new tab
+  Cmd+1..9      switch tabs
+  Cmd+F         search in terminal output
+  Triple-click  select whole line
+  Hold Cmd      click URLs to open
+
+
+================================================================================
+MULTIPLEXER — tmux
+================================================================================
+
+Config: ~/.tmux.conf
+Prefix: Ctrl+a (rarely needed — most things are no-prefix)
+
+No-prefix keybinds:
+  Ctrl+\        split right (new pane to the right)
+  Ctrl+g        split down  (new pane below)
+  Ctrl+t        new window
+  Ctrl+n        next window
+  Ctrl+p        previous window
+  Ctrl+x        close pane (asks confirmation)
+  Ctrl+h/j/k/l  move between panes (vim-style)
+  Ctrl+y        open Codex AI in a split pane
+  Ctrl+o        open Claude Code in a split pane
+  Alt+h/j/k/l   (legacy — same as Ctrl, kept as fallback)
+
+With prefix (Ctrl+a then):
+  H/J/K/L       resize pane (repeatable)
+  S             choose/switch session
+  X             kill window
+  r             reload tmux config
+  |             split right
+  -             split down
+
+Visual:
+  Status bar:       bottom, transparent background, orange text
+  Active pane:      orange border + "● folder" label at top
+  Inactive pane:    amber border + "○ folder" label
+  Window names:     auto-renamed to current folder
+
+fastfetch behavior:
+  - Runs automatically when a NEW window opens (not on splits)
+  - Exits cleanly if terminal is resized or split while running
+  - Manual: type `fastfetch` anytime
+
+
+================================================================================
+FASTFETCH — Custom Python Curses Animation
+================================================================================
+
+File: ~/.config/fish/launch.py
+Also at: ~/.config/fish/spaceship.py (standalone full-screen spaceship)
+
+What it shows:
+  - macOS Apple logo (ASCII, diagonal orange→grey→turquoise→purple gradient)
+  - Spaceship orbiting the logo (toggles in front / behind each half-orbit)
+  - Starfield across the full terminal (120 stars, gold/blue/purple, twinkling)
+  - System info panel: OS, Kernel, Uptime, Shell, Terminal, WM, CPU, GPU,
+    Memory, Disk, Display, Battery, Local IP, Packages
+  - Progress bar + "any key to skip" (timed mode) or "any key to exit" (manual)
+
+Memory calculation: active + wired + compressed pages (matches Activity Monitor)
+
+Flags:
+  --no-timeout    stay open until keypress (used when calling `fastfetch` manually)
+  (no flag)       auto-exits after 8 seconds (used on new window open)
+
+
+================================================================================
+WINDOW MANAGER — AeroSpace
+================================================================================
+
+Config: ~/.config/aerospace/aerospace.toml
+Style: i3-like tiling, 8px gaps
+
+All shortcuts use Caps Lock as the trigger key.
+Caps Lock is remapped via Karabiner to Ctrl+Option+Cmd when held.
+Caps Lock tapped alone = Escape.
+
+Keybinds (physical: Caps + key):
+  Caps+h/j/k/l          focus window left/down/up/right
+  Caps+Shift+h/j/k/l    move window left/down/up/right
+  Caps+1..5             switch to workspace 1–5
+  Caps+Shift+1..5       move focused window to workspace 1–5
+  Caps+Enter            open iTerm
+  Caps+e                open VS Code
+  Caps+b                open Firefox
+  Caps+/                rotate tile direction (horizontal ↔ vertical)
+  Caps+Space            toggle float / tile
+  Caps+f                fullscreen
+  Caps+q                close focused window
+  Caps+Tab              jump to last workspace
+  Caps+=                resize +50
+  Caps+-                resize -50
+  Caps+r                reload AeroSpace config
+  Caps (tap alone)       Escape
+
+Workspaces: 1, 2, 3, 4, 5 (persistent)
+Gaps: 8px inner, 8px outer
+
+
+================================================================================
+KEY REMAPPING — Karabiner-Elements
+================================================================================
+
+Config: ~/.config/karabiner/karabiner.json
+Profile: "Ross"
+
+Rule:
+  Caps Lock held   → sends Ctrl+Option+Cmd  (used by AeroSpace)
+  Caps Lock tapped → sends Escape
+
+No other remaps — Option/Ctrl/Cmd left untouched.
+
+Note: After install, must open Karabiner once and approve
+      accessibility permission in System Settings → Privacy & Security.
+
+
+================================================================================
+EDITOR — VS Code
+================================================================================
+
+Extensions installed:
+  dbaeumer.vscode-eslint          ESLint linting
+  drcika.apc-extension            UI customization (custom CSS/JS)
+  eamodio.gitlens                 Git blame, history, lens in editor
+  esbenp.prettier-vscode          Code formatter
+  golang.go                       Go language support
+  illixion.vscode-vibrancy-continued  Vibrancy/transparency effect
+  ms-python.python                Python language support
+  ms-python.vscode-pylance        Python type checking + intellisense
+  ms-python.debugpy               Python debugger
+  ms-python.vscode-python-envs    Python environment management
+  ms-vscode.live-server           Local dev server with live reload
+  pkief.material-icon-theme       File/folder icons
+  ross-local.candiru-space-theme  Custom orange/space color theme (local)
+  usernamehw.errorlens            Inline error/warning display
+
+Custom keybindings (Caps = Ctrl+Opt+Cmd):
+  Caps+i        inline AI chat (inlineChat.start)
+  Caps+/        open chat panel
+  Caps+t        toggle integrated terminal
+  Caps+a        run Claude Code task in terminal
+  Caps+x        run Codex task in terminal
+
+Tasks (Caps+a / Caps+x):
+  "AI: Claude Code"   runs `claude` in a new terminal panel
+  "AI: Codex"         runs `codex` in a new terminal panel
+
+Configs:
+  Keybindings: ~/Library/Application Support/Code/User/keybindings.json
+  Tasks:       ~/Library/Application Support/Code/User/tasks.json
+
+
+================================================================================
+PACKAGE MANAGER — Homebrew
+================================================================================
+
+Formulae installed (notable):
+  fish          Default shell
+  tmux          Terminal multiplexer
+  starship      Cross-shell prompt
+  pyenv         Python version manager
+  neovim        Terminal editor (vi alias)
+  git           Version control
+  gh            GitHub CLI
+  go            Go language
+  node          Node.js
+  fzf           Fuzzy finder
+  fd            Fast file finder (fd instead of find)
+  ripgrep       Fast grep (rg)
+  tree          Directory tree viewer
+  wget          File downloader
+  jq            JSON processor
+  cmatrix       Matrix rain animation
+  pipes-sh      Animated pipes screensaver
+  sketchybar    Custom menu bar
+  fastfetch     System info (overridden by custom launch.py)
+
+Casks installed:
+  iterm2              Terminal
+  visual-studio-code  Editor
+  aerospace           Window manager
+  karabiner-elements  Key remapper
+  raycast             Spotlight replacement
+  rectangle           Window snapping (backup to AeroSpace)
+  spotify             Music
+  font-jetbrains-mono JetBrains Mono font (used in iTerm + VS Code)
+
+
+================================================================================
+RAYCAST
+================================================================================
+
+Replaces macOS Spotlight.
+Trigger: Option+Space (set in Raycast preferences)
+
+Useful built-ins:
+  Option+Space        open Raycast
+  Type app name       launch app
+  Type math           instant calculator
+  "kill"              force quit any process
+  "clipboard"         clipboard history
+  "snippets"          text snippets
+  "color"             color picker
+  "define"            dictionary lookup
+
+Extensions can be added from raycast.com/store.
+
+
+================================================================================
+GIT / GITHUB
+================================================================================
+
+Config: ~/.gitconfig
+  name:           Ross Dawson
+  email:          rosshdawson@gmail.com
+  default branch: main
+  editor:         VS Code (code --wait)
+
+Global gitignore: ~/.gitignore_global
+  Ignores: .DS_Store, .env, node_modules/, __pycache__/, *.pyc, .venv/
+
+SSH: ~/.ssh/config
+  Host github.com → uses ~/.ssh/id_ed25519
+
+Repos:
+  ~/Developer/projects/openlearn
+  ~/Developer/projects/InterpreterInGo
+  ~/Developer/projects/neetcode-submissions-*
+  ~/mac-dotfiles    (this repo — tracks all config files)
+
+GitHub CLI (gh) common commands:
+  gh repo create    create new repo
+  gh repo clone     clone a repo
+  gh pr create      open a pull request
+  gh pr list        list PRs
+  gh issue list     list issues
+  gh auth login     authenticate
+
+
+================================================================================
+PYTHON — pyenv
+================================================================================
+
+pyenv manages Python versions independently of the system Python.
+Config in ~/.config/fish/config.fish (pyenv init'd on shell start).
+
+Useful commands:
+  pyenv install 3.x.x     install a version
+  pyenv global 3.x.x      set global default
+  pyenv local 3.x.x       set version for current directory (.python-version)
+  pyenv versions           list installed versions
+  python3 -m venv .venv    create a virtual environment
+  source .venv/bin/activate.fish   activate venv in fish
+
+
+================================================================================
+DIRECTORY STRUCTURE
+================================================================================
+
+~
+├── Developer/
+│   ├── projects/     (dev = shortcut)    active project repos
+│   └── sandbox/      (sandbox = shortcut) throwaway experiments
+├── School/           (school = shortcut)
+│   ├── AI/           Intro to AI
+│   ├── OS/           Operating Systems
+│   └── Internship/   Internship credit
+├── mac-dotfiles/     this repo
+└── Pictures/
+    └── Screenshots/  all screenshots saved here
+
+
+================================================================================
+DOTFILES REPO — mac-dotfiles
+================================================================================
+
+Repo: github.com/rosshd/mac-dotfiles
+Local: ~/mac-dotfiles
+
+Structure:
+  fish/
+    config.fish       shell config, aliases, startup logic
+    launch.py         custom fastfetch animation
+    spaceship.py      standalone spaceship animation
+  aerospace/
+    aerospace.toml    window manager config
+  karabiner/
+    karabiner.json    Caps Lock remapping
+  iterm2/
+    Ross.json         iTerm2 dynamic profile
+  sketchybar/
+    sketchybarrc      menu bar config
+    plugins/          menu bar plugin scripts
+  vscode/
+    candiru-space-theme/   custom VS Code theme
+  .tmux.conf          tmux config
+  starship.toml       prompt config
+  setup.sh            run on new Mac to install everything
+
+To restore on a new Mac:
+  git clone git@github.com:rosshd/mac-dotfiles.git ~/mac-dotfiles
+  cd ~/mac-dotfiles && ./setup.sh
+  brew install --cask karabiner-elements   (needs sudo, done separately)
+
+
+================================================================================
+THINGS TO LEARN / EXPLORE
+================================================================================
+
+These are installed and configured but worth learning deeply:
+
+  AeroSpace     tiling window manager — workspaces, layouts, floating vs tiling
+  Karabiner     key remapping — could add more layers later
+  fzf           fuzzy finder — integrates with fish, git, file search
+  ripgrep (rg)  much faster than grep, respects .gitignore
+  fd            much faster than find, better defaults
+  gh CLI        GitHub from terminal — PRs, issues, releases
+  GitLens       VS Code git superpowers — blame, history, compare
+  fish functions vs aliases — abbr expands inline, functions are more powerful
+  tmux sessions — named sessions for different projects, detach/reattach
+  pyenv         Python version pinning per project with .python-version files
