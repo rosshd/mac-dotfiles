@@ -113,8 +113,8 @@ def main(stdscr):
     OY        = max(1, (H - CONTENT_H) // 2)
     OX        = max(1, (W - CONTENT_W) // 2)
     CY, CX    = OY + LH // 2, OX + LW // 2
-    RX, RY    = LW // 2 + 3, LH // 2 + 1
-    info_x    = OX + LW + 2
+    RX, RY    = LW // 2 + 2, LH // 2 + 1
+    info_x    = OX + LW + 5
     max_score = LH * 0.75 + LW * 0.25
 
     random.seed(7)
