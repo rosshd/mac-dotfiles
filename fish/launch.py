@@ -106,14 +106,19 @@ def main(stdscr):
     stdscr.timeout(50)
     info = get_info()
 
-    OY, OX    = 1, 4
+    H, W      = stdscr.getmaxyx()
+    INFO_W    = 45                          # approx info panel width
+    CONTENT_W = LW + 2 + INFO_W
+    CONTENT_H = LH
+    OY        = max(1, (H - CONTENT_H) // 2)
+    OX        = max(1, (W - CONTENT_W) // 2)
     CY, CX    = OY + LH // 2, OX + LW // 2
     RX, RY    = LW // 2 + 3, LH // 2 + 1
     info_x    = OX + LW + 2
     max_score = LH * 0.75 + LW * 0.25
 
     random.seed(7)
-    stars = [(random.randint(OY, OY + LH - 1), random.randint(0, OX + LW + 1), random.choice(STARS))
+    stars = [(random.randint(OY, OY + LH - 1), random.randint(OX, OX + LW + 1), random.choice(STARS))
              for _ in range(40)]
     logo_cells = {(OY + i, OX + j) for i, row in enumerate(LOGO)
                   for j, ch in enumerate(row) if ch != ' '}
@@ -149,7 +154,6 @@ def main(stdscr):
         else:
             ship, (ex, ey) = (" ▼ ", (1, -1))
 
-        H, W = stdscr.getmaxyx()
         stdscr.erase()
 
         # stars
