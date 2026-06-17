@@ -19,11 +19,16 @@ end
 # Starship prompt
 starship init fish | source
 
-# Show fastfetch only in the first pane of a new window (not in splits)
-if set -q TMUX
-    set __panes (tmux display-message -p '#{window_panes}' 2>/dev/null)
-    if test "$__panes" = "1"
-        python3 ~/.config/fish/launch.py --no-timeout
+# Show startup animation once per tmux session, only in a roomy first pane.
+if status is-interactive; and set -q TMUX
+    set -l shown (tmux show-option -gqv @startup_animation_done)
+    set -l panes (tmux display-message -p "#{window_panes}" 2>/dev/null)
+    set -l cols (tput cols 2>/dev/null)
+    set -l rows (tput lines 2>/dev/null)
+
+    if test "$shown" != "1"; and test "$panes" = "1"; and test "$cols" -ge 88; and test "$rows" -ge 24
+        tmux set-option -gq @startup_animation_done 1
+        command python3 ~/.config/fish/launch.py
         clear
     end
 end

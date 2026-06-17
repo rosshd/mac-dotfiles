@@ -26,6 +26,44 @@ LW = max(len(l) for l in LOGO)
 LH = len(LOGO)
 
 STARS = list("·˙·✦·˙·*")
+RESIZE_SETTLE_SECONDS = 0.08
+FRAME_TIMEOUT_MS = 16
+ORBIT_SPEED = 1.25
+TOP_GUTTER = 1
+BOTTOM_GUTTER = 1
+MIN_FULL_HEIGHT = LH + TOP_GUTTER + BOTTOM_GUTTER + 2
+MIN_FULL_WIDTH = LW + 38
+
+DRAW_H = 0
+DRAW_W = 0
+
+
+def set_draw_size(h, w):
+    global DRAW_H, DRAW_W
+    DRAW_H = h
+    DRAW_W = w
+
+
+def safe_addstr(stdscr, y, x, text, attr=0):
+    if y < 0 or y >= DRAW_H or x < 0 or x >= DRAW_W - 1:
+        return
+    width = DRAW_W - x - 1
+    if width <= 0:
+        return
+    try:
+        stdscr.addnstr(y, x, str(text), width, attr)
+    except curses.error:
+        pass
+
+def draw_compact(stdscr, message, attr=0):
+    h, w = stdscr.getmaxyx()
+    if h <= 0 or w <= 1:
+        return
+    text = f" {message} "
+    y = max(0, h // 2)
+    x = max(0, (w - len(text)) // 2)
+    safe_addstr(stdscr, y, x, text, attr)
+
 
 def get_info():
     def sh(*cmd):
@@ -108,16 +146,12 @@ def main(stdscr):
     curses.init_pair(13, curses.COLOR_BLUE,    -1)
     curses.init_pair(14, curses.COLOR_CYAN,    -1)
 
-    stdscr.timeout(50)
+    stdscr.timeout(FRAME_TIMEOUT_MS)
     info = get_info()
 
-    OY, OX   = 1, 4
-    CY       = OY + LH // 2
-    CX       = OX + LW // 2
-    RX       = LW // 2 + 3
-    RY       = LH // 2 + 1
+    OY       = TOP_GUTTER
+    OX       = 4
     max_score = LH * 0.75 + LW * 0.25
-    info_x   = OX + LW + 2
 
     random.seed(7)
     stars = []
@@ -138,29 +172,40 @@ def main(stdscr):
     DURATION   = 8.0
     in_front   = True
     last_orbit = 0
+    last_motion = time.monotonic()
 
-    _resize = [False]
     def on_resize(sig, _):
-        _resize[0] = True
+        sys.exit(0)
     signal.signal(signal.SIGWINCH, on_resize)
 
     while True:
         key = stdscr.getch()
-
-        if _resize[0] or key == curses.KEY_RESIZE:
-            _resize[0] = False
-            sz = shutil.get_terminal_size()
-            curses.resizeterm(sz.lines, sz.columns)
-            stdscr.clearok(True)
-            stdscr.refresh()
-            continue
-
+        if key == curses.KEY_RESIZE:
+            sys.exit(0)
         if key != -1:
             break
         if TIMED and time.time() - START > DURATION:
             break
 
         H, W = stdscr.getmaxyx()
+        set_draw_size(H, W)
+
+        if H < MIN_FULL_HEIGHT or W < MIN_FULL_WIDTH:
+            stdscr.erase()
+            draw_compact(stdscr, "launch animation paused for pane size", curses.color_pair(14) | curses.A_DIM)
+            stdscr.refresh()
+            current_motion = time.monotonic()
+            t += ORBIT_SPEED * min(current_motion - last_motion, 0.08)
+            last_motion = current_motion
+            frame += 1
+            continue
+
+        OY = TOP_GUTTER
+        CY = OY + LH // 2
+        CX = OX + LW // 2
+        RX = LW // 2 + 3
+        RY = LH // 2 + 1
+        info_x = OX + LW + 2
 
         # toggle front/behind every half-orbit
         current_half = int(t / math.pi)
@@ -192,7 +237,7 @@ def main(stdscr):
                 if 0 <= sy < H and 0 <= sx < W - 1:
                     if (sy, sx) in logo_cells: continue
                     ch = sc if (frame + sy * 3) % 14 != 0 else "·"
-                    stdscr.addstr(sy, sx, ch,
+                    safe_addstr(stdscr, sy, sx, ch,
                         curses.color_pair(star_colors[idx % len(star_colors)]) | curses.A_DIM)
 
             # logo
@@ -207,20 +252,20 @@ def main(stdscr):
                     elif score < 0.58: pair, attr = 6,  curses.A_DIM
                     elif score < 0.72: pair, attr = 14, curses.A_DIM
                     else:              pair, attr = 9,  curses.A_DIM
-                    stdscr.addstr(row, OX + j, ch, curses.color_pair(pair) | attr)
+                    safe_addstr(stdscr, row, OX + j, ch, curses.color_pair(pair) | attr)
 
             # info panel
             if info_x < W:
                 title = "🚀 " + info["_title"]
-                stdscr.addstr(OY, info_x, title, curses.color_pair(12) | curses.A_BOLD)
+                safe_addstr(stdscr, OY, info_x, title, curses.color_pair(12) | curses.A_BOLD)
                 sep = "─" * min(34, W - info_x - 1)
-                stdscr.addstr(OY + 1, info_x, sep, curses.color_pair(13) | curses.A_DIM)
+                safe_addstr(stdscr, OY + 1, info_x, sep, curses.color_pair(13) | curses.A_DIM)
                 row = OY + 2
                 for k, v in list(info.items())[1:]:
                     if row >= H: break
                     label = f"{k:<9}"
-                    stdscr.addstr(row, info_x, label, curses.color_pair(5) | curses.A_DIM)
-                    stdscr.addstr(row, info_x + len(label), v, curses.color_pair(6))
+                    safe_addstr(stdscr, row, info_x, label, curses.color_pair(5) | curses.A_DIM)
+                    safe_addstr(stdscr, row, info_x + len(label), v, curses.color_pair(6))
                     row += 1
                 row += 1
                 if TIMED:
@@ -229,14 +274,14 @@ def main(stdscr):
                     bw  = min(30, W - info_x - 1)
                     bar = "█" * int(progress * bw) + "░" * (bw - int(progress * bw))
                     if row < H:
-                        stdscr.addstr(row, info_x, bar, curses.color_pair(13) | curses.A_DIM)
+                        safe_addstr(stdscr, row, info_x, bar, curses.color_pair(13) | curses.A_DIM)
                     row += 1
                     if row < H:
-                        stdscr.addstr(row, info_x, "any key to skip",
+                        safe_addstr(stdscr, row, info_x, "any key to skip",
                                       curses.color_pair(14) | curses.A_DIM)
                 else:
                     if row < H:
-                        stdscr.addstr(row, info_x, "any key to exit",
+                        safe_addstr(stdscr, row, info_x, "any key to exit",
                                       curses.color_pair(14) | curses.A_DIM)
 
             # ship (behind: skip chars on logo cells)
@@ -245,12 +290,12 @@ def main(stdscr):
                     col = sx_i + k
                     if not in_front and (sy_i, col) in logo_cells:
                         continue
-                    stdscr.addstr(sy_i, col, ch, curses.color_pair(10) | curses.A_BOLD)
+                    safe_addstr(stdscr, sy_i, col, ch, curses.color_pair(10) | curses.A_BOLD)
                 if frame % 3 != 0:
                     erow, ecol = sy_i + ey, sx_i + ex
                     if 0 <= erow < H and 0 <= ecol < W - 1:
                         if in_front or (erow, ecol) not in logo_cells:
-                            stdscr.addstr(erow, ecol, "·", curses.color_pair(11))
+                            safe_addstr(stdscr, erow, ecol, "·", curses.color_pair(11))
 
             stdscr.refresh()
 
@@ -258,7 +303,9 @@ def main(stdscr):
             # terminal mid-resize: skip this frame, recover next tick
             stdscr.clearok(True)
 
-        t     += 0.05
+        current_motion = time.monotonic()
+        t += ORBIT_SPEED * min(current_motion - last_motion, 0.08)
+        last_motion = current_motion
         frame += 1
 
 try:
