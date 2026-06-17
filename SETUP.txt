@@ -5,240 +5,418 @@ Last updated: June 2026
 ================================================================================
 
 This file is a complete reference for everything installed, configured, and
-customized on this machine. Use it to onboard an AI assistant, restore the
-setup, or remember what things do.
+customized on this machine. Intended to be dropped into an AI chat to teach
+the full workflow from scratch. Each section covers what the tool IS, what it
+does in this specific setup, and where it shows up day-to-day.
+
+
+================================================================================
+HOW THE PIECES FIT TOGETHER (read this first)
+================================================================================
+
+When you open your Mac, this is the chain of tools at play:
+
+  KARABINER remaps Caps Lock into a "super key" that no other app will
+  accidentally steal, making all your shortcuts one physical key.
+
+  AEROSPACE is your window manager — it arranges every app window into a
+  tiling grid automatically and lets you switch between workspaces and move
+  windows using Caps+hjkl.
+
+  ITERM2 opens and immediately hands control to TMUX, which lives inside it.
+  You're never really using "iTerm" directly — you're using tmux sessions
+  that happen to render inside iTerm.
+
+  TMUX gives you persistent sessions (they survive closing iTerm), split
+  panes, and multiple windows inside one terminal. All pane movement uses
+  Ctrl+hjkl so your hands never leave the home row.
+
+  FISH is your shell — the thing that actually runs your commands. Starship
+  draws the prompt. Aliases shorten common commands. On every new tmux window
+  the custom FASTFETCH animation plays to show system info.
+
+  VS CODE is your editor for all actual coding. It opens files, runs a
+  terminal panel inside it, and uses GitLens + Pylance + ESLint to understand
+  your code. AI tools (Claude Code, Codex) run inside its terminal panel.
+
+  RAYCAST replaces Spotlight — it's faster and smarter for launching apps,
+  math, clipboard history, and anything you'd normally Cmd+Space for.
+
+  GIT / GH CLI handle all version control from the terminal. Starship shows
+  git status in your prompt at all times so you never forget what branch
+  you're on.
+
+Day-to-day flow:
+  Open iTerm → tmux auto-attaches → fastfetch plays → you're at a prompt.
+  Caps+e opens VS Code. Caps+1/2/3/4/5 switch workspaces.
+  Ctrl+\ or Ctrl+g splits a terminal pane. Ctrl+hjkl moves between panes.
+  Ctrl+o drops a Claude Code session into a split. Caps+i does inline AI in VS Code.
 
 
 ================================================================================
 SHELL — Fish
 ================================================================================
 
-Fish is the default shell (/opt/homebrew/bin/fish).
+WHAT IT IS:
+  Fish (Friendly Interactive Shell) is your command line shell — the program
+  that reads what you type and runs it. It replaces bash/zsh as your default.
+
+WHY FISH OVER BASH/ZSH:
+  Fish has autosuggestions built in (grey text shows the most likely completion
+  as you type — press → to accept). Syntax highlighting works as you type so
+  typos turn red before you run them. No config required for basic use.
+
+WHERE IT SHOWS UP:
+  Everywhere you type a command. Every terminal pane in tmux runs fish.
+  All aliases and startup logic live here.
+
 Config: ~/.config/fish/config.fish
 
 What's configured:
   - PATH: ~/.local/bin (wrappers) → /opt/homebrew/bin → pyenv
-  - pyenv initialized for Python version management
-  - SSH agent auto-started, loads ~/.ssh/id_ed25519
+  - pyenv initialized so `python3` uses the right version
+  - SSH agent auto-started so `git push` never asks for a passphrase
   - Starship prompt initialized
-  - Fish greeting suppressed
-  - fastfetch (custom) runs automatically on new tmux windows (not splits)
+  - Fish greeting suppressed (no "Welcome to fish" message)
+  - Fastfetch runs automatically on new tmux windows (not splits)
 
-Aliases:
-  dev         cd ~/Developer/projects
-  school      cd ~/School
-  sandbox     cd ~/Developer/sandbox
-  g           git
-  gs          git status
-  ga          git add
-  gc          git commit
-  gp          git push
-  gl          git log --oneline --graph --decorate -15
-  gd          git diff
-  ll          ls -lah
-  ..          cd ..
-  ...         cd ../..
-  grep        grep --color=auto
-  py          python3
-  vi          nvim
-  matrix      cmatrix -a -C cyan
-  pipes       pipes.sh -t 0
-  spaceship   python3 ~/.config/fish/spaceship.py    (full-screen animation)
-  fastfetch   python3 ~/.config/fish/launch.py --no-timeout
+Aliases — what they do and when you use them:
+  dev         jump to ~/Developer/projects    (where your repos live)
+  school      jump to ~/School                (coursework)
+  sandbox     jump to ~/Developer/sandbox     (throwaway experiments)
+  g           git                             (saves 2 chars every command)
+  gs          git status                      (most typed git command)
+  ga          git add                         (stage files)
+  gc          git commit                      (commit staged files)
+  gp          git push                        (push to remote)
+  gl          git log ...                     (visual branch graph, last 15)
+  gd          git diff                        (see unstaged changes)
+  ll          ls -lah                         (list files with sizes + hidden)
+  ..          cd ..                           (go up one folder)
+  ...         cd ../..                        (go up two folders)
+  grep        grep --color=auto               (grep with color always on)
+  py          python3                         (shorter)
+  vi          nvim                            (opens neovim in terminal)
+  matrix      cmatrix -a -C cyan              (matrix rain screensaver)
+  pipes       pipes.sh -t 0                   (animated pipes screensaver)
+  spaceship   ~/.config/fish/spaceship.py     (full-screen spaceship animation)
+  fastfetch   launch.py --no-timeout          (show system info, stay open)
 
 
 ================================================================================
 PROMPT — Starship
 ================================================================================
 
+WHAT IT IS:
+  Starship is the program that draws your command prompt — the line you type
+  commands after. It replaces the default boring "user@host $" with something
+  that shows actually useful context.
+
+WHY IT MATTERS:
+  At a glance you can see what folder you're in, what git branch you're on,
+  whether there are uncommitted changes, how long the last command took, and
+  what time it is. You never need to type `git status` just to check.
+
+WHERE IT SHOWS UP:
+  Every time a command finishes and fish is waiting for your next input.
+
 Config: ~/.config/starship.toml
 Theme: orange/space, two-line layout
 
-Line 1: ╭ ~/path  branch ±modified  took Xs  HH:MM
-Line 2: ╰❯
+What you see:
+  Line 1: ╭ ~/path/to/folder   branch ~2 +1   took 3s   14:22
+  Line 2: ╰❯ (where you type)
 
-Modules enabled:
-  - directory       (bold yellow, truncates to 4 levels)
-  - git_branch      (purple, shows branch name)
-  - git_status      (blue, shows ⇡⇣ ahead/behind, ~modified, +staged, etc.)
-  - python          (shows version + virtualenv when active)
-  - golang          (shows version when in Go project)
-  - nodejs          (shows version when in Node project)
-  - rust            (shows version when in Rust project)
-  - cmd_duration    (shows "took Xs" for commands over 2s)
-  - jobs            (shows ✦ N when background jobs exist)
-  - time            (dimmed purple, HH:MM)
-  - character       (disabled — arrow is hardcoded in format)
+What each piece means:
+  ~/path/to/folder    current directory (truncated to 4 levels deep)
+   branch            git branch name (purple)
+  ~2                  2 files modified (not yet staged)
+  +1                  1 file staged (ready to commit)
+  ⇡3                  3 commits ahead of remote (need to push)
+  took 3s             last command took 3 seconds (only shows if > 2s)
+  14:22               current time
+
+Language versions appear automatically when relevant:
+   3.11.2            shows in Python projects (or when venv is active)
+   1.21.0            shows in Go projects
+   20.0.0            shows in Node.js projects
 
 
 ================================================================================
 TERMINAL — iTerm2
 ================================================================================
 
-Profile: "Ross" (Dynamic Profile at ~/Library/Application Support/iTerm2/DynamicProfiles/Ross.json)
+WHAT IT IS:
+  iTerm2 is your terminal emulator — the macOS app that provides the window
+  and rendering for your shell. Think of it as the frame around everything.
 
-On open: launches tmux and attaches/creates session "main"
-  Command: /opt/homebrew/bin/tmux new-session -A -s main
+WHY ITERM2 OVER TERMINAL.APP:
+  Better font rendering, transparency/blur, split panes (though you use tmux
+  for splits), dynamic profiles configurable as JSON, and iTerm shell
+  integration for clickable file paths.
 
-Visual:
-  Font:         JetBrains Mono 14
-  Background:   dark blue (R:0.04 G:0.06 B:0.14), 15% transparency, blur 10
-  Cursor:       orange, blinking block
-  Theme:        Minimal (set manually: Preferences → Appearance → Theme → Minimal)
-  Dimming:      disabled (inactive panes do NOT grey out)
+WHERE IT SHOWS UP:
+  It's the app you open. After that, you're interacting with tmux inside it.
+  iTerm itself is mostly invisible — you set it up once and forget it.
 
-Useful iTerm2 features:
-  Cmd+D         split vertically (iTerm native, outside tmux)
-  Cmd+Shift+D   split horizontally
-  Cmd+[/]       switch panes
-  Cmd+T         new tab
-  Cmd+1..9      switch tabs
-  Cmd+F         search in terminal output
-  Triple-click  select whole line
-  Hold Cmd      click URLs to open
+Profile: "Ross" (Dynamic Profile — auto-loaded from Ross.json, no manual setup)
+On open: auto-runs `tmux new-session -A -s main` so you always land in tmux.
+
+Visual settings:
+  Font:         JetBrains Mono 14 (monospaced, great for code, has ligatures)
+  Background:   dark space blue, 15% transparent so wallpaper shows through
+  Blur:         10 (subtle depth effect behind the terminal)
+  Cursor:       orange blinking block
+  Theme:        Minimal (hides the tab bar chrome — must be set manually in
+                Preferences → Appearance → Theme → Minimal)
+  Dimming:      OFF — inactive panes stay fully visible, not greyed out
+
+Useful native iTerm features (rarely needed since tmux handles most of this):
+  Cmd+F         search/highlight text in terminal scrollback
+  Triple-click  select an entire line of output
+  Hold Cmd      click a file path or URL to open it
+  Cmd+T         new tab (but prefer tmux windows)
 
 
 ================================================================================
-MULTIPLEXER — tmux
+TERMINAL MULTIPLEXER — tmux
 ================================================================================
+
+WHAT IT IS:
+  tmux (Terminal MUltipleXer) runs inside iTerm and manages multiple terminal
+  sessions. It's like a window manager specifically for your terminal.
+
+WHY IT MATTERS:
+  Sessions persist even if iTerm closes or your SSH connection drops. You can
+  split one terminal window into many panes (e.g., code on the left, server
+  on the right, AI assistant on the far right). Named sessions let you keep
+  separate workspaces (e.g., one session per project).
+
+WHERE IT SHOWS UP:
+  You're always inside tmux when using iTerm. The orange borders around panes
+  and the status bar at the bottom are tmux. Every split, every window tab,
+  every "the terminal didn't die when I closed it" moment is tmux.
 
 Config: ~/.tmux.conf
-Prefix: Ctrl+a (rarely needed — most things are no-prefix)
+Prefix: Ctrl+a (rarely needed — most things work without it)
 
-No-prefix keybinds:
-  Ctrl+\        split right (new pane to the right)
-  Ctrl+g        split down  (new pane below)
-  Ctrl+t        new window
-  Ctrl+n        next window
-  Ctrl+p        previous window
-  Ctrl+x        close pane (asks confirmation)
-  Ctrl+h/j/k/l  move between panes (vim-style)
-  Ctrl+y        open Codex AI in a split pane
-  Ctrl+o        open Claude Code in a split pane
-  Alt+h/j/k/l   (legacy — same as Ctrl, kept as fallback)
+NO-PREFIX KEYBINDS (just press these, no Ctrl+a first):
+  Ctrl+\        split current pane → new pane to the RIGHT
+  Ctrl+g        split current pane → new pane BELOW
+  Ctrl+t        new tmux window (like a new tab)
+  Ctrl+n        next tmux window
+  Ctrl+p        previous tmux window
+  Ctrl+x        close current pane (asks confirmation)
+  Ctrl+h        move focus LEFT to adjacent pane
+  Ctrl+j        move focus DOWN to adjacent pane
+  Ctrl+k        move focus UP to adjacent pane
+  Ctrl+l        move focus RIGHT to adjacent pane
+  Ctrl+o        open Claude Code in a new split pane
+  Ctrl+y        open Codex in a new split pane
 
-With prefix (Ctrl+a then):
-  H/J/K/L       resize pane (repeatable)
-  S             choose/switch session
-  X             kill window
-  r             reload tmux config
-  |             split right
-  -             split down
+WITH PREFIX (Ctrl+a, release, then press):
+  H/J/K/L       resize current pane (hold to repeat)
+  S             list all sessions and switch between them
+  X             kill the current window
+  r             reload tmux config without restarting
+  |             split right (backup to Ctrl+\)
+  -             split down (backup to Ctrl+g)
 
 Visual:
-  Status bar:       bottom, transparent background, orange text
-  Active pane:      orange border + "● folder" label at top
-  Inactive pane:    amber border + "○ folder" label
-  Window names:     auto-renamed to current folder
+  Status bar:    bottom strip — shows session name, window list, path, time
+  Active pane:   bright orange border + "● foldername" at top
+  Inactive pane: amber border + "○ foldername" at top
+  Window names:  auto-set to the current folder name
 
-fastfetch behavior:
-  - Runs automatically when a NEW window opens (not on splits)
-  - Exits cleanly if terminal is resized or split while running
-  - Manual: type `fastfetch` anytime
+Fastfetch:
+  Plays automatically on every new tmux window (Ctrl+t or first open).
+  Does NOT replay when splitting panes.
+  Exits cleanly on resize, leaving a clean prompt.
 
 
 ================================================================================
-FASTFETCH — Custom Python Curses Animation
+STARTUP ANIMATION — Fastfetch (custom)
 ================================================================================
+
+WHAT IT IS:
+  A custom Python curses animation that replaced the standard fastfetch tool.
+  Plays once on each new tmux window to show system info in a visually
+  interesting way rather than a plain text dump.
+
+WHERE IT SHOWS UP:
+  Every time you open a new tmux window. Also runnable anytime with `fastfetch`.
 
 File: ~/.config/fish/launch.py
-Also at: ~/.config/fish/spaceship.py (standalone full-screen spaceship)
+Standalone spaceship animation: ~/.config/fish/spaceship.py (run with `spaceship`)
 
 What it shows:
-  - macOS Apple logo (ASCII, diagonal orange→grey→turquoise→purple gradient)
-  - Spaceship orbiting the logo (toggles in front / behind each half-orbit)
-  - Starfield across the full terminal (120 stars, gold/blue/purple, twinkling)
-  - System info panel: OS, Kernel, Uptime, Shell, Terminal, WM, CPU, GPU,
-    Memory, Disk, Display, Battery, Local IP, Packages
-  - Progress bar + "any key to skip" (timed mode) or "any key to exit" (manual)
-
-Memory calculation: active + wired + compressed pages (matches Activity Monitor)
+  - macOS Apple logo in ASCII art with a diagonal color gradient:
+    orange (top-left) → dim orange → grey → dark turquoise → space purple
+  - Spaceship orbiting the Apple logo — hides behind it character by character
+    and reappears on the other side, toggles in front/behind each half orbit
+  - 120 stars scattered across the full terminal, twinkling in gold/blue/purple
+  - System info panel to the right:
+      OS, Kernel, Uptime, Shell, Terminal, WM, CPU, GPU,
+      Memory (active+wired+compressed, matches Activity Monitor),
+      Disk, Display, Battery, Local IP, Packages
+  - Progress bar counts down 8 seconds, then exits automatically
+  - "any key to skip" exits early
 
 Flags:
-  --no-timeout    stay open until keypress (used when calling `fastfetch` manually)
-  (no flag)       auto-exits after 8 seconds (used on new window open)
+  (no flag)       auto-exits after 8 seconds
+  --no-timeout    stays open until a key is pressed (used by `fastfetch` alias)
 
 
 ================================================================================
 WINDOW MANAGER — AeroSpace
 ================================================================================
 
+WHAT IT IS:
+  AeroSpace is an i3-inspired tiling window manager for macOS. It automatically
+  arranges app windows into a grid instead of letting them float wherever.
+
+WHY IT MATTERS:
+  Without a window manager, you're constantly dragging and resizing windows.
+  With AeroSpace, every app snaps into a tiling layout. You switch focus and
+  move windows without touching the mouse. Workspaces let you group apps
+  (e.g., workspace 1 = code, workspace 2 = browser, workspace 3 = terminal).
+
+WHERE IT SHOWS UP:
+  Running invisibly at all times. Every time you use a Caps+key shortcut to
+  focus a window, move it, or switch workspace, that's AeroSpace.
+
 Config: ~/.config/aerospace/aerospace.toml
-Style: i3-like tiling, 8px gaps
+Layout: tiles, 8px gaps between windows
 
-All shortcuts use Caps Lock as the trigger key.
-Caps Lock is remapped via Karabiner to Ctrl+Option+Cmd when held.
-Caps Lock tapped alone = Escape.
+ALL KEYBINDS (Caps = Caps Lock held, remapped by Karabiner):
 
-Keybinds (physical: Caps + key):
-  Caps+h/j/k/l          focus window left/down/up/right
-  Caps+Shift+h/j/k/l    move window left/down/up/right
-  Caps+1..5             switch to workspace 1–5
-  Caps+Shift+1..5       move focused window to workspace 1–5
-  Caps+Enter            open iTerm
-  Caps+e                open VS Code
-  Caps+b                open Firefox
-  Caps+/                rotate tile direction (horizontal ↔ vertical)
-  Caps+Space            toggle float / tile
-  Caps+f                fullscreen
-  Caps+q                close focused window
-  Caps+Tab              jump to last workspace
-  Caps+=                resize +50
-  Caps+-                resize -50
-  Caps+r                reload AeroSpace config
-  Caps (tap alone)       Escape
+  App launch:
+    Caps+Enter        open iTerm
+    Caps+e            open VS Code
+    Caps+b            open Firefox
 
-Workspaces: 1, 2, 3, 4, 5 (persistent)
-Gaps: 8px inner, 8px outer
+  Focus (move cursor between windows):
+    Caps+h            focus window to the LEFT
+    Caps+j            focus window BELOW
+    Caps+k            focus window ABOVE
+    Caps+l            focus window to the RIGHT
+
+  Move (drag window to new position):
+    Caps+Shift+h      move window LEFT
+    Caps+Shift+j      move window DOWN
+    Caps+Shift+k      move window UP
+    Caps+Shift+l      move window RIGHT
+
+  Workspaces:
+    Caps+1 to Caps+5  switch to workspace 1–5
+    Caps+Shift+1..5   move focused window to that workspace
+    Caps+Tab          jump back to the last workspace you were on
+
+  Layout controls:
+    Caps+/            rotate tile direction (horizontal ↔ vertical)
+    Caps+Space        toggle between floating and tiling for current window
+    Caps+f            fullscreen current window
+    Caps+q            close focused window
+    Caps+=            make current window larger
+    Caps+-            make current window smaller
+    Caps+r            reload AeroSpace config file
 
 
 ================================================================================
 KEY REMAPPING — Karabiner-Elements
 ================================================================================
 
+WHAT IT IS:
+  Karabiner-Elements is a low-level keyboard remapper for macOS. It intercepts
+  keystrokes before any app sees them and can transform them into something else.
+
+WHY IT'S HERE:
+  AeroSpace needs a modifier key combination that nothing else will accidentally
+  trigger. Ctrl+Option+Cmd (three modifiers at once) is essentially unused by
+  every other app. Karabiner makes Caps Lock send that combination when held,
+  so physically you just press Caps+something and it works.
+
+WHERE IT SHOWS UP:
+  Invisibly, always running. Every Caps+key shortcut you press goes through
+  Karabiner first, which converts it to Ctrl+Option+Cmd+key for AeroSpace.
+
 Config: ~/.config/karabiner/karabiner.json
 Profile: "Ross"
 
-Rule:
-  Caps Lock held   → sends Ctrl+Option+Cmd  (used by AeroSpace)
-  Caps Lock tapped → sends Escape
+The single rule:
+  Caps Lock HELD   → Ctrl+Option+Cmd  (AeroSpace trigger key)
+  Caps Lock TAPPED → Escape           (useful in vim mode, modal editors)
 
-No other remaps — Option/Ctrl/Cmd left untouched.
+Nothing else is remapped. Option, Ctrl, Cmd all work normally.
 
-Note: After install, must open Karabiner once and approve
-      accessibility permission in System Settings → Privacy & Security.
+SETUP NOTE: After installing, open Karabiner-Elements once and approve
+  accessibility permission in System Settings → Privacy & Security → Accessibility.
+  Without this approval the remap silently does nothing.
 
 
 ================================================================================
 EDITOR — VS Code
 ================================================================================
 
-Extensions installed:
-  dbaeumer.vscode-eslint          ESLint linting
-  drcika.apc-extension            UI customization (custom CSS/JS)
-  eamodio.gitlens                 Git blame, history, lens in editor
-  esbenp.prettier-vscode          Code formatter
-  golang.go                       Go language support
-  illixion.vscode-vibrancy-continued  Vibrancy/transparency effect
-  ms-python.python                Python language support
-  ms-python.vscode-pylance        Python type checking + intellisense
-  ms-python.debugpy               Python debugger
-  ms-python.vscode-python-envs    Python environment management
-  ms-vscode.live-server           Local dev server with live reload
-  pkief.material-icon-theme       File/folder icons
-  ross-local.candiru-space-theme  Custom orange/space color theme (local)
-  usernamehw.errorlens            Inline error/warning display
+WHAT IT IS:
+  Visual Studio Code is your main code editor. It opens project folders, shows
+  a file tree, runs an integrated terminal, and understands your code through
+  language extensions.
 
-Custom keybindings (Caps = Ctrl+Opt+Cmd):
-  Caps+i        inline AI chat (inlineChat.start)
-  Caps+/        open chat panel
-  Caps+t        toggle integrated terminal
-  Caps+a        run Claude Code task in terminal
-  Caps+x        run Codex task in terminal
+WHERE IT SHOWS UP:
+  All actual coding happens here. Open with Caps+e from anywhere on the desktop.
 
-Tasks (Caps+a / Caps+x):
-  "AI: Claude Code"   runs `claude` in a new terminal panel
-  "AI: Codex"         runs `codex` in a new terminal panel
+Extensions and what they do in your workflow:
+
+  LANGUAGE SUPPORT:
+    ms-python.python              Core Python support — run files, linting, imports
+    ms-python.vscode-pylance      Smart Python intellisense: hover types, go-to-def,
+                                  autocomplete that understands your actual code
+    ms-python.debugpy             Python debugger — set breakpoints, inspect variables,
+                                  step through code without print statements
+    ms-python.vscode-python-envs  Switches between pyenv/venv environments from the
+                                  status bar (click the Python version bottom-left)
+    golang.go                     Full Go support — formatting, imports, test runner,
+                                  debugger, go to definition across packages
+
+  CODE QUALITY:
+    dbaeumer.vscode-eslint        Underlines JavaScript/TypeScript errors as you type,
+                                  matches the ESLint rules in your project
+    esbenp.prettier-vscode        Auto-formats code on save. Handles JS, TS, CSS,
+                                  JSON, HTML, Markdown. Opinionated, no config needed.
+    usernamehw.errorlens          Shows error and warning messages INLINE on the same
+                                  line as the problem instead of requiring you to hover.
+                                  Makes bugs impossible to miss.
+
+  GIT:
+    eamodio.gitlens               Adds git blame annotations ("John, 3 days ago") to
+                                  every line. Click to see the full commit. Shows who
+                                  last changed any line without leaving the editor.
+                                  Also adds a full commit history view in the sidebar.
+
+  UI / APPEARANCE:
+    ross-local.candiru-space-theme   Your custom orange/space color theme. Applied
+                                     automatically. Matches the terminal aesthetic.
+    pkief.material-icon-theme        Replaces VS Code's default file icons with clear,
+                                     colorful icons for every file type. Makes the file
+                                     tree much easier to scan.
+    illixion.vscode-vibrancy-continued  Adds macOS vibrancy (blur/transparency) to the
+                                        VS Code window, consistent with iTerm2's look.
+    drcika.apc-extension             Allows custom CSS/JS injection into VS Code's UI
+                                     for deeper appearance customization beyond themes.
+
+  WEB:
+    ms-vscode.live-server            Starts a local dev server with live reload for
+                                     static HTML/CSS/JS. Right-click an HTML file →
+                                     "Open with Live Server". Browser auto-refreshes
+                                     when you save.
+
+Custom keybindings (all use Caps = Ctrl+Option+Cmd):
+  Caps+i        Start inline AI chat (edits code in place)
+  Caps+/        Open the full AI chat panel (sidebar conversation)
+  Caps+t        Toggle the integrated terminal panel
+  Caps+a        Run "AI: Claude Code" task (opens claude in terminal)
+  Caps+x        Run "AI: Codex" task (opens codex in terminal)
 
 Configs:
   Keybindings: ~/Library/Application Support/Code/User/keybindings.json
@@ -249,103 +427,168 @@ Configs:
 PACKAGE MANAGER — Homebrew
 ================================================================================
 
-Formulae installed (notable):
-  fish          Default shell
-  tmux          Terminal multiplexer
-  starship      Cross-shell prompt
-  pyenv         Python version manager
-  neovim        Terminal editor (vi alias)
-  git           Version control
-  gh            GitHub CLI
-  go            Go language
-  node          Node.js
-  fzf           Fuzzy finder
-  fd            Fast file finder (fd instead of find)
-  ripgrep       Fast grep (rg)
-  tree          Directory tree viewer
-  wget          File downloader
-  jq            JSON processor
-  cmatrix       Matrix rain animation
-  pipes-sh      Animated pipes screensaver
-  sketchybar    Custom menu bar
-  fastfetch     System info (overridden by custom launch.py)
+WHAT IT IS:
+  Homebrew is the standard package manager for macOS — it installs command-line
+  tools and apps that aren't in the App Store. `brew install X` is how you get
+  almost everything on this machine.
 
-Casks installed:
-  iterm2              Terminal
-  visual-studio-code  Editor
-  aerospace           Window manager
-  karabiner-elements  Key remapper
-  raycast             Spotlight replacement
-  rectangle           Window snapping (backup to AeroSpace)
+WHERE IT SHOWS UP:
+  Behind the scenes. You ran `brew install` to set all this up. Run
+  `brew update && brew upgrade` occasionally to keep things current.
+
+Formulae (command-line tools) and what they do:
+
+  SHELL / TERMINAL:
+    fish          Your shell (the thing that runs commands)
+    tmux          Terminal multiplexer (persistent sessions, splits)
+    starship      Draws the prompt line in fish
+    neovim        Terminal-based text editor (vi alias) — useful for quick
+                  edits without opening VS Code, and for editing in SSH sessions
+
+  DEVELOPMENT:
+    git           Version control — track changes, branches, history
+    gh            GitHub CLI — create PRs, clone repos, manage issues from terminal
+    go            Go programming language compiler and tools
+    node          Node.js runtime for JavaScript outside the browser
+    pyenv         Python version manager — keeps projects on different Python versions
+    uv            Fast Python package installer (alternative to pip)
+
+  SEARCH / NAVIGATION:
+    fzf           Fuzzy finder — pipe any list into it and search interactively.
+                  Integrates with fish's Ctrl+R (history search) and Ctrl+T (file search)
+    fd            Fast, modern replacement for `find`. Usage: `fd filename`
+    ripgrep (rg)  Fast, modern replacement for `grep`. Respects .gitignore.
+                  Usage: `rg "search term"` — searches all files recursively
+
+  FILE / DATA:
+    tree          Shows directory structure as an ASCII tree (`tree` or `tree -L 2`)
+    wget          Download files from URLs (`wget https://...`)
+    jq            Parse and query JSON from the command line (`curl ... | jq '.key'`)
+
+  FUN / SCREENSAVER:
+    cmatrix       Matrix-style rain animation (alias: `matrix`)
+    pipes-sh      Animated colorful pipes screensaver (alias: `pipes`)
+
+  SYSTEM / MENU BAR:
+    sketchybar    Fully custom menu bar replacement (configured separately)
+    fastfetch     Standard system info tool (overridden by the custom launch.py)
+
+Casks (GUI apps) and what they do:
+  iterm2              Terminal emulator — renders your shell sessions
+  visual-studio-code  Main code editor
+  aerospace           Tiling window manager
+  karabiner-elements  Keyboard remapper (Caps Lock → Hyper key)
+  raycast             Spotlight replacement — app launcher, calculator, clipboard history
+  rectangle           Window snapping via drag-to-edge (backup to AeroSpace for quick
+                      half/quarter snapping without learning keybinds)
   spotify             Music
-  font-jetbrains-mono JetBrains Mono font (used in iTerm + VS Code)
+  font-jetbrains-mono JetBrains Mono — the font used in iTerm2 and VS Code
+                      (monospaced, readable, has programming ligatures like → and !=)
 
 
 ================================================================================
-RAYCAST
+APP LAUNCHER — Raycast
 ================================================================================
 
-Replaces macOS Spotlight.
-Trigger: Option+Space (set in Raycast preferences)
+WHAT IT IS:
+  Raycast replaces macOS Spotlight (Cmd+Space). It's faster, extensible, and
+  has a much smarter built-in feature set.
 
-Useful built-ins:
-  Option+Space        open Raycast
-  Type app name       launch app
-  Type math           instant calculator
-  "kill"              force quit any process
-  "clipboard"         clipboard history
-  "snippets"          text snippets
-  "color"             color picker
-  "define"            dictionary lookup
+WHERE IT SHOWS UP:
+  Every time you need to launch an app, do quick math, find a file, or use
+  clipboard history without touching the mouse.
 
-Extensions can be added from raycast.com/store.
+Trigger: Option+Space (configured in Raycast preferences)
+
+Built-in features you'll use constantly:
+  Type any app name     launch it (faster than Spotlight, fuzzy matching)
+  Type math             instant calculator (e.g., "42 * 1.08" → 45.36)
+  "kill [appname]"      force quit any process
+  "clipboard history"   see everything you've copied, searchable, click to paste
+  "snippets"            store and expand text shortcuts (e.g., type "eml" → your email)
+  "color"               color picker — pick from screen or enter hex/rgb
+  "define [word]"       dictionary
+  "sleep" / "restart"   system controls without going to Apple menu
+  Type a URL            open directly in browser
 
 
 ================================================================================
 GIT / GITHUB
 ================================================================================
 
+WHAT IT IS:
+  Git tracks changes to your code over time. GitHub stores those changes in the
+  cloud and enables collaboration. The `gh` CLI lets you manage GitHub from the
+  terminal without opening a browser.
+
+WHERE IT SHOWS UP:
+  Every coding session. Starship shows your branch and status in the prompt.
+  You use git aliases (gs, ga, gc, gp, gl, gd) for the daily loop.
+  GitLens in VS Code shows blame and history inline.
+
 Config: ~/.gitconfig
-  name:           Ross Dawson
-  email:          rosshdawson@gmail.com
-  default branch: main
-  editor:         VS Code (code --wait)
+  Name/email:     Ross Dawson / rosshdawson@gmail.com
+  Default branch: main (not master)
+  Editor:         VS Code (opens for commit messages if you type `git commit`
+                  without -m, giving you a full editor for the message)
 
-Global gitignore: ~/.gitignore_global
-  Ignores: .DS_Store, .env, node_modules/, __pycache__/, *.pyc, .venv/
+Global gitignore (~/.gitignore_global) — auto-ignored in every repo:
+  .DS_Store         macOS folder metadata (never commit this)
+  .env              environment variables/secrets (never commit this)
+  node_modules/     npm packages (reinstalled from package.json)
+  __pycache__/      Python bytecode cache
+  *.pyc             compiled Python files
+  .venv/            Python virtual environments
 
-SSH: ~/.ssh/config
-  Host github.com → uses ~/.ssh/id_ed25519
+SSH: GitHub access uses ~/.ssh/id_ed25519 — no password prompts on push/pull.
 
-Repos:
+Your repos:
   ~/Developer/projects/openlearn
   ~/Developer/projects/InterpreterInGo
   ~/Developer/projects/neetcode-submissions-*
-  ~/mac-dotfiles    (this repo — tracks all config files)
+  ~/mac-dotfiles   (tracks all config files on this machine)
 
-GitHub CLI (gh) common commands:
-  gh repo create    create new repo
-  gh repo clone     clone a repo
-  gh pr create      open a pull request
-  gh pr list        list PRs
-  gh issue list     list issues
-  gh auth login     authenticate
+GitHub CLI (gh) — useful commands:
+  gh repo create [name]     create a new GitHub repo
+  gh repo clone user/repo   clone any repo (sets up SSH automatically)
+  gh pr create              open a pull request for current branch
+  gh pr list                see all open PRs
+  gh pr view [number]       read a PR in the terminal
+  gh issue list             see open issues
+  gh issue create           file a new issue
+  gh auth login             authenticate (run once after fresh install)
 
 
 ================================================================================
 PYTHON — pyenv
 ================================================================================
 
-pyenv manages Python versions independently of the system Python.
-Config in ~/.config/fish/config.fish (pyenv init'd on shell start).
+WHAT IT IS:
+  pyenv manages multiple Python versions on one machine. Different projects
+  can require different Python versions — pyenv handles switching automatically.
+
+WHY IT MATTERS:
+  macOS ships with a system Python you should never modify. pyenv gives you
+  isolated, controllable Python installs that don't affect the system.
+
+WHERE IT SHOWS UP:
+  Whenever you run `python3` or `pip`. The version in use shows in your
+  Starship prompt when you're inside a Python project.
 
 Useful commands:
-  pyenv install 3.x.x     install a version
-  pyenv global 3.x.x      set global default
-  pyenv local 3.x.x       set version for current directory (.python-version)
-  pyenv versions           list installed versions
-  python3 -m venv .venv    create a virtual environment
-  source .venv/bin/activate.fish   activate venv in fish
+  pyenv install --list          see all available versions
+  pyenv install 3.12.0          install a specific version
+  pyenv global 3.12.0           use this version everywhere by default
+  pyenv local 3.11.0            pin this directory to a specific version
+                                (creates .python-version file, auto-applied)
+  pyenv versions                list all installed versions
+  pyenv version                 show currently active version and why
+
+Virtual environments (use these to isolate project dependencies):
+  python3 -m venv .venv                  create a venv in current folder
+  source .venv/bin/activate.fish         activate it in fish
+  pip install [package]                  install into the venv only
+  deactivate                             leave the venv
 
 
 ================================================================================
@@ -354,15 +597,15 @@ DIRECTORY STRUCTURE
 
 ~
 ├── Developer/
-│   ├── projects/     (dev = shortcut)    active project repos
-│   └── sandbox/      (sandbox = shortcut) throwaway experiments
-├── School/           (school = shortcut)
-│   ├── AI/           Intro to AI
-│   ├── OS/           Operating Systems
-│   └── Internship/   Internship credit
-├── mac-dotfiles/     this repo
+│   ├── projects/       active repos (shortcut: `dev`)
+│   └── sandbox/        throwaway experiments (shortcut: `sandbox`)
+├── School/             coursework (shortcut: `school`)
+│   ├── AI/             Intro to AI
+│   ├── OS/             Operating Systems
+│   └── Internship/     Internship credit class
+├── mac-dotfiles/       this repo (all config files)
 └── Pictures/
-    └── Screenshots/  all screenshots saved here
+    └── Screenshots/    all screenshots auto-save here
 
 
 ================================================================================
@@ -372,45 +615,79 @@ DOTFILES REPO — mac-dotfiles
 Repo: github.com/rosshd/mac-dotfiles
 Local: ~/mac-dotfiles
 
+PURPOSE: Every config file on this machine is tracked here. If this Mac dies
+or you get a new one, you clone this repo and run setup.sh to restore
+everything exactly as it is now.
+
 Structure:
   fish/
-    config.fish       shell config, aliases, startup logic
-    launch.py         custom fastfetch animation
-    spaceship.py      standalone spaceship animation
+    config.fish         shell config: PATH, pyenv, SSH, aliases, fastfetch trigger
+    launch.py           custom fastfetch animation (Python curses)
+    spaceship.py        standalone full-screen spaceship animation
   aerospace/
-    aerospace.toml    window manager config
+    aerospace.toml      window manager keybinds and layout settings
   karabiner/
-    karabiner.json    Caps Lock remapping
+    karabiner.json      Caps Lock → Hyper remap rule
   iterm2/
-    Ross.json         iTerm2 dynamic profile
+    Ross.json           iTerm2 dynamic profile (colors, font, tmux command)
   sketchybar/
-    sketchybarrc      menu bar config
-    plugins/          menu bar plugin scripts
+    sketchybarrc        menu bar configuration
+    plugins/            shell scripts for each menu bar widget
   vscode/
-    candiru-space-theme/   custom VS Code theme
-  .tmux.conf          tmux config
-  starship.toml       prompt config
-  setup.sh            run on new Mac to install everything
+    candiru-space-theme/  custom VS Code color theme (orange/space)
+  .tmux.conf            tmux keybinds, status bar, pane borders
+  starship.toml         prompt layout, modules, colors
+  setup.sh              full restore script for a new Mac
+  SETUP.txt             this file
 
 To restore on a new Mac:
   git clone git@github.com:rosshd/mac-dotfiles.git ~/mac-dotfiles
   cd ~/mac-dotfiles && ./setup.sh
-  brew install --cask karabiner-elements   (needs sudo, done separately)
+  brew install --cask karabiner-elements   (needs sudo, run separately)
+  Open iTerm2 → Preferences → Appearance → Theme → Minimal
 
 
 ================================================================================
-THINGS TO LEARN / EXPLORE
+THINGS TO LEARN (once workflow is settled)
 ================================================================================
 
-These are installed and configured but worth learning deeply:
+These are all installed and configured. Learn them in roughly this order:
 
-  AeroSpace     tiling window manager — workspaces, layouts, floating vs tiling
-  Karabiner     key remapping — could add more layers later
-  fzf           fuzzy finder — integrates with fish, git, file search
-  ripgrep (rg)  much faster than grep, respects .gitignore
-  fd            much faster than find, better defaults
-  gh CLI        GitHub from terminal — PRs, issues, releases
-  GitLens       VS Code git superpowers — blame, history, compare
-  fish functions vs aliases — abbr expands inline, functions are more powerful
-  tmux sessions — named sessions for different projects, detach/reattach
-  pyenv         Python version pinning per project with .python-version files
+  1. AeroSpace workspaces
+       Practice using Caps+1..5 to separate concerns:
+       workspace 1 = code, 2 = browser, 3 = terminal, etc.
+       Learn Caps+Shift+1..5 to move windows between them.
+
+  2. tmux sessions
+       Beyond splits and windows: named sessions per project.
+       `tmux new -s projectname`, detach with Ctrl+a d, reattach with `tmux a -t projectname`.
+       Lets you context-switch between projects without closing anything.
+
+  3. fzf (fuzzy finder)
+       In fish: Ctrl+R for fuzzy history search, Ctrl+T for fuzzy file search.
+       Pipe anything into it: `git branch | fzf`, `ls | fzf`, etc.
+
+  4. ripgrep (rg) + fd
+       `rg "function name"` — searches all files instantly, respects .gitignore.
+       `fd filename` — finds files instantly, cleaner than `find`.
+       These replace grep and find for all practical purposes.
+
+  5. GitLens in VS Code
+       Hover any line to see who wrote it and when.
+       Cmd+Shift+P → "GitLens: Show File History" for full history of any file.
+       "Open Changes" to see a visual diff of any commit.
+
+  6. fish functions (beyond aliases)
+       `abbr` expands text inline as you type (e.g., type "gs" and it expands
+       to "git status" in the command line before running).
+       Functions can take arguments: `function mkcd; mkdir $argv; cd $argv; end`
+
+  7. pyenv local + venv workflow
+       Pin each project to its Python version with `pyenv local 3.x.x`.
+       Always create a .venv in project root. The Starship prompt shows you
+       when a venv is active. Never install packages globally.
+
+  8. gh CLI deeper features
+       `gh pr create --fill` — auto-fills PR title/body from commit messages.
+       `gh run list` — see CI status. `gh run watch` — stream CI logs live.
+       `gh repo fork` — fork a repo and clone it in one command.
