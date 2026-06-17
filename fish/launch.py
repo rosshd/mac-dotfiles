@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import curses, math, os, random, signal, shutil, subprocess, sys, time
+import curses, math, os, random, signal, subprocess, sys, time
 
 TIMED = "--no-timeout" not in sys.argv
 
@@ -66,7 +66,6 @@ def get_info():
     disk = sh_bash("df -h / | tail -1 | awk '{print $3 \"/\" $2 \" (\" $5 \" used)\"}'")
     batt = sh_bash("pmset -g batt | grep InternalBattery | awk '{print $3}' | tr -d ';'")
     batt_s = sh_bash("pmset -g batt | grep -o 'charging\\|discharging\\|charged' | head -1")
-    battery = f"{batt} ({batt_s})" if batt != "—" else "—"
 
     return {
         "_title":   f"{user}@{host}",
@@ -81,7 +80,7 @@ def get_info():
         "Memory":   f"{used} GiB / {mem_total} GiB",
         "Disk":     disk,
         "Display":  res,
-        "Battery":  battery,
+        "Battery":  f"{batt} ({batt_s})" if batt != "—" else "—",
         "Local IP": ip,
         "Packages": f"{pkgs_f} (brew), {pkgs_c} (cask)",
     }
@@ -91,70 +90,53 @@ def main(stdscr):
     curses.curs_set(0)
     curses.start_color()
     curses.use_default_colors()
-    curses.init_pair(1,  curses.COLOR_YELLOW,  -1)  # orange (logo top / ship)
-    curses.init_pair(5,  curses.COLOR_YELLOW,  -1)  # info key labels
-    curses.init_pair(6,  curses.COLOR_WHITE,   -1)  # info values
-    curses.init_pair(7,  curses.COLOR_YELLOW,  -1)  # stars gold
-    curses.init_pair(8,  curses.COLOR_BLUE,    -1)  # stars blue
-    curses.init_pair(9,  curses.COLOR_MAGENTA, -1)  # purple (logo bottom / stars)
-    curses.init_pair(11, curses.COLOR_MAGENTA, -1)  # exhaust
-    curses.init_pair(12, curses.COLOR_YELLOW,  -1)  # title
-    curses.init_pair(13, curses.COLOR_BLUE,    -1)  # separator
-    curses.init_pair(14, curses.COLOR_CYAN,    -1)  # turquoise hint text
+    curses.init_pair(1,  curses.COLOR_YELLOW,  -1)
+    curses.init_pair(5,  curses.COLOR_YELLOW,  -1)
+    curses.init_pair(6,  curses.COLOR_WHITE,   -1)
+    curses.init_pair(7,  curses.COLOR_YELLOW,  -1)
+    curses.init_pair(8,  curses.COLOR_BLUE,    -1)
+    curses.init_pair(9,  curses.COLOR_MAGENTA, -1)
+    curses.init_pair(11, curses.COLOR_MAGENTA, -1)
+    curses.init_pair(12, curses.COLOR_YELLOW,  -1)
+    curses.init_pair(13, curses.COLOR_BLUE,    -1)
+    curses.init_pair(14, curses.COLOR_CYAN,    -1)
+
+    signal.signal(signal.SIGWINCH, lambda *_: sys.exit(0))
 
     stdscr.timeout(50)
     info = get_info()
 
-    OY, OX   = 1, 4
-    CY       = OY + LH // 2
-    CX       = OX + LW // 2
-    RX       = LW // 2 + 3
-    RY       = LH // 2 + 1
-    info_x   = OX + LW + 2
+    OY, OX    = 1, 4
+    CY, CX    = OY + LH // 2, OX + LW // 2
+    RX, RY    = LW // 2 + 3, LH // 2 + 1
+    info_x    = OX + LW + 2
     max_score = LH * 0.75 + LW * 0.25
 
     random.seed(7)
     stars = [(random.randint(OY, OY + LH - 1), random.randint(0, OX + LW + 1), random.choice(STARS))
              for _ in range(40)]
+    logo_cells = {(OY + i, OX + j) for i, row in enumerate(LOGO)
+                  for j, ch in enumerate(row) if ch != ' '}
 
-    logo_cells = {(OY + i, OX + j) for i, line in enumerate(LOGO)
-                  for j, ch in enumerate(line) if ch != ' '}
-
-    t          = 0.0
-    frame      = 0
+    t, frame   = 0.0, 0
     START      = time.time()
-    DURATION   = 8.0
     in_front   = True
-    last_orbit = 0
-
-    _resize = [False]
-    def on_resize(sig, _):
-        _resize[0] = True
-    signal.signal(signal.SIGWINCH, on_resize)
+    last_half  = 0
 
     while True:
         key = stdscr.getch()
-
-        if _resize[0] or key == curses.KEY_RESIZE:
-            _resize[0] = False
-            sz = shutil.get_terminal_size()
-            curses.resizeterm(sz.lines, sz.columns)
-            stdscr.clearok(True)
-            stdscr.refresh()
-            continue
-
         if key != -1:
             break
-        if TIMED and time.time() - START > DURATION:
+        if TIMED and time.time() - START > 8.0:
             break
 
-        # toggle front/behind every half-orbit
-        current_half = int(t / math.pi)
-        if current_half != last_orbit:
-            in_front   = not in_front
-            last_orbit = current_half
+        # front/behind toggle every half-orbit
+        half = int(t / math.pi)
+        if half != last_half:
+            in_front  = not in_front
+            last_half = half
 
-        # ship position + direction
+        # ship position and facing
         sx_f = CX + RX * math.cos(t)
         sy_f = CY + RY * 0.5 * math.sin(t) + 2
         dx   = (CX + RX * math.cos(t + 0.05)) - sx_f
@@ -168,45 +150,51 @@ def main(stdscr):
             ship, (ex, ey) = (" ▼ ", (1, -1))
 
         H, W = stdscr.getmaxyx()
+        stdscr.erase()
 
-        try:
-            stdscr.erase()
+        # stars
+        for idx, (sy, sx, sc) in enumerate(stars):
+            if 0 <= sy < H and 0 <= sx < W - 1 and (sy, sx) not in logo_cells:
+                try:
+                    stdscr.addstr(sy, sx,
+                        sc if (frame + sy * 3) % 14 != 0 else "·",
+                        curses.color_pair([7,7,8,9,7,8][idx % 6]) | curses.A_DIM)
+                except curses.error: pass
 
-            # stars
-            star_colors = [7, 7, 8, 9, 7, 8]
-            for idx, (sy, sx, sc) in enumerate(stars):
-                if 0 <= sy < H and 0 <= sx < W - 1 and (sy, sx) not in logo_cells:
-                    ch = sc if (frame + sy * 3) % 14 != 0 else "·"
-                    stdscr.addstr(sy, sx, ch, curses.color_pair(star_colors[idx % 6]) | curses.A_DIM)
+        # logo with diagonal colour gradient
+        for i, row in enumerate(LOGO):
+            r = OY + i
+            if r >= H: break
+            for j, ch in enumerate(row):
+                if ch == ' ': continue
+                s = (i * 0.75 + j * 0.25) / max_score
+                if   s < 0.42: pair, attr = 1,  curses.A_BOLD
+                elif s < 0.50: pair, attr = 1,  curses.A_DIM
+                elif s < 0.58: pair, attr = 6,  curses.A_DIM
+                elif s < 0.72: pair, attr = 14, curses.A_DIM
+                else:          pair, attr = 9,  curses.A_DIM
+                try: stdscr.addstr(r, OX + j, ch, curses.color_pair(pair) | attr)
+                except curses.error: pass
 
-            # logo with diagonal gradient
-            for i, line in enumerate(LOGO):
-                row = OY + i
+        # info panel
+        if info_x < W:
+            try:
+                stdscr.addstr(OY,     info_x, "🚀 " + info["_title"],          curses.color_pair(12) | curses.A_BOLD)
+                stdscr.addstr(OY + 1, info_x, "─" * min(34, W - info_x - 1),  curses.color_pair(13) | curses.A_DIM)
+            except curses.error: pass
+            row = OY + 2
+            for k, v in list(info.items())[1:]:
                 if row >= H: break
-                for j, ch in enumerate(line):
-                    if ch == ' ': continue
-                    score = (i * 0.75 + j * 0.25) / max_score
-                    if   score < 0.42: pair, attr = 1,  curses.A_BOLD
-                    elif score < 0.50: pair, attr = 1,  curses.A_DIM
-                    elif score < 0.58: pair, attr = 6,  curses.A_DIM
-                    elif score < 0.72: pair, attr = 14, curses.A_DIM
-                    else:              pair, attr = 9,  curses.A_DIM
-                    stdscr.addstr(row, OX + j, ch, curses.color_pair(pair) | attr)
-
-            # info panel
-            if info_x < W:
-                stdscr.addstr(OY,     info_x, "🚀 " + info["_title"], curses.color_pair(12) | curses.A_BOLD)
-                stdscr.addstr(OY + 1, info_x, "─" * min(34, W - info_x - 1), curses.color_pair(13) | curses.A_DIM)
-                row = OY + 2
-                for k, v in list(info.items())[1:]:
-                    if row >= H: break
-                    stdscr.addstr(row, info_x,              f"{k:<9}", curses.color_pair(5) | curses.A_DIM)
-                    stdscr.addstr(row, info_x + 9, v,                  curses.color_pair(6))
-                    row += 1
+                try:
+                    stdscr.addstr(row, info_x,     f"{k:<9}", curses.color_pair(5) | curses.A_DIM)
+                    stdscr.addstr(row, info_x + 9, v,         curses.color_pair(6))
+                except curses.error: pass
                 row += 1
-                if row < H:
+            row += 1
+            if row < H:
+                try:
                     if TIMED:
-                        progress = min((time.time() - START) / DURATION, 1.0)
+                        progress = min((time.time() - START) / 8.0, 1.0)
                         bw  = min(30, W - info_x - 1)
                         bar = "█" * int(progress * bw) + "░" * (bw - int(progress * bw))
                         stdscr.addstr(row, info_x, bar, curses.color_pair(13) | curses.A_DIM)
@@ -215,30 +203,29 @@ def main(stdscr):
                             stdscr.addstr(row, info_x, "any key to skip", curses.color_pair(14) | curses.A_DIM)
                     else:
                         stdscr.addstr(row, info_x, "any key to exit", curses.color_pair(14) | curses.A_DIM)
+                except curses.error: pass
 
-            # ship
-            if 0 <= sy_i < H and 0 <= sx_i < W - 3:
-                for k, ch in enumerate(ship):
-                    col = sx_i + k
-                    if not in_front and (sy_i, col) in logo_cells:
-                        continue
-                    stdscr.addstr(sy_i, col, ch, curses.color_pair(1) | curses.A_BOLD)
-                if frame % 3 != 0:
-                    er, ec = sy_i + ey, sx_i + ex
-                    if 0 <= er < H and 0 <= ec < W - 1:
-                        if in_front or (er, ec) not in logo_cells:
-                            stdscr.addstr(er, ec, "·", curses.color_pair(11))
+        # ship (hides behind logo cells when in_front is False)
+        if 0 <= sy_i < H and 0 <= sx_i < W - 3:
+            for k, ch in enumerate(ship):
+                col = sx_i + k
+                if not in_front and (sy_i, col) in logo_cells:
+                    continue
+                try: stdscr.addstr(sy_i, col, ch, curses.color_pair(1) | curses.A_BOLD)
+                except curses.error: pass
+            if frame % 3 != 0:
+                er, ec = sy_i + ey, sx_i + ex
+                if 0 <= er < H and 0 <= ec < W - 1:
+                    if in_front or (er, ec) not in logo_cells:
+                        try: stdscr.addstr(er, ec, "·", curses.color_pair(11))
+                        except curses.error: pass
 
-            stdscr.refresh()
-
-        except curses.error:
-            stdscr.clearok(True)
-
+        stdscr.refresh()
         t     += 0.05
         frame += 1
 
 
 try:
     curses.wrapper(main)
-except KeyboardInterrupt:
+except (KeyboardInterrupt, SystemExit):
     pass
