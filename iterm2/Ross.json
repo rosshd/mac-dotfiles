@@ -1,0 +1,111 @@
+{
+  "Profiles": [
+    {
+      "Name": "Ross",
+      "Guid": "ross-main-profile",
+      "Custom Command": "Yes",
+      "Command": "/opt/homebrew/bin/tmux new-session -A -s main",
+      "Normal Font": "JetBrainsMono-Regular 14",
+      "Use Non-ASCII Font": false,
+      "Scrollback Lines": 10000,
+      "Scrollback in Alternate Screen": false,
+      "Mouse Reporting": true,
+      "Option Key Sends": 2,
+      "Right Option Key Sends": 2,
+      "Allow Title Reporting": false,
+      "Draw Powerline Glyphs": true,
+      "Minimum Contrast": 0,
+      "Cursor Type": 1,
+      "Blinking Cursor": true,
+      "Close Sessions On End": true,
+      "Prompt Before Closing 2": 0,
+      "Working Directory": "/Users/ross",
+      "Custom Directory": "No",
+
+      "Transparency": 0.15,
+      "Blur": true,
+      "Blur Radius": 10.0,
+
+      "Dimming Amount": 0.0,
+      "Dim Inactive Split Panes": false,
+      "Dim Only Text (not Background)": false,
+
+      "Show Mark Indicators": true,
+      "Semantic History": { "action": "editor" },
+
+      "Background Color": {
+        "Color Space": "sRGB",
+        "Red Component": 0.04,
+        "Green Component": 0.06,
+        "Blue Component": 0.14,
+        "Alpha Component": 1
+      },
+      "Foreground Color": {
+        "Color Space": "sRGB",
+        "Red Component": 0.92,
+        "Green Component": 0.88,
+        "Blue Component": 0.80,
+        "Alpha Component": 1
+      },
+      "Selection Color": {
+        "Color Space": "sRGB",
+        "Red Component": 0.38,
+        "Green Component": 0.22,
+        "Blue Component": 0.08,
+        "Alpha Component": 1
+      },
+      "Selected Text Color": {
+        "Color Space": "sRGB",
+        "Red Component": 0.95,
+        "Green Component": 0.88,
+        "Blue Component": 0.75,
+        "Alpha Component": 1
+      },
+      "Bold Color": {
+        "Color Space": "sRGB",
+        "Red Component": 0.95,
+        "Green Component": 0.75,
+        "Blue Component": 0.35,
+        "Alpha Component": 1
+      },
+      "Cursor Color": {
+        "Color Space": "sRGB",
+        "Red Component": 0.92,
+        "Green Component": 0.62,
+        "Blue Component": 0.18,
+        "Alpha Component": 1
+      },
+      "Cursor Text Color": {
+        "Color Space": "sRGB",
+        "Red Component": 0.07,
+        "Green Component": 0.055,
+        "Blue Component": 0.04,
+        "Alpha Component": 1
+      },
+      "Tab Color": {
+        "Color Space": "sRGB",
+        "Red Component": 0.12,
+        "Green Component": 0.09,
+        "Blue Component": 0.06,
+        "Alpha Component": 1
+      },
+
+      "Ansi 0 Color":  { "Color Space": "sRGB", "Red Component": 0.15,  "Green Component": 0.12,  "Blue Component": 0.09,  "Alpha Component": 1 },
+      "Ansi 1 Color":  { "Color Space": "sRGB", "Red Component": 0.85,  "Green Component": 0.28,  "Blue Component": 0.18,  "Alpha Component": 1 },
+      "Ansi 2 Color":  { "Color Space": "sRGB", "Red Component": 0.48,  "Green Component": 0.72,  "Blue Component": 0.42,  "Alpha Component": 1 },
+      "Ansi 3 Color":  { "Color Space": "sRGB", "Red Component": 0.92,  "Green Component": 0.62,  "Blue Component": 0.18,  "Alpha Component": 1 },
+      "Ansi 4 Color":  { "Color Space": "sRGB", "Red Component": 0.35,  "Green Component": 0.52,  "Blue Component": 0.85,  "Alpha Component": 1 },
+      "Ansi 5 Color":  { "Color Space": "sRGB", "Red Component": 0.62,  "Green Component": 0.38,  "Blue Component": 0.78,  "Alpha Component": 1 },
+      "Ansi 6 Color":  { "Color Space": "sRGB", "Red Component": 0.35,  "Green Component": 0.68,  "Blue Component": 0.80,  "Alpha Component": 1 },
+      "Ansi 7 Color":  { "Color Space": "sRGB", "Red Component": 0.78,  "Green Component": 0.72,  "Blue Component": 0.62,  "Alpha Component": 1 },
+      "Ansi 8 Color":  { "Color Space": "sRGB", "Red Component": 0.28,  "Green Component": 0.22,  "Blue Component": 0.16,  "Alpha Component": 1 },
+      "Ansi 9 Color":  { "Color Space": "sRGB", "Red Component": 1.0,   "Green Component": 0.45,  "Blue Component": 0.25,  "Alpha Component": 1 },
+      "Ansi 10 Color": { "Color Space": "sRGB", "Red Component": 0.65,  "Green Component": 0.88,  "Blue Component": 0.55,  "Alpha Component": 1 },
+      "Ansi 11 Color": { "Color Space": "sRGB", "Red Component": 1.0,   "Green Component": 0.75,  "Blue Component": 0.30,  "Alpha Component": 1 },
+      "Ansi 12 Color": { "Color Space": "sRGB", "Red Component": 0.52,  "Green Component": 0.70,  "Blue Component": 1.0,   "Alpha Component": 1 },
+      "Ansi 13 Color": { "Color Space": "sRGB", "Red Component": 0.80,  "Green Component": 0.55,  "Blue Component": 0.95,  "Alpha Component": 1 },
+      "Ansi 14 Color": { "Color Space": "sRGB", "Red Component": 0.50,  "Green Component": 0.82,  "Blue Component": 0.92,  "Alpha Component": 1 },
+      "Ansi 15 Color": { "Color Space": "sRGB", "Red Component": 0.95,  "Green Component": 0.90,  "Blue Component": 0.80,  "Alpha Component": 1 }
+    }
+  ]
+}

@@ -1,0 +1,84 @@
+# ── Starship — orange space theme ─────────────────────────────────────────
+
+format = """
+[╭](dimmed yellow) $directory$git_branch$git_status$python$golang$nodejs$rust$fill$cmd_duration$jobs$time
+[╰❯](bold yellow) """
+
+# ── Directory ─────────────────────────────────────────────────────────────
+[directory]
+style = "bold yellow"
+truncation_length = 4
+truncate_to_repo = true
+read_only = " 󰌾"
+format = "[$path]($style)[$read_only](red) "
+
+# ── Git ───────────────────────────────────────────────────────────────────
+[git_branch]
+format = "on [$symbol$branch(:$remote_branch)]($style) "
+symbol = " "
+style = "bold purple"
+
+[git_status]
+format = '([$all_status$ahead_behind]($style) )'
+style = "bold blue"
+conflicted = "⚡"
+ahead = "⇡${count}"
+behind = "⇣${count}"
+diverged = "⇕"
+untracked = "?"
+stashed = "≡"
+modified = "~${count}"
+staged = "+${count}"
+renamed = "»"
+deleted = "✘${count}"
+
+# ── Languages ─────────────────────────────────────────────────────────────
+[python]
+format = '[${symbol}${pyenv_prefix}${version}( \($virtualenv\))]($style) '
+symbol = " "
+style = "bold yellow"
+pyenv_version_name = true
+
+[golang]
+format = '[$symbol$version]($style) '
+symbol = " "
+style = "bold blue"
+
+[nodejs]
+format = '[$symbol$version]($style) '
+symbol = " "
+style = "bold green"
+
+[rust]
+format = '[$symbol$version]($style) '
+symbol = " "
+style = "bold red"
+
+# ── Right side ────────────────────────────────────────────────────────────
+[fill]
+symbol = " "
+
+[cmd_duration]
+format = "took [$duration]($style) "
+style = "dimmed yellow"
+min_time = 2_000
+show_milliseconds = false
+
+[jobs]
+format = "[$symbol$number]($style) "
+style = "bold blue"
+symbol = "✦ "
+number_threshold = 1
+
+[time]
+disabled = false
+format = '[$time]($style) '
+style = "dimmed purple"
+time_format = "%H:%M"
+
+# ── Prompt character (turns red on error) ─────────────────────────────────
+[character]
+disabled = true
+
+[line_break]
+disabled = true
