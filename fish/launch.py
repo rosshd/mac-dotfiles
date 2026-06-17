@@ -118,8 +118,12 @@ def main(stdscr):
     max_score = LH * 0.75 + LW * 0.25
 
     random.seed(7)
-    stars = [(random.randint(OY, OY + LH - 1), random.randint(OX, OX + LW + 1), random.choice(STARS))
-             for _ in range(40)]
+    # stars spread across entire terminal, avoiding info panel
+    stars = []
+    for _ in range(120):
+        sy = random.randint(0, H - 2)
+        sx = random.randint(0, W - 2)
+        stars.append((sy, sx, random.choice(STARS)))
     logo_cells = {(OY + i, OX + j) for i, row in enumerate(LOGO)
                   for j, ch in enumerate(row) if ch != ' '}
 
@@ -156,14 +160,17 @@ def main(stdscr):
 
         stdscr.erase()
 
-        # stars
+        # stars across full terminal — skip logo and info panel cells
         for idx, (sy, sx, sc) in enumerate(stars):
-            if 0 <= sy < H and 0 <= sx < W - 1 and (sy, sx) not in logo_cells:
-                try:
-                    stdscr.addstr(sy, sx,
-                        sc if (frame + sy * 3) % 14 != 0 else "·",
-                        curses.color_pair([7,7,8,9,7,8][idx % 6]) | curses.A_DIM)
-                except curses.error: pass
+            if (sy, sx) in logo_cells:
+                continue
+            if sy >= OY and sy < OY + LH and sx >= info_x and sx < info_x + 46:
+                continue
+            try:
+                ch = sc if (frame + idx * 7) % 18 != 0 else "·"
+                stdscr.addstr(sy, sx, ch,
+                    curses.color_pair([7,7,7,8,9,7,8,9][idx % 8]) | curses.A_DIM)
+            except curses.error: pass
 
         # logo with diagonal colour gradient
         for i, row in enumerate(LOGO):
