@@ -1,0 +1,96 @@
+#!/usr/bin/env bash
+
+CONFIG_DIR="$HOME/.config/sketchybar"
+PLUGIN_DIR="$CONFIG_DIR/plugins"
+
+FONT_TEXT="JetBrains Mono:Semibold:12.0"
+FONT_ICON="sketchybar-app-font:Regular:13.0"
+
+BAR_BG=0xd9070b14
+BAR_BORDER=0xff2f354d
+TEXT=0xffc0caf5
+SOFT=0xffd6deeb
+MUTED=0xff565f89
+AMBER=0xfff5a524
+GOLD=0xffffb454
+BLUE=0xff7aa2f7
+CYAN=0xff7dcfff
+PANEL=0x66111827
+
+sketchybar --bar \
+  height=32 \
+  position=top \
+  sticky=on \
+  padding_left=10 \
+  padding_right=10 \
+  color="$BAR_BG" \
+  border_color="$BAR_BORDER" \
+  border_width=1 \
+  corner_radius=0 \
+  shadow=off
+
+sketchybar --default \
+  updates=when_shown \
+  icon.font="$FONT_ICON" \
+  icon.color="$MUTED" \
+  icon.padding_left=6 \
+  icon.padding_right=4 \
+  label.font="$FONT_TEXT" \
+  label.color="$TEXT" \
+  label.padding_left=2 \
+  label.padding_right=8 \
+  background.height=22 \
+  background.corner_radius=5 \
+  background.color=0x00000000 \
+  padding_left=1 \
+  padding_right=1
+
+sketchybar --add item apple left \
+  --set apple icon="" icon.font="SF Pro:Bold:14.0" icon.color="$AMBER" label.drawing=off padding_left=2 padding_right=8
+
+for sid in 1 2 3 4 5 6 7 8 9; do
+  sketchybar --add item "ws.$sid" left \
+    --set "ws.$sid" \
+      icon="$sid" \
+      icon.font="JetBrains Mono:Bold:12.0" \
+      icon.color="$MUTED" \
+      label="$(case "$sid" in 1) echo term ;; 2) echo code ;; *) echo "" ;; esac)" \
+      label.drawing="$(case "$sid" in 1|2) echo on ;; *) echo off ;; esac)" \
+      background.height=20 \
+      background.corner_radius=5 \
+      background.color=0x00000000 \
+      script="$PLUGIN_DIR/space.sh" \
+      click_script="aerospace workspace $sid 2>/dev/null || true" \
+    --subscribe "ws.$sid" aerospace_workspace_change
+done
+
+sketchybar --add bracket spaces '/ws\..*/' \
+  --set spaces background.color="$PANEL" background.corner_radius=6 background.border_color=0x33f5a524 background.border_width=1
+
+sketchybar --add item front_app left \
+  --set front_app icon="󰣆" icon.color="$GOLD" label.color="$SOFT" label.max_chars=34 script="$PLUGIN_DIR/front_app.sh" \
+  --subscribe front_app front_app_switched
+
+sketchybar --add item cwd center \
+  --set cwd icon="~" icon.color="$BLUE" label="$HOME" label.color="$TEXT" label.max_chars=48 background.color=0x33111827 background.corner_radius=5
+
+sketchybar --add item clock center \
+  --set clock icon="" icon.color="$CYAN" update_freq=15 script='sketchybar --set "$NAME" label="$(date +%H:%M)"'
+
+sketchybar --add item battery right \
+  --set battery icon="󰁹" icon.color="$BLUE" update_freq=30 script="$PLUGIN_DIR/system_stats.sh battery"
+
+sketchybar --add item wifi right \
+  --set wifi icon="󰖩" icon.color="$CYAN" update_freq=30 script="$PLUGIN_DIR/system_stats.sh wifi"
+
+sketchybar --add item cpu right \
+  --set cpu icon="" icon.color="$MUTED" update_freq=5 script="$PLUGIN_DIR/system_stats.sh cpu"
+
+sketchybar --add item divider right \
+  --set divider icon="│" icon.color="$BAR_BORDER" label.drawing=off padding_left=4 padding_right=4
+
+sketchybar --add item mode right \
+  --set mode icon="deck" icon.font="JetBrains Mono:Bold:11.0" icon.color="$AMBER" label.drawing=off background.color=0x22f5a524 background.corner_radius=5
+
+sketchybar --hotload on
+sketchybar --update

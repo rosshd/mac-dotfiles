@@ -1,0 +1,45 @@
+{
+  "global": {
+    "check_for_updates_on_startup": true,
+    "show_in_menu_bar": false,
+    "show_profile_name_in_menu_bar": false
+  },
+  "profiles": [
+    {
+      "name": "Ross",
+      "selected": true,
+      "complex_modifications": {
+        "parameters": {
+          "basic.to_if_alone_timeout_milliseconds": 200,
+          "basic.to_if_held_down_threshold_milliseconds": 100
+        },
+        "rules": [
+          {
+            "description": "Caps Lock → Hyper (Ctrl+Opt+Cmd) when held, Escape when tapped",
+            "manipulators": [
+              {
+                "type": "basic",
+                "from": {
+                  "key_code": "caps_lock",
+                  "modifiers": { "optional": ["any"] }
+                },
+                "to": [
+                  {
+                    "key_code": "left_control",
+                    "modifiers": ["left_option", "left_command"]
+                  }
+                ],
+                "to_if_alone": [
+                  { "key_code": "escape" }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "simple_modifications": [],
+      "fn_function_keys": [],
+      "virtual_hid_keyboard": { "keyboard_type_v2": "ansi" }
+    }
+  ]
+}
