@@ -158,18 +158,22 @@ def main(stdscr):
     in_front    = True
     last_orbit  = 0
 
+    _needs_resize = [False]
     def on_resize(sig, frame_arg):
-        sz = shutil.get_terminal_size()
-        curses.resizeterm(sz.lines, sz.columns)
-        stdscr.clear()
+        _needs_resize[0] = True
     signal.signal(signal.SIGWINCH, on_resize)
 
     while True:
         key = stdscr.getch()
-        if key == curses.KEY_RESIZE:
-            curses.resizeterm(*stdscr.getmaxyx())
+
+        if _needs_resize[0] or key == curses.KEY_RESIZE:
+            _needs_resize[0] = False
+            sz = shutil.get_terminal_size()
+            curses.resizeterm(sz.lines, sz.columns)
             stdscr.clear()
+            stdscr.refresh()
             continue
+
         if key != -1: break
         if TIMED and time.time() - START > DURATION: break
 
