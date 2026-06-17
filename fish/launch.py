@@ -112,19 +112,19 @@ def main(stdscr):
     CONTENT_H = LH
     OY        = max(1, (H - CONTENT_H) // 2)
     OX        = max(1, (W - CONTENT_W) // 2)
-    CY, CX    = OY + LH // 2, OX + LW // 2
+    LOX       = OX + 3                        # logo 3 chars right of orbit center
+    CY, CX    = OY + LH // 2, OX + LW // 2   # orbit center unchanged
     RX, RY    = LW // 2 + 3, LH // 2 + 1
-    info_x    = OX + LW + 5
+    info_x    = LOX + LW + 5
     max_score = LH * 0.75 + LW * 0.25
 
     random.seed(7)
-    # stars spread across entire terminal, avoiding info panel
     stars = []
     for _ in range(120):
         sy = random.randint(0, H - 2)
         sx = random.randint(0, W - 2)
         stars.append((sy, sx, random.choice(STARS)))
-    logo_cells = {(OY + i, OX + j) for i, row in enumerate(LOGO)
+    logo_cells = {(OY + i, LOX + j) for i, row in enumerate(LOGO)
                   for j, ch in enumerate(row) if ch != ' '}
 
     t, frame   = 0.0, 0
@@ -184,7 +184,7 @@ def main(stdscr):
                 elif s < 0.58: pair, attr = 6,  curses.A_DIM
                 elif s < 0.72: pair, attr = 14, curses.A_DIM
                 else:          pair, attr = 9,  curses.A_DIM
-                try: stdscr.addstr(r, OX + j, ch, curses.color_pair(pair) | attr)
+                try: stdscr.addstr(r, LOX + j, ch, curses.color_pair(pair) | attr)
                 except curses.error: pass
 
         # info panel
