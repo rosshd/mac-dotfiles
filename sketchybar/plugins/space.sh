@@ -1,9 +1,13 @@
 #!/usr/bin/env bash
 
 SID="${NAME#ws.}"
-FOCUSED="${FOCUSED:-${FOCUSED_WORKSPACE:-$(aerospace list-workspaces --focused 2>/dev/null)}}"
+FOCUSED="$FOCUSED_WORKSPACE"
 
-if [ "$SID" = "$FOCUSED" ] || [ "$SELECTED" = "true" ]; then
+if [ -z "$FOCUSED" ]; then
+  FOCUSED="$(aerospace list-workspaces --focused 2>/dev/null)"
+fi
+
+if [ "$SID" = "$FOCUSED" ]; then
   sketchybar --set "$NAME" \
     icon.color=0xfff5a524 \
     background.color=0x33111827 \

@@ -48,14 +48,16 @@ sketchybar --default \
 sketchybar --add item apple left \
   --set apple icon="" icon.font="SF Pro:Bold:14.0" icon.color="$AMBER" label.drawing=off padding_left=2 padding_right=8
 
-for sid in 1 2 3 4 5 6 7 8 9; do
+declare -A WS_LABELS=([1]="term" [2]="code" [3]="web" [4]="ai" [5]="misc")
+
+for sid in 1 2 3 4 5; do
   sketchybar --add item "ws.$sid" left \
     --set "ws.$sid" \
       icon="$sid" \
       icon.font="JetBrains Mono:Bold:12.0" \
       icon.color="$MUTED" \
-      label="$(case "$sid" in 1) echo term ;; 2) echo code ;; *) echo "" ;; esac)" \
-      label.drawing="$(case "$sid" in 1|2) echo on ;; *) echo off ;; esac)" \
+      label="${WS_LABELS[$sid]}" \
+      label.drawing=on \
       background.height=20 \
       background.corner_radius=5 \
       background.color=0x00000000 \
