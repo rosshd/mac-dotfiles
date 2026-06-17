@@ -2,7 +2,7 @@
 
 case "$1" in
   battery)
-    PERCENT="$(pmset -g batt | awk -F'; *' 'NR==2 { gsub(/%/, "", $2); print $2 }')"
+    PERCENT="$(pmset -g batt | awk 'NR==2 { match($0, /[0-9]+%/); print substr($0, RSTART, RLENGTH-1) }')"
     STATE="$(pmset -g batt | awk -F"'" 'NR==1 { print $2 }')"
     ICON="󰁹"
     COLOR="0xff7aa2f7"
