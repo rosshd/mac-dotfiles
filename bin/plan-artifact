@@ -1,0 +1,62 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+slug="${1:-plan-$(date +%Y%m%d-%H%M%S)}"
+out=".artifacts/plans/${slug}.html"
+mkdir -p "$(dirname "$out")"
+cat > "$out" <<HTML
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>${slug}</title>
+  <style>
+    :root { color-scheme: light dark; font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    body { margin: 0; background: Canvas; color: CanvasText; }
+    main { max-width: 1040px; margin: 0 auto; padding: 40px 24px; }
+    h1, h2 { line-height: 1.1; }
+    h1 { font-size: 34px; margin: 0 0 8px; }
+    h2 { font-size: 18px; margin-top: 28px; border-bottom: 1px solid color-mix(in srgb, CanvasText 18%, transparent); padding-bottom: 8px; }
+    .meta { color: color-mix(in srgb, CanvasText 65%, transparent); margin-bottom: 28px; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; }
+    section, .card { border: 1px solid color-mix(in srgb, CanvasText 18%, transparent); border-radius: 8px; padding: 16px; }
+    ul { padding-left: 20px; }
+    code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+  </style>
+</head>
+<body>
+<main>
+  <h1>${slug}</h1>
+  <p class="meta">Planning artifact generated $(date). Replace placeholders with options, decisions, evidence, and next actions.</p>
+
+  <section>
+    <h2>Intent</h2>
+    <p>What are we trying to decide or build?</p>
+  </section>
+
+  <h2>Options</h2>
+  <div class="grid">
+    <div class="card"><h3>Option A</h3><p>Describe the approach.</p></div>
+    <div class="card"><h3>Option B</h3><p>Describe the approach.</p></div>
+    <div class="card"><h3>Option C</h3><p>Describe the approach.</p></div>
+  </div>
+
+  <section>
+    <h2>Decision Points</h2>
+    <ul>
+      <li>Decision 1</li>
+      <li>Decision 2</li>
+      <li>Decision 3</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Validation</h2>
+    <p>What evidence will prove the work is done?</p>
+  </section>
+</main>
+</body>
+</html>
+HTML
+printf '%s\n' "$out"

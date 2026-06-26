@@ -1,0 +1,59 @@
+#!/usr/bin/env bash
+set -u
+
+failures=0
+check_cmd() {
+  local name="$1"
+  if command -v "$name" >/dev/null 2>&1; then
+    printf 'ok   %s -> %s\n' "$name" "$(command -v "$name")"
+  else
+    printf 'miss %s\n' "$name"
+    failures=$((failures + 1))
+  fi
+}
+
+check_run() {
+  local label="$1"
+  shift
+  if "$@" >/tmp/doctor-check.out 2>/tmp/doctor-check.err; then
+    printf 'ok   %s\n' "$label"
+  else
+    printf 'fail %s\n' "$label"
+    sed -n '1,6p' /tmp/doctor-check.err | sed 's/^/     /'
+    failures=$((failures + 1))
+  fi
+}
+
+printf '== commands ==\n'
+for cmd in wezterm fish tmux nvim git gh delta lazygit codex claude opencode treehouse gnhf no-mistakes lavish-axi firstmate ship agent wt crew plan-artifact voice-vocab; do
+  check_cmd "$cmd"
+done
+
+printf '\n== configs ==\n'
+check_run 'fish config syntax' fish -n "$HOME/.config/fish/config.fish"
+check_run 'tmux config load' tmux -f "$HOME/.tmux.conf" start-server \; source-file "$HOME/.tmux.conf" \; display-message ok
+check_run 'nvim headless startup' nvim --headless '+qa'
+check_run 'wezterm config parse' wezterm --config-file "$HOME/.config/wezterm/wezterm.lua" ls-fonts
+
+printf '\n== versions ==\n'
+(treehouse --version || true) 2>&1 | sed 's/^/treehouse /'
+(gnhf --version || true) 2>&1 | sed 's/^/gnhf      /'
+(no-mistakes --version || true) 2>&1 | sed 's/^/mistakes  /'
+(lavish-axi --version || true) 2>&1 | sed 's/^/lavish    /'
+
+printf '\n== background ==\n'
+if pgrep -ifl 'AeroSpace|SketchyBar|iTerm|cmatrix|pipes\.sh' >/tmp/doctor-legacy.out 2>/dev/null; then
+  printf 'warn legacy-looking process found\n'
+  sed 's/^/     /' /tmp/doctor-legacy.out
+else
+  printf 'ok   no legacy workflow processes detected\n'
+fi
+
+rm -f /tmp/doctor-check.out /tmp/doctor-check.err /tmp/doctor-legacy.out
+
+if [ "$failures" -eq 0 ]; then
+  printf '\nAll checks passed.\n'
+else
+  printf '\n%s check(s) failed.\n' "$failures"
+fi
+exit "$failures"

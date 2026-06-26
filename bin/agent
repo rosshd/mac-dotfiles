@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+name="${1:-}"
+if [ -z "$name" ]; then
+  cat <<'USAGE'
+usage: agent <codex|claude|opencode|cdx|cc|oc> [args...]
+USAGE
+  exit 2
+fi
+shift || true
+
+case "$name" in
+  codex|cdx) exec codex "$@" ;;
+  claude|cc) exec claude "$@" ;;
+  opencode|oc) exec opencode "$@" ;;
+  *)
+    echo "unknown agent: $name" >&2
+    exit 2
+    ;;
+esac
