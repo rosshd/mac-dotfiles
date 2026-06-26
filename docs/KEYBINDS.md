@@ -30,6 +30,18 @@ Configured keys:
 
 Most workspace navigation should happen in tmux, not WezTerm tabs.
 
+## Shell (Fish)
+
+History and fuzzy search:
+
+| Action | Key |
+| --- | --- |
+| Search shell history (atuin) | `Ctrl+r` |
+| Fuzzy-find files (fzf) | `Ctrl+t` |
+| Fuzzy-cd into directory (fzf) | `Alt+c` |
+
+atuin owns `Ctrl+r`; it loads after fzf so it wins that binding.
+
 ## tmux
 
 Prefix:
@@ -66,6 +78,16 @@ Agent panes:
 | Open Codex side pane | `Ctrl+y` |
 | Open Claude side pane | `Ctrl+o` |
 | Open OpenCode side pane | `Ctrl-a o` |
+
+Persistence (tpm + resurrect/continuum):
+
+| Action | Key |
+| --- | --- |
+| Save session | `Ctrl-a Ctrl-s` |
+| Restore session | `Ctrl-a Ctrl-r` |
+| Install plugins | `Ctrl-a I` |
+
+Sessions also auto-save every 15 min and restore on tmux start, so these are rarely needed by hand.
 
 ## Neovim
 

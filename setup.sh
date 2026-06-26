@@ -48,12 +48,11 @@ if [ ! -d "$FM_HOME/.git" ]; then
   git clone https://github.com/kunchenguid/firstmate "$FM_HOME"
 fi
 
-# no-mistakes: installed via its official release installer (runs a local daemon).
-# Inspect the script before piping it to a shell. Fill in the installer URL you
-# vetted; this step is skipped if no-mistakes is already on PATH.
+# no-mistakes: local git proxy that validates changes through an AI pipeline
+# before pushing. Installs to ~/.no-mistakes/bin, symlinks ~/.local/bin/no-mistakes,
+# and starts a daemon. Re-inspect docs/install.sh before trusting a new version.
 if ! command -v no-mistakes >/dev/null 2>&1; then
-  echo "  no-mistakes not found. Run its official release installer, then re-run setup.sh." >&2
-  echo "  (Skipping; nothing else depends on it.)" >&2
+  curl -fsSL https://raw.githubusercontent.com/kunchenguid/no-mistakes/main/docs/install.sh | sh
 fi
 # ------------------------------------------------------------------------------
 
