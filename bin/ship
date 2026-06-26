@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+session="${1:-main}"
+root="${2:-$HOME/Developer/projects}"
+
+if ! tmux has-session -t "$session" 2>/dev/null; then
+  tmux new-session -d -s "$session" -n code -c "$root"
+  tmux new-window -t "$session:" -n agent -c "$root"
+  tmux new-window -t "$session:" -n test -c "$root"
+  tmux new-window -t "$session:" -n notes -c "$HOME"
+  tmux select-window -t "$session:code"
+fi
+
+if [ ! -t 1 ]; then
+  tmux display-message -p -t "$session" "#{session_name}:#{session_windows}"
+elif [ -n "${TMUX:-}" ]; then
+  tmux switch-client -t "$session"
+else
+  tmux attach-session -t "$session"
+fi

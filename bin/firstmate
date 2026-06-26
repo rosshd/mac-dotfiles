@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+set -euo pipefail
+FM_HOME="${FM_HOME:-$HOME/Developer/tools/firstmate}"
+if [ ! -d "$FM_HOME/.git" ]; then
+  echo "Firstmate repo not found at $FM_HOME" >&2
+  echo "Clone it with: git clone https://github.com/kunchenguid/firstmate $FM_HOME" >&2
+  exit 1
+fi
+cd "$FM_HOME"
+exec "${FIRSTMATE_AGENT:-codex}"

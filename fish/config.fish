@@ -1,14 +1,12 @@
-
 # Suppress greeting
 set -U fish_greeting ''
 
 # Homebrew + local bin (local first so wrappers take priority)
-fish_add_path ~/.local/bin /opt/homebrew/bin /opt/homebrew/sbin
+set -gx PATH $HOME/.local/bin /opt/homebrew/bin /opt/homebrew/sbin $PATH
 
 # pyenv
 set -gx PYENV_ROOT $HOME/.pyenv
-fish_add_path $PYENV_ROOT/bin
-pyenv init - | source
+set -gx PATH $PYENV_ROOT/bin $PYENV_ROOT/shims $PATH
 
 # SSH agent
 if not set -q SSH_AUTH_SOCK
@@ -19,26 +17,28 @@ end
 # Starship prompt
 starship init fish | source
 
-# Show startup animation once per tmux session, only in a roomy first pane.
-if status is-interactive; and set -q TMUX
-    set -l shown (tmux show-option -gqv @startup_animation_done)
-    set -l panes (tmux display-message -p "#{window_panes}" 2>/dev/null)
-    set -l cols (tput cols 2>/dev/null)
-    set -l rows (tput lines 2>/dev/null)
+# Zoxide (smart cd)
+zoxide init fish | source
 
-    if test "$shown" != "1"; and test "$panes" = "1"; and test "$cols" -ge 88; and test "$rows" -ge 24
-        tmux set-option -gq @startup_animation_done 1
-        command python3 ~/.config/fish/launch.py
-        clear
-    end
-end
+# fzf key bindings (Ctrl-T files, Alt-C cd; Ctrl-R is handed to atuin below)
+fzf --fish | source
 
-# Aliases — navigation
+# atuin (sqlite shell history; owns Ctrl-R, loaded after fzf so it wins the bind)
+atuin init fish | source
+
+# direnv (per-project env, e.g. pyenv/uv)
+direnv hook fish | source
+
+# Editor defaults
+set -gx EDITOR nvim
+set -gx VISUAL nvim
+
+# Navigation
 alias dev='cd ~/Developer/projects'
 alias school='cd ~/School'
 alias sandbox='cd ~/Developer/sandbox'
 
-# Aliases — git
+# Git
 alias g='git'
 alias gs='git status'
 alias ga='git add'
@@ -47,19 +47,26 @@ alias gp='git push'
 alias gl='git log --oneline --graph --decorate -15'
 alias gd='git diff'
 
-# Aliases — general
-alias ll='ls -lah'
+# General
+alias ll='eza -lah --git --group-directories-first'
+alias la='eza -la --git --group-directories-first'
+alias cat='bat'
 alias ..='cd ..'
 alias ...='cd ../..'
 alias grep='grep --color=auto'
-
-# Aliases — tools
-alias fastfetch='python3 ~/.config/fish/launch.py --no-timeout'
 alias py='python3'
 alias vi='nvim'
-alias matrix='cmatrix -a -C cyan'
-alias pipes='pipes.sh -t 0'
-alias spaceship='python3 ~/.config/fish/spaceship.py'
+alias fastfetch='command fastfetch'
 
-# iTerm2 shell integration
-source ~/.config/fish/iterm2_shell_integration.fish
+# AI coding agents
+alias oc='opencode'
+alias cdx='codex'
+alias cc='claude'
+
+alias main='ship'
+alias agents='agent'
+alias a='agent'
+alias worktrees='wt list'
+alias vocab='voice-vocab'
+alias plan='plan-artifact'
+alias captain='crew'

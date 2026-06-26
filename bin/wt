@@ -1,0 +1,53 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+cmd="${1:-help}"
+shift || true
+root="${WORKTREE_ROOT:-$HOME/Developer/worktrees}"
+
+repo_root() {
+  git rev-parse --show-toplevel
+}
+
+repo_name() {
+  basename "$(repo_root)"
+}
+
+case "$cmd" in
+  new)
+    slug="${1:-agent-$(date +%Y%m%d-%H%M%S)}"
+    base="${2:-HEAD}"
+    repo="$(repo_name)"
+    path="$root/$repo/$slug"
+    mkdir -p "$(dirname "$path")"
+    git worktree add -b "codex/$slug" "$path" "$base"
+    echo "$path"
+    ;;
+  list|ls)
+    git worktree list
+    ;;
+  remove|rm|done)
+    path="${1:-}"
+    if [ -z "$path" ]; then
+      echo "usage: wt done <worktree-path>" >&2
+      exit 2
+    fi
+    git worktree remove "$path"
+    ;;
+  prune)
+    git worktree prune --verbose
+    ;;
+  root)
+    echo "$root"
+    ;;
+  help|*)
+    cat <<'USAGE'
+usage:
+  wt new <slug> [base]      create worktree at $WORKTREE_ROOT/<repo>/<slug>
+  wt list                   list worktrees
+  wt done <path>            remove a clean worktree
+  wt prune                  prune stale git worktree metadata
+  wt root                   print worktree root
+USAGE
+    ;;
+esac
