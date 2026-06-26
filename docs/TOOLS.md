@@ -177,7 +177,7 @@ background process, so understand what it does before relying on it.
 | Tool | Replaces | Install source | Notes |
 | --- | --- | --- | --- |
 | `treehouse` | `wt` | `go install github.com/kunchenguid/treehouse@v1.8.0` | Git worktree orchestrator; symlinked into `~/.local/bin`. |
-| `no-mistakes` | `make validate` | Official release installer (vet before piping to a shell) | Runs a local daemon (`~/.no-mistakes`, socket + sqlite state). |
+| `no-mistakes` | `make validate` | `curl -fsSL https://raw.githubusercontent.com/kunchenguid/no-mistakes/main/docs/install.sh \| sh` | Local git proxy that validates changes through an AI pipeline before push. Runs a daemon (`~/.no-mistakes`, socket + sqlite state). |
 | `gnhf` | bounded agent loops | `npm install -g gnhf` | Long-running bounded loop runner. |
 | `firstmate` | `crew` | `git clone github.com/kunchenguid/firstmate` | Repo wrapper launched via the `firstmate` script. |
 | `lavish-axi` | `plan-artifact` | `npm install -g lavish-axi` | Installs agent hooks + the `lavish` skill via `lavish-axi setup hooks` / `npx skills install lavish`. |

@@ -5,21 +5,24 @@
 - Health check script (`bin/doctor`): verifies binaries, Fish/tmux/Neovim/WezTerm
   configs, tool versions, and warns on legacy background processes.
 - Installed the external orchestration stack and wired it into `setup.sh`:
-  `treehouse`, `no-mistakes`, `gnhf`, `firstmate`, `lavish-axi`. See
-  [Tools](TOOLS.md) for what each replaces.
+  `treehouse`, `no-mistakes` (real installer command), `gnhf`, `firstmate`,
+  `lavish-axi`, `opensuperwhisper`. See [Tools](TOOLS.md) for what each replaces.
+- Made the repo the single source of truth: all configs and agent files are
+  symlinked into place. `~/.codex/AGENTS.md` and `~/.claude/CLAUDE.md` point at
+  the same `agents/AGENTS.md`.
+- Shell efficiency: fzf keybindings, atuin history, direnv, and tmux session
+  persistence (tpm + resurrect + continuum).
+- Committed the legacy-to-terminal-first migration and pushed the branch.
 
-## High Priority
+## Manual steps (need your password / one-time)
 
-1. Review existing dirty dotfiles changes before committing.
-
-   The repo had pre-existing changes before this cleanup, especially in:
-
-   - `karabiner/karabiner.json`
-   - deleted legacy files from the previous workflow
+- Set fish as the login shell:
+  `echo "$(command -v fish)" | sudo tee -a /etc/shells && chsh -s "$(command -v fish)"`
+- Import existing shell history into atuin: `atuin import auto`
 
 ## Medium Priority
 
-2. Add project templates for common agent workflows.
+1. Add project templates for common agent workflows.
 
    Useful templates:
 
@@ -30,6 +33,6 @@
 
 ## Low Priority
 
-3. Decide whether Aerial should remain a Login Item.
+2. Decide whether Aerial should remain a Login Item.
 
-4. Decide whether VS Code needs any dotfiles at all or stays outside this workflow.
+3. Decide whether VS Code needs any dotfiles at all or stays outside this workflow.
