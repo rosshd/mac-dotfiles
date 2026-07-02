@@ -1,0 +1,69 @@
+#!/usr/bin/env bash
+# notify: single notification fan-out for agent events.
+# Sends a macOS banner (terminal-notifier, osascript fallback) and an
+# ntfy push (curl) so agent done/blocked/gate events reach Ross anywhere.
+set -uo pipefail
+
+usage() {
+  cat <<'USAGE'
+usage: notify [options] <title> [message]
+
+options:
+  --priority <low|default|high>  ntfy priority (default: default)
+  --local-only                   skip the ntfy push
+  --push-only                    skip the macOS banner
+  --tag <tag>                    ntfy tag/emoji shortcode (default: robot)
+
+config (~/.config/notify/notify.conf):
+  NTFY_SERVER=https://ntfy.sh
+  NTFY_TOPIC=<private topic>
+
+notify always exits 0 so it never fails the calling pipeline.
+USAGE
+}
+
+priority="default"
+tag="robot"
+local_only=0
+push_only=0
+args=()
+
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --priority) priority="${2:-default}"; shift 2 ;;
+    --tag) tag="${2:-robot}"; shift 2 ;;
+    --local-only) local_only=1; shift ;;
+    --push-only) push_only=1; shift ;;
+    -h|--help) usage; exit 0 ;;
+    *) args+=("$1"); shift ;;
+  esac
+done
+
+title="${args[0]:-}"
+message="${args[1]:-}"
+if [ -z "$title" ]; then usage >&2; exit 0; fi
+
+conf="${XDG_CONFIG_HOME:-$HOME/.config}/notify/notify.conf"
+NTFY_SERVER="https://ntfy.sh"
+NTFY_TOPIC=""
+# shellcheck disable=SC1090
+[ -f "$conf" ] && . "$conf"
+
+if [ "$push_only" -eq 0 ]; then
+  if command -v terminal-notifier >/dev/null 2>&1; then
+    terminal-notifier -title "$title" -message "${message:-$title}" -group "agent-notify" >/dev/null 2>&1 || true
+  else
+    osascript -e "display notification \"${message:-$title}\" with title \"$title\"" >/dev/null 2>&1 || true
+  fi
+fi
+
+if [ "$local_only" -eq 0 ] && [ -n "$NTFY_TOPIC" ]; then
+  curl -fsS --max-time 5 \
+    -H "Title: $title" \
+    -H "Priority: $priority" \
+    -H "Tags: $tag" \
+    -d "${message:-$title}" \
+    "$NTFY_SERVER/$NTFY_TOPIC" >/dev/null 2>&1 || true
+fi
+
+exit 0

@@ -36,6 +36,6 @@ Leader is `Space`.
 ## Copilot
 
 - Run `:Copilot auth` once.
-- `Ctrl-J`: accept suggestion
-- `Alt-]` / `Alt-[`: next/previous suggestion
-- `Ctrl-]`: dismiss suggestion
+- `Ctrl-f`: accept suggestion
+- `Ctrl-b` / `Ctrl-v`: next/previous suggestion
+- `Ctrl-e`: dismiss suggestion

@@ -109,12 +109,14 @@ agent opencode
 oc
 ```
 
-All three share the global guidance in:
+Agent CLIs share one canonical global guidance file:
 
 ```text
-~/.codex/AGENTS.md
-~/.claude/CLAUDE.md
+~/mac-dotfiles/agents/AGENTS.md
 ```
+
+`setup.sh` links that file into the supported global instruction path for Codex, Claude, OpenCode, Copilot CLI, and Gemini CLI.
+Project `AGENTS.md` files remain the source of project-specific rules.
 
 ## Mac Tools
 
@@ -124,14 +126,18 @@ Global launcher and Mac command palette. Keep this as the Mac-level entry point.
 
 ### Rectangle
 
-Simple macOS-native window movement.
+Simple macOS-native window movement and a fallback rather than the primary workspace manager.
+Rectangle must be running and have System Settings > Privacy & Security > Accessibility permission before its shortcuts can move windows.
+Enable its "Launch on login" setting after the first launch.
+
+See [Keybinds](KEYBINDS.md#rectangle) for the recommended shortcuts and Logitech K350 key labels.
 
 ### Karabiner-Elements
 
 Keyboard remapping. Current important rule:
 
 - Caps Lock held -> Hyper (`Ctrl+Option+Command`)
-- Caps Lock tapped -> Caps Lock
+- Caps Lock tapped -> Escape
 
 ### OpenSuperWhisper
 
@@ -148,6 +154,11 @@ Terminal diff viewer. Git is configured globally to use `delta` as the pager wit
 ### Lazygit
 
 Fast terminal Git UI. Use from Neovim with `Space gl` or directly with `lazygit`.
+
+### gh-dash
+
+Terminal dashboard for GitHub PRs and issues (`gh` extension, run with `gh dash`).
+Sections are scoped to Ross's repos in `gh-dash/config.yml`, symlinked to `~/.config/gh-dash/config.yml` by `setup.sh`.
 
 ## Local Workflow Scripts
 

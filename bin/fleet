@@ -1,0 +1,242 @@
+#!/usr/bin/env bash
+# fleet: captain's dispatch for autonomous agent runs.
+# Wraps gnhf bounded runs in worktrees with a brief, a stop condition,
+# and a notify on completion. Successor to `crew` for unattended work.
+set -euo pipefail
+
+FLEET_AGENT_DEFAULT="codex"
+STOP_DEFAULT="the project green gate passes, the change is committed on a feature branch, and no-mistakes has produced a green pull request"
+
+usage() {
+  cat <<'USAGE'
+usage:
+  fleet start <slug> [options] [objective...]
+  fleet brief <slug>
+  fleet status
+  fleet done <worktree-path>
+
+start options:
+  --agent <codex|claude>           harness for this run (default: codex)
+  --issue <n>                      seed the brief from a GitHub issue
+  --max-iterations <n>             gnhf iteration cap (default: 12)
+  --ship <green-pr|committed-branch>
+                                   how far the run goes alone (default: green-pr)
+
+commands:
+  start   write/load the brief, then run gnhf in a fleet worktree branched
+          from the repo's default branch, inside a detached tmux window;
+          notify on done or blocked
+  brief   create a brief from the template and open it in $EDITOR
+  status  show fleet tmux windows and worktrees across projects
+  done    remove a finished worktree (delegates to wt)
+
+Briefs live under .artifacts/fleet/<slug>.md in the repo.
+USAGE
+}
+
+repo_root() { git rev-parse --show-toplevel; }
+
+brief_path() { echo "$(repo_root)/.artifacts/fleet/$1.md"; }
+
+# Fleet runs must branch from the default branch, never from whatever the
+# main checkout happens to be on (gnhf --worktree branches from HEAD).
+base_ref() {
+  local ref
+  if ref="$(git symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null)"; then
+    echo "$ref"
+  elif git show-ref --verify --quiet refs/heads/main; then
+    echo "main"
+  elif git show-ref --verify --quiet refs/heads/master; then
+    echo "master"
+  else
+    git branch --show-current
+  fi
+}
+
+cmd="${1:-help}"
+shift || true
+
+case "$cmd" in
+  brief)
+    slug="${1:-}"
+    [ -z "$slug" ] && { usage >&2; exit 2; }
+    path="$(brief_path "$slug")"
+    mkdir -p "$(dirname "$path")"
+    if [ ! -f "$path" ]; then
+      sed "s/<slug>/$slug/" "$HOME/mac-dotfiles/agents/brief-template.md" > "$path"
+    fi
+    "${EDITOR:-nvim}" "$path"
+    echo "$path"
+    ;;
+
+  start)
+    slug="${1:-}"
+    [ -z "$slug" ] && { usage >&2; exit 2; }
+    shift
+    agent="$FLEET_AGENT_DEFAULT"
+    issue=""
+    max_iter="12"
+    ship="green-pr"
+    objective=()
+    while [ $# -gt 0 ]; do
+      case "$1" in
+        --agent) agent="${2:?}"; shift 2 ;;
+        --issue) issue="${2:?}"; shift 2 ;;
+        --max-iterations) max_iter="${2:?}"; shift 2 ;;
+        --ship) ship="${2:?}"; shift 2 ;;
+        *) objective+=("$1"); shift ;;
+      esac
+    done
+
+    root="$(repo_root)"
+    cd "$root"
+    repo="$(basename "$root")"
+    path="$(brief_path "$slug")"
+    mkdir -p "$(dirname "$path")"
+
+    if [ ! -f "$path" ]; then
+      if [ -n "$issue" ]; then
+        {
+          echo "# Fleet Brief: $slug"
+          echo
+          gh issue view "$issue" --json title,body --template '## Objective
+
+{{.title}}
+
+{{.body}}
+'
+          echo
+          echo "## Stop condition"
+          echo
+          echo "$STOP_DEFAULT"
+        } > "$path"
+      elif [ ${#objective[@]} -gt 0 ]; then
+        {
+          echo "# Fleet Brief: $slug"
+          echo
+          echo "## Objective"
+          echo
+          echo "${objective[*]}"
+          echo
+          echo "## Stop condition"
+          echo
+          echo "$STOP_DEFAULT"
+        } > "$path"
+      else
+        echo "No brief at $path - write one first with: fleet brief $slug" >&2
+        exit 2
+      fi
+    fi
+
+    stop_cond="$STOP_DEFAULT"
+    [ "$ship" = "committed-branch" ] && stop_cond="the project green gate passes and the change is committed on a feature branch"
+
+    prompt_file="$(dirname "$path")/$slug.prompt"
+    {
+      echo "Follow the brief below exactly. Respect its scope, verification, and escalation rules. If you hit an escalation item, stop and report instead of guessing."
+      echo
+      cat "$path"
+    } > "$prompt_file"
+
+    wt_root="${WORKTREE_ROOT:-$HOME/Developer/worktrees}"
+    wt_path="$wt_root/$repo/fleet-$slug"
+    branch="fleet/$slug"
+    if [ -d "$wt_path" ]; then
+      current="$(git -C "$wt_path" branch --show-current)"
+      if [ "$current" != "$branch" ]; then
+        echo "Worktree $wt_path exists but is on '$current', expected '$branch'" >&2
+        exit 2
+      fi
+      echo "reusing worktree: $wt_path"
+    else
+      base="$(base_ref)"
+      git fetch --quiet origin 2>/dev/null || true
+      mkdir -p "$(dirname "$wt_path")"
+      git worktree add -b "$branch" "$wt_path" "$base"
+    fi
+
+    # tmux runs window commands under the user's default-shell (fish), so
+    # dispatch through a generated bash runner instead of an inline string.
+    runner="$(dirname "$path")/$slug.run.sh"
+    cat > "$runner" <<RUNNER
+#!/usr/bin/env bash
+cd "$wt_path" || exit 1
+gnhf --agent "$agent" --current-branch --max-iterations "$max_iter" \\
+  --stop-when "$stop_cond" "\$(cat "$prompt_file")"
+ec=\$?
+if [ \$ec -eq 0 ]; then
+  notify "fleet done: $repo/$slug" "stop condition reached" --tag white_check_mark
+else
+  notify "fleet blocked: $repo/$slug" "gnhf exited \$ec" --priority high --tag rotating_light
+fi
+echo
+read -r -p "[fleet] run ended (exit \$ec) - press enter to close" _
+RUNNER
+    chmod +x "$runner"
+
+    window="fleet-$slug"
+    run="bash '$runner'"
+
+    # Reuse an existing window for this slug if one is already open and idle
+    # (pane running fish = runner finished). Kill stale idle windows; open
+    # a fresh one for any window still running gnhf.
+    existing="$(tmux list-windows -a -F '#{session_name}:#{window_index} #{window_name} #{pane_current_command}' 2>/dev/null | grep " $window " || true)"
+    reused=""
+    if [ -n "$existing" ]; then
+      while IFS= read -r line; do
+        win_id="$(echo "$line" | cut -d' ' -f1)"
+        cmd="$(echo "$line" | awk '{print $NF}')"
+        if [ "$cmd" = "gnhf" ] || [ "$cmd" = "bash" ]; then
+          echo "warning: $window is still running ($cmd) - opening a new window" >&2
+        else
+          # idle (fish prompt) - repurpose it
+          tmux send-keys -t "$win_id" "bash '$runner'" Enter
+          reused="$win_id"
+          break
+        fi
+      done <<< "$existing"
+    fi
+
+    if [ -z "$reused" ]; then
+      if [ -n "${TMUX:-}" ]; then
+        tmux new-window -d -n "$window" "$run"
+      else
+        tmux new-session -d -s fleet -n "$window" "$run" 2>/dev/null \
+          || tmux new-window -d -t fleet -n "$window" "$run"
+      fi
+    fi
+
+    echo "dispatched: $window (agent=$agent, ship=$ship, branch=$branch)"
+    echo "  brief:    $path"
+    echo "  worktree: $wt_path"
+    ;;
+
+  status)
+    echo "fleet tmux windows:"
+    tmux list-windows -a -F '#S:#I #W' 2>/dev/null | grep ' fleet-' || echo "  none"
+    echo
+    echo "worktrees:"
+    found=0
+    for repo in "$HOME"/Developer/projects/*/; do
+      [ -d "$repo/.git" ] || continue
+      wts="$(git -C "$repo" worktree list 2>/dev/null | tail -n +2 || true)"
+      if [ -n "$wts" ]; then
+        found=1
+        echo "  $(basename "$repo"):"
+        echo "$wts" | sed 's/^/    /'
+      fi
+    done
+    [ "$found" -eq 0 ] && echo "  none"
+    exit 0
+    ;;
+
+  done)
+    path="${1:-}"
+    [ -z "$path" ] && { usage >&2; exit 2; }
+    wt done "$path"
+    ;;
+
+  *)
+    usage
+    ;;
+esac

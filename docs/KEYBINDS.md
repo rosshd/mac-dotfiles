@@ -3,16 +3,59 @@
 ## macOS Layer
 
 Keep macOS simple and mostly native.
+The primary external keyboard is a Logitech K350 Wave with Windows key legends.
 
 - Raycast: global command launcher.
 - Rectangle: keyboard window snapping when needed.
-- Karabiner-Elements: Caps Lock is Hyper when held, Caps Lock when tapped.
+- Karabiner-Elements: Caps Lock is Hyper when held, Escape when tapped.
+
+K350 modifier labels:
+
+| macOS modifier | K350 key label |
+| --- | --- |
+| `Command` | Windows-logo key |
+| `Option` | `Alt` |
+| `Control` | `Ctrl` |
 
 Hyper means:
 
 ```text
 Ctrl + Option + Command
 ```
+
+### Rectangle
+
+Rectangle must be running and enabled in System Settings > Privacy & Security > Accessibility.
+Enable "Launch on login" in Rectangle so the shortcuts remain available after a restart.
+
+The active Rectangle shortcuts use `Control+Option`.
+On the K350, that means the physical `Ctrl+Alt` keys and does not include the Windows-logo key.
+
+| Action | macOS keys | Logitech K350 keys |
+| --- | --- | --- |
+| Left half | `Control+Option+Left` | `Ctrl+Alt+Left` |
+| Right half | `Control+Option+Right` | `Ctrl+Alt+Right` |
+| Top half | `Control+Option+Up` | `Ctrl+Alt+Up` |
+| Bottom half | `Control+Option+Down` | `Ctrl+Alt+Down` |
+| Maximize | `Control+Option+Return` | `Ctrl+Alt+Enter` |
+| Top left | `Control+Option+U` | `Ctrl+Alt+U` |
+| Top right | `Control+Option+I` | `Ctrl+Alt+I` |
+| Bottom left | `Control+Option+J` | `Ctrl+Alt+J` |
+| Bottom right | `Control+Option+K` | `Ctrl+Alt+K` |
+| Restore | `Control+Option+Backspace` | `Ctrl+Alt+Backspace` |
+
+Do not use Caps Lock as Hyper for the half-screen shortcuts.
+Hyper adds `Command`, so `Caps Lock+Left/Right` invokes Rectangle's previous/next-display commands instead.
+
+Open Rectangle Settings > Shortcuts to inspect or change the active bindings.
+
+If every shortcut does nothing:
+
+1. Confirm the Rectangle icon is present in the menu bar.
+2. Confirm Rectangle is enabled under macOS Accessibility permissions.
+3. Confirm "Launch on login" is enabled in Rectangle Settings > General.
+4. Confirm the shortcut shown in Rectangle Settings > Shortcuts.
+5. Check that the foreground app is not in Rectangle's ignored-app list.
 
 ## WezTerm
 

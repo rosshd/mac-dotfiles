@@ -24,8 +24,19 @@ check_run() {
   fi
 }
 
+check_link() {
+  local path="$1"
+  local expected="$2"
+  if [ -L "$path" ] && [ "$(/usr/bin/readlink "$path")" = "$expected" ]; then
+    printf 'ok   %s -> %s\n' "$path" "$expected"
+  else
+    printf 'fail %s should point to %s\n' "$path" "$expected"
+    failures=$((failures + 1))
+  fi
+}
+
 printf '== commands ==\n'
-for cmd in wezterm fish tmux nvim git gh delta lazygit codex claude opencode treehouse gnhf no-mistakes lavish-axi firstmate ship agent wt crew plan-artifact voice-vocab; do
+for cmd in wezterm fish tmux nvim git gh delta lazygit codex claude opencode treehouse gnhf no-mistakes lavish-axi firstmate ship agent wt crew plan-artifact voice-vocab notify terminal-notifier fleet; do
   check_cmd "$cmd"
 done
 
@@ -34,6 +45,16 @@ check_run 'fish config syntax' fish -n "$HOME/.config/fish/config.fish"
 check_run 'tmux config load' tmux -f "$HOME/.tmux.conf" start-server \; source-file "$HOME/.tmux.conf" \; display-message ok
 check_run 'nvim headless startup' nvim --headless '+qa'
 check_run 'wezterm config parse' wezterm --config-file "$HOME/.config/wezterm/wezterm.lua" ls-fonts
+check_run 'gh-dash extension' sh -c 'gh extension list | grep -q "dlvhdr/gh-dash"'
+check_link "$HOME/.config/gh-dash/config.yml" "$HOME/mac-dotfiles/gh-dash/config.yml"
+
+printf '\n== agent instructions ==\n'
+agent_rules="$HOME/mac-dotfiles/agents/AGENTS.md"
+check_link "$HOME/.codex/AGENTS.md" "$agent_rules"
+check_link "$HOME/.claude/CLAUDE.md" "$agent_rules"
+check_link "$HOME/.config/opencode/AGENTS.md" "$agent_rules"
+check_link "$HOME/.copilot/copilot-instructions.md" "$agent_rules"
+check_link "$HOME/.gemini/GEMINI.md" "$agent_rules"
 
 printf '\n== versions ==\n'
 (treehouse --version || true) 2>&1 | sed 's/^/treehouse /'

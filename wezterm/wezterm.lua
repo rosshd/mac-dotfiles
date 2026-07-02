@@ -22,6 +22,35 @@ config.keys = {
   { key = "w", mods = "CMD", action = wezterm.action.CloseCurrentTab({ confirm = true }) },
   { key = "LeftArrow", mods = "OPT", action = wezterm.action.SendString("\x1bb") },
   { key = "RightArrow", mods = "OPT", action = wezterm.action.SendString("\x1bf") },
+  { key = "l", mods = "CTRL|OPT|CMD", action = wezterm.action.DisableDefaultAssignment },
 }
+
+local openlearn_font_size = 20.0
+local openlearn_previous_font_sizes = {}
+
+wezterm.on("user-var-changed", function(window, _, name, value)
+  if name ~= "openlearn_active" then
+    return
+  end
+
+  local window_id = window:window_id()
+  local overrides = window:get_config_overrides() or {}
+  if value == "1" then
+    if openlearn_previous_font_sizes[window_id] == nil then
+      openlearn_previous_font_sizes[window_id] = overrides.font_size or false
+    end
+    overrides.font_size = openlearn_font_size
+  else
+    local previous_font_size = openlearn_previous_font_sizes[window_id]
+    if previous_font_size == false then
+      overrides.font_size = nil
+    else
+      overrides.font_size = previous_font_size
+    end
+    openlearn_previous_font_sizes[window_id] = nil
+  end
+
+  window:set_config_overrides(overrides)
+end)
 
 return config

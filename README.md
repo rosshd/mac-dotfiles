@@ -15,6 +15,13 @@ The workflow is terminal-centric and macOS-native:
 - Rectangle remains the lightweight macOS window helper.
 - Karabiner-Elements provides the Caps Lock Hyper key.
 
+## Keyboard Hardware
+
+The primary external keyboard is a Logitech K350 Wave with Windows key legends.
+
+On its default macOS mapping, the Windows-logo key is `Command`, `Alt` is `Option`, and `Ctrl` is `Control`.
+Shortcut documentation uses macOS modifier names and includes the K350 labels where they are easy to confuse.
+
 ## Start Here
 
 - [Workflow](docs/WORKFLOW.md) - how the full setup works day to day.
