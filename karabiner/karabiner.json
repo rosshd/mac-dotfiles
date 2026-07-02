@@ -15,7 +15,7 @@
         },
         "rules": [
           {
-            "description": "Caps Lock → Hyper (Ctrl+Opt+Cmd) when held, Caps Lock when tapped",
+            "description": "Caps Lock → Hyper (Ctrl+Opt+Cmd) when held, Escape when tapped",
             "manipulators": [
               {
                 "type": "basic",
@@ -30,7 +30,7 @@
                   }
                 ],
                 "to_if_alone": [
-                  { "key_code": "caps_lock" }
+                  { "key_code": "escape" }
                 ]
               }
             ]

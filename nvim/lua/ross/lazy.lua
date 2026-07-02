@@ -127,15 +127,54 @@ require("lazy").setup({
 			panel = { enabled = true, auto_refresh = false },
 			suggestion = {
 				enabled = true,
-				auto_trigger = false,
+				auto_trigger = true,
 				keymap = {
-					accept = "<C-J>",
-					next = "<M-]>",
-					prev = "<M-[>",
-					dismiss = "<C-]>",
+					accept = "<C-F>",
+					next = "<C-B>",
+					prev = "<C-V>",
+					dismiss = "<C-E>",
 				},
 			},
 			filetypes = { markdown = true, help = false, gitcommit = true },
+		},
+	},
+	{
+		"saghen/blink.cmp",
+		version = "1.*",
+		opts = {
+			keymap = { preset = "default" },
+			appearance = { nerd_font_variant = "mono" },
+			completion = {
+				documentation = { auto_show = true, auto_show_delay_ms = 500 },
+			},
+			sources = {
+				default = { "lsp", "path", "snippets", "buffer" },
+			},
+		},
+		opts_extend = { "sources.default" },
+	},
+	{
+		"coder/claudecode.nvim",
+		dependencies = { "nvim-lua/plenary.nvim" },
+		event = "VeryLazy",
+		opts = {
+			terminal = { provider = "native", split_side = "right", split_width_percentage = 0.35 },
+		},
+		keys = {
+			{ "<leader>a", nil, desc = "Claude Code" },
+			{ "<leader>ac", "<cmd>ClaudeCode<cr>", desc = "Toggle Claude" },
+			{ "<leader>af", "<cmd>ClaudeCodeFocus<cr>", desc = "Focus Claude" },
+			{ "<leader>ar", "<cmd>ClaudeCode --resume<cr>", desc = "Resume Claude" },
+			{ "<leader>ab", "<cmd>ClaudeCodeAdd %<cr>", desc = "Add current buffer" },
+			{ "<leader>as", "<cmd>ClaudeCodeSend<cr>", mode = "v", desc = "Send selection to Claude" },
+			{
+				"<leader>as",
+				"<cmd>ClaudeCodeTreeAdd<cr>",
+				desc = "Add file from tree",
+				ft = { "oil" },
+			},
+			{ "<leader>aa", "<cmd>ClaudeCodeDiffAccept<cr>", desc = "Accept diff" },
+			{ "<leader>ad", "<cmd>ClaudeCodeDiffDeny<cr>", desc = "Deny diff" },
 		},
 	},
 	{

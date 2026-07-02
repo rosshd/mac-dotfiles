@@ -14,7 +14,7 @@ brew update
 brew install \
   fish tmux starship pyenv neovim fd fzf ripgrep eza bat git-delta lazygit gh go node jq \
   lua-language-server stylua pyright ruff zoxide uv wget tree fastfetch atuin direnv \
-  anomalyco/tap/opencode
+  terminal-notifier anomalyco/tap/opencode
 
 brew install --cask \
   wezterm raycast rectangle karabiner-elements font-jetbrains-mono-nerd-font \
@@ -35,6 +35,9 @@ npm install -g gnhf@0.1.41 lavish-axi@0.1.31
 
 # lavish-axi: install agent hooks (Claude Code, Codex, OpenCode).
 lavish-axi setup hooks
+
+# gh-dash: terminal dashboard for GitHub PRs and issues.
+gh extension install dlvhdr/gh-dash 2>/dev/null || gh extension upgrade dlvhdr/gh-dash
 
 # Agent skills (lavish, axi, no-mistakes, ...) are vendored under agents/skills/
 # and published to all three agents by the symlinks below -- no fetch needed here.
@@ -65,7 +68,9 @@ mkdir -p \
   "$HOME/.local/bin" \
   "$HOME/.codex" \
   "$HOME/.claude" \
-  "$HOME/.config/opencode"
+  "$HOME/.config/opencode" \
+  "$HOME/.copilot" \
+  "$HOME/.gemini"
 
 ln -sfn "$DOTFILES/fish/config.fish" "$HOME/.config/fish/config.fish"
 ln -sfn "$DOTFILES/starship.toml" "$HOME/.config/starship.toml"
@@ -73,14 +78,19 @@ ln -sfn "$DOTFILES/.tmux.conf" "$HOME/.tmux.conf"
 ln -sfn "$DOTFILES/wezterm/wezterm.lua" "$HOME/.config/wezterm/wezterm.lua"
 ln -sfn "$DOTFILES/nvim" "$HOME/.config/nvim"
 ln -sfn "$DOTFILES/voice/vocabulary.md" "$HOME/.config/voice/vocabulary.md"
+mkdir -p "$HOME/.config/gh-dash"
+ln -sfn "$DOTFILES/gh-dash/config.yml" "$HOME/.config/gh-dash/config.yml"
 
-for script in ship agent wt crew plan-artifact voice-vocab doctor firstmate; do
+for script in ship agent wt crew plan-artifact voice-vocab doctor firstmate notify fleet; do
   ln -sfn "$DOTFILES/bin/$script" "$HOME/.local/bin/$script"
   chmod +x "$DOTFILES/bin/$script"
 done
 
 ln -sfn "$DOTFILES/agents/AGENTS.md" "$HOME/.codex/AGENTS.md"
 ln -sfn "$DOTFILES/agents/AGENTS.md" "$HOME/.claude/CLAUDE.md"
+ln -sfn "$DOTFILES/agents/AGENTS.md" "$HOME/.config/opencode/AGENTS.md"
+ln -sfn "$DOTFILES/agents/AGENTS.md" "$HOME/.copilot/copilot-instructions.md"
+ln -sfn "$DOTFILES/agents/AGENTS.md" "$HOME/.gemini/GEMINI.md"
 # Opinions/voice files that AGENTS.md defers to, kept lean for token efficiency.
 ln -sfn "$DOTFILES/STYLE.md" "$HOME/STYLE.md"
 ln -sfn "$DOTFILES/agents/VOICE.md" "$HOME/VOICE.md"
