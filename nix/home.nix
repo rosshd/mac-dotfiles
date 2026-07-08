@@ -9,7 +9,11 @@
   home.file.".tmux.conf".source = ../.tmux.conf;
   home.file.".config/wezterm/wezterm.lua".source = ../wezterm/wezterm.lua;
   home.file.".config/karabiner/karabiner.json".source = ../karabiner/karabiner.json;
-  home.file.".config/nvim".source = ../nvim;
+  home.file.".config/nvim" = {
+    source = ../nvim;
+    recursive = true;
+    force = true;
+  };
   home.file.".config/voice/vocabulary.md".source = ../voice/vocabulary.md;
   home.file.".config/gh-dash/config.yml".source = ../gh-dash/config.yml;
   home.file.".config/herdr/config.toml".source = ../herdr/config.toml;
@@ -30,11 +34,23 @@
   home.file.".local/bin/wt".source = ../bin/wt;
   home.file.".codex/AGENTS.md".source = ../agents/AGENTS.md;
   home.file.".codex/hooks.json".source = ../agents/codex-hooks.json;
-  home.file.".codex/skills".source = ../agents/skills;
+  home.file.".codex/skills" = {
+    source = ../agents/skills;
+    recursive = true;
+    force = true;
+  };
   home.file.".claude/CLAUDE.md".source = ../agents/AGENTS.md;
-  home.file.".claude/skills".source = ../agents/skills;
+  home.file.".claude/skills" = {
+    source = ../agents/skills;
+    recursive = true;
+    force = true;
+  };
   home.file.".config/opencode/AGENTS.md".source = ../agents/AGENTS.md;
-  home.file.".config/opencode/skills".source = ../agents/skills;
+  home.file.".config/opencode/skills" = {
+    source = ../agents/skills;
+    recursive = true;
+    force = true;
+  };
   home.file.".copilot/copilot-instructions.md".source = ../agents/AGENTS.md;
   home.file.".gemini/GEMINI.md".source = ../agents/AGENTS.md;
   home.file."STYLE.md".source = ../STYLE.md;
