@@ -2,12 +2,21 @@
   "hooks": {
     "SessionStart": [
       {
-        "matcher": "",
         "hooks": [
           {
-            "type": "command",
-            "command": "lavish-axi",
-            "timeout": 10
+            "command": "/usr/bin/env PATH=/run/current-system/sw/bin:/opt/homebrew/bin:/opt/homebrew/sbin:/Users/ross/.local/bin:/usr/bin:/bin:/usr/sbin:/sbin /opt/homebrew/bin/lavish-axi",
+            "timeout": 10,
+            "type": "command"
+          }
+        ],
+        "matcher": ""
+      },
+      {
+        "hooks": [
+          {
+            "command": "/usr/bin/env PATH=/run/current-system/sw/bin:/opt/homebrew/bin:/opt/homebrew/sbin:/Users/ross/.local/bin:/usr/bin:/bin:/usr/sbin:/sbin /bin/bash '/Users/ross/.codex/herdr-agent-state.sh' session",
+            "timeout": 10,
+            "type": "command"
           }
         ]
       }
@@ -16,10 +25,10 @@
       {
         "hooks": [
           {
-            "type": "command",
-            "command": "notify --priority high --tag rotating_light --sound Glass --volume loud --repeat 2 \"Codex done\" \"A Codex turn is ready for review\"",
+            "command": "/usr/bin/env PATH=/run/current-system/sw/bin:/opt/homebrew/bin:/opt/homebrew/sbin:/Users/ross/.local/bin:/usr/bin:/bin:/usr/sbin:/sbin /Users/ross/.local/bin/notify --priority high --tag rotating_light --sound Glass --volume loud --repeat 2 \"Codex done\" \"A Codex turn is ready for review\"",
+            "statusMessage": "Notifying captain",
             "timeout": 10,
-            "statusMessage": "Notifying captain"
+            "type": "command"
           }
         ]
       }

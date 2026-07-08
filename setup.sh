@@ -11,14 +11,7 @@ fi
 
 echo "Installing terminal workflow packages..."
 brew update
-brew install \
-  fish tmux starship pyenv neovim fd fzf ripgrep eza bat git-delta lazygit gh go node jq \
-  lua-language-server stylua pyright ruff zoxide uv wget tree fastfetch atuin direnv \
-  terminal-notifier anomalyco/tap/opencode
-
-brew install --cask \
-  wezterm raycast rectangle karabiner-elements font-jetbrains-mono-nerd-font \
-  claude-code codex opensuperwhisper tailscale-app
+brew bundle --file "$DOTFILES/Brewfile"
 
 # --- Agent orchestration stack -------------------------------------------------
 # These replace the local helper scripts noted in docs/TOOLS.md:
@@ -35,6 +28,11 @@ npm install -g gnhf@0.1.41 lavish-axi@0.1.31
 
 # lavish-axi: install agent hooks (Claude Code, Codex, OpenCode).
 lavish-axi setup hooks
+
+# Herdr: terminal-native agent multiplexer and agent state surface.
+for integration in codex claude opencode copilot; do
+  herdr integration install "$integration" || true
+done
 
 # gh-dash: terminal dashboard for GitHub PRs and issues.
 gh extension install dlvhdr/gh-dash 2>/dev/null || gh extension upgrade dlvhdr/gh-dash
@@ -66,6 +64,7 @@ mkdir -p \
   "$HOME/.config/karabiner" \
   "$HOME/.config/nvim" \
   "$HOME/.config/voice" \
+  "$HOME/.config/herdr" \
   "$HOME/.local/bin" \
   "$HOME/.codex" \
   "$HOME/.claude" \
@@ -80,10 +79,11 @@ ln -sfn "$DOTFILES/wezterm/wezterm.lua" "$HOME/.config/wezterm/wezterm.lua"
 ln -sfn "$DOTFILES/karabiner/karabiner.json" "$HOME/.config/karabiner/karabiner.json"
 ln -sfn "$DOTFILES/nvim" "$HOME/.config/nvim"
 ln -sfn "$DOTFILES/voice/vocabulary.md" "$HOME/.config/voice/vocabulary.md"
+ln -sfn "$DOTFILES/herdr/config.toml" "$HOME/.config/herdr/config.toml"
 mkdir -p "$HOME/.config/gh-dash"
 ln -sfn "$DOTFILES/gh-dash/config.yml" "$HOME/.config/gh-dash/config.yml"
 
-for script in ship agent wt crew captain plan-artifact voice-vocab doctor firstmate notify fleet tmux-resurrect-clean clean-reboot; do
+for script in ship agent wt crew captain plan-artifact voice-vocab doctor firstmate notify fleet tmux-resurrect-clean clean-reboot rebuild-mac; do
   ln -sfn "$DOTFILES/bin/$script" "$HOME/.local/bin/$script"
   chmod +x "$DOTFILES/bin/$script"
 done

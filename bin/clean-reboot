@@ -4,6 +4,12 @@ set -euo pipefail
 echo "Scheduling a clean reboot."
 echo "This will close visible user apps first, then reboot."
 
+if command -v ship >/dev/null 2>&1; then
+  ship --save >/tmp/clean-reboot-tmux-save.log 2>&1 || true
+elif [ -x "$HOME/mac-dotfiles/bin/ship" ]; then
+  "$HOME/mac-dotfiles/bin/ship" --save >/tmp/clean-reboot-tmux-save.log 2>&1 || true
+fi
+
 defaults write -g NSQuitAlwaysKeepsWindows -bool false
 defaults write -g ApplePersistenceIgnoreState -bool true
 defaults write com.apple.loginwindow TALLogoutSavesState -bool false

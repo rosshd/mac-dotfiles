@@ -38,6 +38,7 @@ captain done <path>         # return/remove a finished worktree
 captain review "<intent>"   # run no-mistakes for interactive-lane work
 captain voice               # open OpenSuperWhisper and show voice vocabulary
 captain station             # test the local station notification sound
+herdr                       # rich terminal dashboard for live agent panes
 ```
 
 ## Workspace
@@ -48,10 +49,14 @@ Nothing should launch automatically at login.
 The day starts with a clean desktop; open WezTerm only when you are ready to work.
 tmux saves sessions periodically and restores the last saved workspace when a new tmux server starts.
 If no snapshot exists, `ship` creates the fallback `home` and `notes` windows.
+`ship` attempts an explicit resurrect restore before it creates that fallback.
+Use `ship --save` before a restart when you want the current pane layout captured immediately.
 
 ```bash
 ship          # attaches to main
+ship --save   # manually save the tmux layout before restarting
 doctor        # health check when tooling behaves unexpectedly
+rebuild-mac check # package and Nix readiness check
 gh dash       # PR and issue board across repos
 ```
 
@@ -66,6 +71,28 @@ Open extra tmux windows only when the task needs them:
 - `agent` - primary interactive agent (Codex default)
 - `test` - focused checks, green gate, smoke flows
 - `captain` - `captain watch`, fleet state, gates, and station alerts
+
+Herdr is the alternate live-agent surface.
+Use tmux for the normal terminal workspace and fast keyboard muscle memory.
+Use Herdr when the main job is keeping several agent panes visible, tracking which one is blocked/done/working, or attaching from a narrow terminal.
+It complements the captain loop rather than replacing it.
+
+```bash
+herdr
+herdr --session captain
+herdr integration status
+```
+
+Inside Herdr, start agents exactly as you do elsewhere:
+
+```bash
+codex
+claude
+opencode
+```
+
+Herdr has integrations installed for Codex, Claude, OpenCode, and Copilot CLI.
+It sorts the agent panel by attention priority and uses in-app toasts without sound so Glass/ntfy remains the captain-needed alert.
 
 ## Agent roles
 
@@ -171,6 +198,8 @@ Use the tmux `Ctrl-a N` binding to test the sound from the terminal.
 Phone access uses Tailscale plus normal macOS Remote Login.
 The Tailscale macOS app gives the phone a private network path to this Mac; macOS `sshd` handles the actual Shortcut command execution.
 Do not rely on Tailscale SSH for the Mac app variant because the standalone macOS app is not a Tailscale SSH server.
+Prefer the Tailscale MagicDNS hostname over a raw `100.x` IP when Shortcuts supports it.
+The hostname is more stable and avoids the wrong-IP failure mode.
 
 Mac setup:
 
@@ -179,6 +208,7 @@ brew install --cask tailscale-app
 open -a Tailscale
 sudo systemsetup -setremotelogin on
 tailscale status
+captain phone-host
 ```
 
 Sign in to Tailscale on the Mac and phone with the same account.
@@ -193,6 +223,13 @@ It is designed for the small Shortcuts result modal: short lines, no ANSI escape
 ```
 
 Keep full terminal status on `captain status`.
+
+Use `captain phone-host` when Shortcuts says it cannot connect to SSH.
+It prints the Mac hostname and Tailscale self status when the CLI is available.
+
+Herdr can also be used from a phone SSH terminal when you need a live session instead of a Shortcut result modal.
+For phone prompting, Shortcuts remain faster for dispatch/status.
+For live triage, SSH into the Mac and run `herdr` or `herdr --session captain`.
 
 Use `captain dispatch` for voice-driven work from the phone.
 The command turns rough dictated text into a dispatch preview by default.
@@ -290,6 +327,22 @@ no-mistakes axi logs --step review --full
 
 The fleet lane drives no-mistakes automatically.
 Run it manually only for interactive-lane work.
+
+## Reproducible laptop foundation
+
+The video-inspired foundation is split into a safe current path and a stronger future path.
+The safe current path is `Brewfile` plus `rebuild-mac brew`.
+The stronger future path is the Lix-backed Nix scaffold in `flake.nix`, `nix/darwin.nix`, and `nix/home.nix`.
+
+```bash
+rebuild-mac check
+rebuild-mac brew
+rebuild-mac nix
+```
+
+`doctor` reports package drift, Nix readiness, Herdr install state, and Herdr integration status.
+
+See [Reproducibility](REPRODUCIBILITY.md).
 
 ## Reusable Templates
 

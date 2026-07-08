@@ -1,0 +1,101 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SOURCE="${BASH_SOURCE[0]}"
+while [ -L "$SOURCE" ]; do
+  DIR="$(cd -P "$(dirname "$SOURCE")" && pwd)"
+  SOURCE="$(readlink "$SOURCE")"
+  [[ "$SOURCE" != /* ]] && SOURCE="$DIR/$SOURCE"
+done
+DOTFILES="$(cd -P "$(dirname "$SOURCE")/.." && pwd)"
+HOSTNAME="$(scutil --get LocalHostName 2>/dev/null || hostname -s)"
+PATH="$HOME/.local/bin:/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:$PATH"
+
+load_nix_profile() {
+  if ! command -v nix >/dev/null 2>&1 && [ -r /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh ]; then
+    # shellcheck disable=SC1091
+    . /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh
+  fi
+  if ! command -v darwin-rebuild >/dev/null 2>&1 && [ -d /run/current-system/sw/bin ]; then
+    PATH="/run/current-system/sw/bin:$PATH"
+  fi
+}
+
+usage() {
+  cat <<'USAGE'
+usage:
+  rebuild-mac brew
+  rebuild-mac nix
+  rebuild-mac check
+
+brew  Apply the Homebrew bundle from Brewfile.
+nix   Apply the nix-darwin flake for this Mac when nix is installed.
+check Check whether Brewfile and nix-darwin are ready.
+USAGE
+}
+
+brew_apply() {
+  if ! command -v brew >/dev/null 2>&1; then
+    echo "Homebrew is missing."
+    echo "Install it from https://brew.sh, then run rebuild-mac brew."
+    exit 1
+  fi
+
+  brew bundle --file "$DOTFILES/Brewfile"
+}
+
+nix_apply() {
+  load_nix_profile
+
+  if ! command -v nix >/dev/null 2>&1; then
+    echo "Nix/Lix is not installed yet."
+    echo "Install Lix, then run: rebuild-mac nix"
+    echo "This repo already contains flake.nix and nix/darwin.nix for the next step."
+    exit 1
+  fi
+
+  if ! command -v darwin-rebuild >/dev/null 2>&1; then
+    echo "nix-darwin is not installed on PATH yet."
+    echo "Bootstrap with:"
+    echo "  sudo /nix/var/nix/profiles/default/bin/nix run nix-darwin -- switch --flake $DOTFILES#$HOSTNAME"
+    exit 1
+  fi
+
+  sudo darwin-rebuild switch --flake "$DOTFILES#$HOSTNAME"
+}
+
+check_ready() {
+  load_nix_profile
+
+  if command -v brew >/dev/null 2>&1; then
+    HOMEBREW_NO_AUTO_UPDATE=1 brew bundle check --file "$DOTFILES/Brewfile" --no-upgrade
+  else
+    echo "miss brew"
+  fi
+
+  if command -v nix >/dev/null 2>&1; then
+    nix flake show "$DOTFILES" >/dev/null
+    echo "ok nix flake"
+  else
+    echo "warn nix/lix missing"
+  fi
+
+  if command -v darwin-rebuild >/dev/null 2>&1; then
+    echo "ok darwin-rebuild"
+  else
+    echo "warn darwin-rebuild missing"
+  fi
+}
+
+cmd="${1:-check}"
+case "$cmd" in
+  brew) brew_apply ;;
+  nix) nix_apply ;;
+  check) check_ready ;;
+  -h|--help|help) usage ;;
+  *)
+    echo "unknown rebuild-mac command: $cmd" >&2
+    usage >&2
+    exit 2
+    ;;
+esac

@@ -1,0 +1,78 @@
+onboarding = false
+
+[theme]
+name = "tokyo-night"
+
+[terminal]
+default_shell = "fish"
+shell_mode = "login"
+new_cwd = "follow"
+
+[update]
+channel = "stable"
+version_check = true
+manifest_check = true
+
+[worktrees]
+directory = "~/Developer/worktrees/herdr"
+
+[keys]
+prefix = "ctrl+b"
+
+focus_pane_left = ["prefix+h", "ctrl+alt+h"]
+focus_pane_down = ["prefix+j", "ctrl+alt+j"]
+focus_pane_up = ["prefix+k", "ctrl+alt+k"]
+focus_pane_right = ["prefix+l", "ctrl+alt+l"]
+
+previous_tab = ["prefix+p", "ctrl+alt+["]
+next_tab = ["prefix+n", "ctrl+alt+]"]
+new_tab = ["prefix+c", "ctrl+alt+c"]
+
+split_vertical = ["prefix+v", "ctrl+alt+d"]
+split_horizontal = ["prefix+minus", "ctrl+alt+shift+d"]
+zoom = ["prefix+z", "ctrl+alt+z"]
+
+workspace_picker = "prefix+w"
+goto = "prefix+g"
+detach = "prefix+q"
+toggle_sidebar = "prefix+b"
+focus_agent = "prefix+alt+1..9"
+
+[ui]
+sidebar_width = 30
+sidebar_min_width = 18
+sidebar_max_width = 38
+sidebar_collapsed_mode = "compact"
+mobile_width_threshold = 80
+mouse_capture = true
+confirm_close = true
+prompt_new_tab_name = true
+pane_borders = true
+pane_gaps = true
+show_agent_labels_on_pane_borders = true
+hide_tab_bar_when_single_tab = false
+agent_panel_sort = "priority"
+accent = "cyan"
+
+[ui.toast]
+delivery = "herdr"
+delay_seconds = 1
+
+[ui.toast.herdr]
+position = "bottom-right"
+
+[ui.toast.clipboard]
+enabled = true
+position = "bottom-center"
+
+[ui.sound]
+enabled = false
+
+[session]
+resume_agents_on_restore = true
+
+[remote]
+manage_ssh_config = true
+
+[experimental]
+pane_history = true

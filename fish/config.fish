@@ -4,6 +4,11 @@ set -U fish_greeting ''
 # Homebrew + local bin (local first so wrappers take priority)
 set -gx PATH $HOME/.local/bin /opt/homebrew/bin /opt/homebrew/sbin $PATH
 
+# Nix/Lix + nix-darwin profile
+if test -e /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.fish
+    source /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.fish
+end
+
 # pyenv
 set -gx PYENV_ROOT $HOME/.pyenv
 set -gx PATH $PYENV_ROOT/bin $PYENV_ROOT/shims $PATH
@@ -62,6 +67,7 @@ alias fastfetch='command fastfetch'
 alias oc='opencode'
 alias cdx='codex'
 alias cc='claude'
+alias herd='herdr'
 
 alias main='ship'
 alias agents='agent'
@@ -69,6 +75,7 @@ alias a='agent'
 alias deck='captain status'
 alias watchdeck='captain watch'
 alias cr='clean-reboot'
+alias rebuild='rebuild-mac'
 alias worktrees='wt list'
 alias vocab='voice-vocab'
 alias plan='plan-artifact'

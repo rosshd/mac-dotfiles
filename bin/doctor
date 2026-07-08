@@ -1,6 +1,16 @@
 #!/usr/bin/env bash
 set -u
 
+PATH="$HOME/.local/bin:/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:$PATH"
+
+if [ -r /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh ]; then
+  # shellcheck disable=SC1091
+  . /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh
+fi
+if [ -d /run/current-system/sw/bin ]; then
+  PATH="/run/current-system/sw/bin:$PATH"
+fi
+
 failures=0
 check_cmd() {
   local name="$1"
@@ -58,9 +68,51 @@ tmux_doctor() {
 }
 
 printf '== commands ==\n'
-for cmd in wezterm fish tmux nvim git gh delta lazygit codex claude opencode treehouse gnhf no-mistakes lavish-axi firstmate ship agent wt crew captain fleet plan-artifact voice-vocab notify terminal-notifier; do
+for cmd in wezterm fish tmux nvim git gh delta lazygit codex claude opencode herdr treehouse gnhf no-mistakes lavish-axi firstmate ship agent wt crew captain fleet plan-artifact voice-vocab notify rebuild-mac terminal-notifier; do
   check_cmd "$cmd"
 done
+
+printf '\n== reproducibility ==\n'
+if [ -f "$HOME/mac-dotfiles/Brewfile" ]; then
+  if command -v brew >/dev/null 2>&1; then
+    check_run 'Brewfile satisfied' env HOMEBREW_NO_AUTO_UPDATE=1 brew bundle check --file "$HOME/mac-dotfiles/Brewfile" --no-upgrade
+  else
+    printf 'fail Brewfile present but brew is missing\n'
+    failures=$((failures + 1))
+  fi
+else
+  printf 'fail Brewfile missing\n'
+  failures=$((failures + 1))
+fi
+
+if [ -f "$HOME/mac-dotfiles/flake.nix" ]; then
+  printf 'ok   nix flake scaffold present\n'
+else
+  printf 'fail nix flake scaffold missing\n'
+  failures=$((failures + 1))
+fi
+
+if command -v nix >/dev/null 2>&1; then
+  check_run 'nix flake parses' nix flake show "$HOME/mac-dotfiles"
+else
+  printf 'warn nix/lix not installed; run Lix bootstrap before using rebuild-mac nix\n'
+fi
+
+if command -v darwin-rebuild >/dev/null 2>&1; then
+  printf 'ok   darwin-rebuild -> %s\n' "$(command -v darwin-rebuild)"
+else
+  printf 'warn darwin-rebuild missing; nix-darwin not active yet\n'
+fi
+
+if command -v herdr >/dev/null 2>&1; then
+  printf 'ok   herdr -> %s\n' "$(command -v herdr)"
+  check_run 'herdr integration status' herdr integration status
+  for agent in codex claude opencode copilot; do
+    check_run "herdr ${agent} integration current" sh -c "herdr integration status | grep -q '^${agent}: current'"
+  done
+else
+  printf 'warn herdr not installed; no verified public install source has been configured\n'
+fi
 
 printf '\n== configs ==\n'
 check_run 'fish config syntax' fish -n "$HOME/.config/fish/config.fish"
@@ -69,6 +121,7 @@ check_run 'nvim headless startup' nvim --headless '+qa'
 check_run 'wezterm config parse' wezterm --config-file "$HOME/.config/wezterm/wezterm.lua" ls-fonts
 check_run 'gh-dash extension' sh -c 'gh extension list | grep -q "dlvhdr/gh-dash"'
 check_link "$HOME/.config/gh-dash/config.yml" "$HOME/mac-dotfiles/gh-dash/config.yml"
+check_link "$HOME/.config/herdr/config.toml" "$HOME/mac-dotfiles/herdr/config.toml"
 check_link "$HOME/.config/karabiner/karabiner.json" "$HOME/mac-dotfiles/karabiner/karabiner.json"
 
 printf '\n== session persistence ==\n'
@@ -127,8 +180,11 @@ fi
 printf '\n== phone access ==\n'
 if [ -d /Applications/Tailscale.app ] || command -v tailscale >/dev/null 2>&1; then
   printf 'ok   Tailscale installed\n'
+  printf '     LocalHostName: %s\n' "$(scutil --get LocalHostName 2>/dev/null || hostname -s)"
   if command -v tailscale >/dev/null 2>&1; then
     tailscale status --self 2>/dev/null | sed 's/^/     /' || printf 'warn tailscale status unavailable; sign in from the Tailscale app\n'
+  elif [ -x /Applications/Tailscale.app/Contents/MacOS/Tailscale ]; then
+    printf 'ok   Tailscale app binary present; CLI status is optional\n'
   else
     printf 'warn tailscale CLI not on PATH; use the Tailscale app status menu\n'
   fi

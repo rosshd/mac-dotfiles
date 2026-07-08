@@ -3,6 +3,46 @@ set -euo pipefail
 
 session="${1:-main}"
 root="${2:-$HOME/Developer/projects}"
+resurrect_restore="$HOME/.tmux/plugins/tmux-resurrect/scripts/restore.sh"
+resurrect_save="$HOME/.tmux/plugins/tmux-resurrect/scripts/save.sh"
+resurrect_last="$HOME/.local/share/tmux/resurrect/last"
+
+restore_before_fallback() {
+  [ -x "$resurrect_restore" ] || return 1
+  [ -e "$resurrect_last" ] || return 1
+
+  tmux new-session -d -s _ship_restore -n restore -c "$root" 2>/dev/null || true
+  tmux source-file "$HOME/.tmux.conf" 2>/dev/null || true
+  "$resurrect_restore" >/tmp/ship-restore.log 2>&1 || true
+
+  if tmux has-session -t _ship_restore 2>/dev/null; then
+    tmux kill-session -t _ship_restore 2>/dev/null || true
+  fi
+
+  tmux has-session -t "$session" 2>/dev/null
+}
+
+save_now() {
+  if ! tmux has-session 2>/dev/null; then
+    echo "No tmux session is running; nothing to save."
+    return 0
+  fi
+  if [ ! -x "$resurrect_save" ]; then
+    echo "tmux-resurrect save script is missing."
+    return 1
+  fi
+  "$resurrect_save" quiet >/tmp/ship-save.log 2>&1 || {
+    sed -n '1,8p' /tmp/ship-save.log >&2
+    return 1
+  }
+}
+
+case "$session" in
+  --save|save)
+    save_now
+    exit 0
+    ;;
+esac
 
 if ! tmux has-session -t "$session" 2>/dev/null; then
   tmux start-server
@@ -10,9 +50,11 @@ if ! tmux has-session -t "$session" 2>/dev/null; then
 fi
 
 if ! tmux has-session -t "$session" 2>/dev/null; then
-  tmux new-session -d -s "$session" -n home -c "$root"
-  tmux new-window -t "$session:" -n notes -c "$HOME"
-  tmux select-window -t "$session:home"
+  restore_before_fallback || {
+    tmux new-session -d -s "$session" -n home -c "$root"
+    tmux new-window -t "$session:" -n notes -c "$HOME"
+    tmux select-window -t "$session:home"
+  }
 fi
 
 if [ ! -t 1 ]; then

@@ -63,6 +63,57 @@ Config:
 ~/.config/starship.toml
 ```
 
+### Rebuild Mac
+
+`rebuild-mac` is the laptop rebuild helper.
+It keeps package installs tied to the repo instead of scattered across one-off commands.
+
+```bash
+rebuild-mac check   # check Brewfile and Nix readiness
+rebuild-mac brew    # apply Brewfile
+rebuild-mac nix     # apply nix-darwin after Nix is installed
+```
+
+The Fish alias is `rebuild`.
+
+### Herdr
+
+Terminal-native multiplexer for agent-heavy work.
+Use it when the job is less about one tmux workspace and more about watching several live agents, panes, and attention states at once.
+Herdr runs in the terminal, keeps real PTYs alive, tracks agent state, and supports remote/phone-sized attach flows.
+
+Config:
+
+```text
+~/.config/herdr/config.toml
+```
+
+Current integrations:
+
+```bash
+herdr integration status
+```
+
+Installed integrations:
+
+- Codex
+- Claude Code
+- OpenCode
+- GitHub Copilot CLI
+
+Common commands:
+
+```bash
+herdr                    # launch or attach to the default persistent session
+herdr --session captain  # named session
+herdr status server      # check whether the server is running
+herdr server stop        # stop Herdr server
+herdr integration status # check agent hooks/plugins
+```
+
+Use `herd` as the Fish alias.
+Keep Glass/ntfy notifications in `notify`; Herdr uses in-app toasts and no sound so alerts do not stack.
+
 ### Shell integrations
 
 Wired into `fish/config.fish`:
@@ -182,6 +233,7 @@ These live in:
 | `voice-vocab` | Print transcription vocabulary prompt. |
 | `firstmate` | Cd into the firstmate repo and launch its agent. |
 | `doctor` | Validate the toolchain (binaries, configs, versions). |
+| `rebuild-mac` | Check or apply the Brewfile and future Nix rebuild path. |
 | `clean-reboot` | Reapply no-restore defaults, flush preferences, and reboot with `shutdown -r now`. |
 
 See [Coding Templates](CODING_TEMPLATES.md) for which tool owns each part of the coding workflow and why.
@@ -197,6 +249,7 @@ background process, so understand what it does before relying on it.
 | `treehouse` | `wt` | `treehouse update` / `go install github.com/kunchenguid/treehouse@v2.0.0` | Git worktree pool orchestrator; `fleet` leases worktrees from it by default. |
 | `no-mistakes` | `make validate` | `curl -fsSL https://raw.githubusercontent.com/kunchenguid/no-mistakes/main/docs/install.sh \| sh` | Local git proxy that validates changes through an AI pipeline before push. Runs a daemon (`~/.no-mistakes`, socket + sqlite state). |
 | `gnhf` | bounded agent loops | `npm install -g gnhf` | Long-running bounded loop runner. |
+| `herdr` | scattered agent panes | `brew install herdr` | Agent-aware terminal multiplexer; use for live multi-agent visibility, remote attach, and phone-sized terminal sessions. |
 | `firstmate` | `crew` | `git clone github.com/kunchenguid/firstmate` | Repo wrapper launched via the `firstmate` script. |
 | `lavish-axi` | `plan-artifact` | `npm install -g lavish-axi` | Installs agent hooks + the `lavish` skill via `lavish-axi setup hooks` / `npx skills install lavish`. |
 
@@ -215,10 +268,14 @@ Canonical upstreams for every tool in this workflow.
 | OpenSuperWhisper | https://github.com/starmel/OpenSuperWhisper |
 | AXI | https://axi.md |
 | lavish | https://github.com/kunchenguid/lavish |
+| Herdr | https://herdr.dev |
 | no-mistakes | https://github.com/kunchenguid/no-mistakes |
 | gnhf | https://github.com/kunchenguid/gnhf |
 | treehouse | https://github.com/kunchenguid/treehouse |
 | firstmate | https://github.com/kunchenguid/firstmate |
+| Nix | https://nixos.org |
+| nix-darwin | https://github.com/LnL7/nix-darwin |
+| home-manager | https://github.com/nix-community/home-manager |
 
 **OpenSuperWhisper** (dictation; pairs with the `voice-vocab` script and
 `~/.config/voice/vocabulary.md`) installs via the Homebrew cask `opensuperwhisper`.
