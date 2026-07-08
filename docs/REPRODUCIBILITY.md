@@ -52,6 +52,7 @@ Why this exists:
 
 - Fish, tmux, Starship, Neovim, WezTerm, Karabiner, voice vocabulary, and gh-dash config links.
 - Global agent instruction links for Codex, Claude, OpenCode, Copilot CLI, and Gemini CLI.
+- no-mistakes global config, including explicit agent binary paths for daemon and hook launches.
 - Repo-owned helper scripts in `~/.local/bin`.
 - The core terminal package set.
 - macOS defaults that keep startup clean and predictable.

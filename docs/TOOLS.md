@@ -253,6 +253,9 @@ background process, so understand what it does before relying on it.
 | `firstmate` | `crew` | `git clone github.com/kunchenguid/firstmate` | Repo wrapper launched via the `firstmate` script. |
 | `lavish-axi` | `plan-artifact` | `npm install -g lavish-axi` | Installs agent hooks + the `lavish` skill via `lavish-axi setup hooks` / `npx skills install lavish`. |
 
+`~/.no-mistakes/config.yaml` is linked from `no-mistakes/config.yaml`.
+It pins the Codex, Claude, and OpenCode binary paths so no-mistakes still finds agents when launched from git hooks, daemons, or iPhone SSH commands with a reduced PATH.
+
 Validate everything at once with `doctor`.
 
 ## Sources

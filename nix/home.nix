@@ -13,6 +13,7 @@
   home.file.".config/voice/vocabulary.md".source = ../voice/vocabulary.md;
   home.file.".config/gh-dash/config.yml".source = ../gh-dash/config.yml;
   home.file.".config/herdr/config.toml".source = ../herdr/config.toml;
+  home.file.".no-mistakes/config.yaml".source = ../no-mistakes/config.yaml;
   home.file.".local/bin/agent".source = ../bin/agent;
   home.file.".local/bin/captain".source = ../bin/captain;
   home.file.".local/bin/clean-reboot".source = ../bin/clean-reboot;

@@ -66,6 +66,7 @@ mkdir -p \
   "$HOME/.config/voice" \
   "$HOME/.config/herdr" \
   "$HOME/.local/bin" \
+  "$HOME/.no-mistakes" \
   "$HOME/.codex" \
   "$HOME/.claude" \
   "$HOME/.config/opencode" \
@@ -80,6 +81,7 @@ ln -sfn "$DOTFILES/karabiner/karabiner.json" "$HOME/.config/karabiner/karabiner.
 ln -sfn "$DOTFILES/nvim" "$HOME/.config/nvim"
 ln -sfn "$DOTFILES/voice/vocabulary.md" "$HOME/.config/voice/vocabulary.md"
 ln -sfn "$DOTFILES/herdr/config.toml" "$HOME/.config/herdr/config.toml"
+ln -sfn "$DOTFILES/no-mistakes/config.yaml" "$HOME/.no-mistakes/config.yaml"
 mkdir -p "$HOME/.config/gh-dash"
 ln -sfn "$DOTFILES/gh-dash/config.yml" "$HOME/.config/gh-dash/config.yml"
 
