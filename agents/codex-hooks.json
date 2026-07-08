@@ -1,0 +1,28 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "lavish-axi",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "notify --priority high --tag rotating_light --sound Glass --volume loud --repeat 2 \"Codex done\" \"A Codex turn is ready for review\"",
+            "timeout": 10,
+            "statusMessage": "Notifying captain"
+          }
+        ]
+      }
+    ]
+  }
+}

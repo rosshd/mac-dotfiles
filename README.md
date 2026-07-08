@@ -6,13 +6,17 @@ This repo stores Ross's keyboard-first macOS development workflow.
 
 The workflow is terminal-centric and macOS-native:
 
-- WezTerm opens directly into a persistent tmux workspace.
-- tmux owns panes, windows, and agent side sessions.
+- WezTerm opens directly into the restored tmux workspace.
+- tmux restores the last saved session after reboot; if no snapshot exists, `ship` creates only `home` and `notes`.
+- tmux owns task-specific panes, windows, agent side sessions, and the captain status surface on demand.
 - Neovim is the primary editor and file navigation surface.
 - Codex, Claude Code, and OpenCode are available from the same terminal workflow.
 - An agent orchestration stack (`treehouse`, `no-mistakes`, `gnhf`, `firstmate`, `lavish-axi`) layers on top; see [Tools](docs/TOOLS.md).
+- The `captain` command is the main control surface for dispatch, status, voice entry, and station notifications.
 - Raycast remains the global launcher.
 - Rectangle remains the lightweight macOS window helper.
+- Login items should stay off; the laptop should boot to a clean desktop with no user apps or windows.
+- Open WezTerm manually when you want the saved terminal workspace back.
 - Karabiner-Elements provides the Caps Lock Hyper key.
 
 ## Keyboard Hardware
@@ -27,6 +31,7 @@ Shortcut documentation uses macOS modifier names and includes the K350 labels wh
 - [Workflow](docs/WORKFLOW.md) - how the full setup works day to day.
 - [Keybinds](docs/KEYBINDS.md) - tmux, Neovim, shell, and agent shortcuts.
 - [Tools](docs/TOOLS.md) - what each tool is for and when to use it.
+- [Coding Templates](docs/CODING_TEMPLATES.md) - reusable setup, bug fix, review, validation, worktree, and planning workflows.
 - [Remaining Work](docs/REMAINING.md) - what is intentionally deferred or still needs cleanup.
 
 ## Bootstrap

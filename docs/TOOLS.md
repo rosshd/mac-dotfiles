@@ -15,6 +15,7 @@ Config:
 ### tmux
 
 Persistent workspace layer for panes, windows, sessions, and agent side panes.
+The default `ship` session starts with only `home` and `notes`; task-specific windows are opened on demand.
 
 Config:
 
@@ -73,9 +74,11 @@ Wired into `fish/config.fish`:
 
 ### tmux persistence
 
-`tpm` manages `tmux-resurrect` + `tmux-continuum` (see `.tmux.conf`). Sessions
-auto-save every 15 min and restore on tmux server start, so panes/windows
-survive reboots. `prefix + I` reinstalls plugins if needed.
+`tpm` manages `tmux-resurrect` + `tmux-continuum` (see `.tmux.conf`).
+Sessions auto-save every 15 min and restore when a new tmux server starts.
+WezTerm itself is not a login item, so reboot still starts with a clean desktop until you intentionally open the terminal.
+Use `prefix + Ctrl-r` when you want to manually restore a different previous workspace.
+`prefix + I` reinstalls plugins if needed.
 
 ## Agent CLIs
 
@@ -128,7 +131,8 @@ Global launcher and Mac command palette. Keep this as the Mac-level entry point.
 
 Simple macOS-native window movement and a fallback rather than the primary workspace manager.
 Rectangle must be running and have System Settings > Privacy & Security > Accessibility permission before its shortcuts can move windows.
-Enable its "Launch on login" setting after the first launch.
+Keep its "Launch on login" setting disabled so reboot starts clean.
+Open Rectangle manually when you need Hyper window shortcuts.
 
 See [Keybinds](KEYBINDS.md#rectangle) for the recommended shortcuts and Logitech K350 key labels.
 
@@ -178,6 +182,9 @@ These live in:
 | `voice-vocab` | Print transcription vocabulary prompt. |
 | `firstmate` | Cd into the firstmate repo and launch its agent. |
 | `doctor` | Validate the toolchain (binaries, configs, versions). |
+| `clean-reboot` | Reapply no-restore defaults, flush preferences, and reboot with `shutdown -r now`. |
+
+See [Coding Templates](CODING_TEMPLATES.md) for which tool owns each part of the coding workflow and why.
 
 ## Agent Orchestration Stack
 
@@ -187,7 +194,7 @@ background process, so understand what it does before relying on it.
 
 | Tool | Replaces | Install source | Notes |
 | --- | --- | --- | --- |
-| `treehouse` | `wt` | `go install github.com/kunchenguid/treehouse@v1.8.0` | Git worktree orchestrator; symlinked into `~/.local/bin`. |
+| `treehouse` | `wt` | `treehouse update` / `go install github.com/kunchenguid/treehouse@v2.0.0` | Git worktree pool orchestrator; `fleet` leases worktrees from it by default. |
 | `no-mistakes` | `make validate` | `curl -fsSL https://raw.githubusercontent.com/kunchenguid/no-mistakes/main/docs/install.sh \| sh` | Local git proxy that validates changes through an AI pipeline before push. Runs a daemon (`~/.no-mistakes`, socket + sqlite state). |
 | `gnhf` | bounded agent loops | `npm install -g gnhf` | Long-running bounded loop runner. |
 | `firstmate` | `crew` | `git clone github.com/kunchenguid/firstmate` | Repo wrapper launched via the `firstmate` script. |

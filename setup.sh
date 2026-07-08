@@ -18,7 +18,7 @@ brew install \
 
 brew install --cask \
   wezterm raycast rectangle karabiner-elements font-jetbrains-mono-nerd-font \
-  claude-code codex opensuperwhisper
+  claude-code codex opensuperwhisper tailscale-app
 
 # --- Agent orchestration stack -------------------------------------------------
 # These replace the local helper scripts noted in docs/TOOLS.md:
@@ -27,7 +27,7 @@ brew install --cask \
 echo "Installing agent orchestration stack..."
 
 # treehouse: Git worktree orchestrator (Go module -> ~/go/bin).
-go install github.com/kunchenguid/treehouse@v1.8.0
+go install github.com/kunchenguid/treehouse@v2.0.0
 ln -sfn "$(go env GOPATH)/bin/treehouse" "$HOME/.local/bin/treehouse"
 
 # gnhf + lavish-axi: published npm packages, installed globally.
@@ -63,6 +63,7 @@ mkdir -p \
   "$HOME/.config/fish" \
   "$HOME/.config" \
   "$HOME/.config/wezterm" \
+  "$HOME/.config/karabiner" \
   "$HOME/.config/nvim" \
   "$HOME/.config/voice" \
   "$HOME/.local/bin" \
@@ -76,17 +77,19 @@ ln -sfn "$DOTFILES/fish/config.fish" "$HOME/.config/fish/config.fish"
 ln -sfn "$DOTFILES/starship.toml" "$HOME/.config/starship.toml"
 ln -sfn "$DOTFILES/.tmux.conf" "$HOME/.tmux.conf"
 ln -sfn "$DOTFILES/wezterm/wezterm.lua" "$HOME/.config/wezterm/wezterm.lua"
+ln -sfn "$DOTFILES/karabiner/karabiner.json" "$HOME/.config/karabiner/karabiner.json"
 ln -sfn "$DOTFILES/nvim" "$HOME/.config/nvim"
 ln -sfn "$DOTFILES/voice/vocabulary.md" "$HOME/.config/voice/vocabulary.md"
 mkdir -p "$HOME/.config/gh-dash"
 ln -sfn "$DOTFILES/gh-dash/config.yml" "$HOME/.config/gh-dash/config.yml"
 
-for script in ship agent wt crew plan-artifact voice-vocab doctor firstmate notify fleet; do
+for script in ship agent wt crew captain plan-artifact voice-vocab doctor firstmate notify fleet tmux-resurrect-clean clean-reboot; do
   ln -sfn "$DOTFILES/bin/$script" "$HOME/.local/bin/$script"
   chmod +x "$DOTFILES/bin/$script"
 done
 
 ln -sfn "$DOTFILES/agents/AGENTS.md" "$HOME/.codex/AGENTS.md"
+ln -sfn "$DOTFILES/agents/codex-hooks.json" "$HOME/.codex/hooks.json"
 ln -sfn "$DOTFILES/agents/AGENTS.md" "$HOME/.claude/CLAUDE.md"
 ln -sfn "$DOTFILES/agents/AGENTS.md" "$HOME/.config/opencode/AGENTS.md"
 ln -sfn "$DOTFILES/agents/AGENTS.md" "$HOME/.copilot/copilot-instructions.md"
@@ -121,6 +124,28 @@ defaults write com.apple.dock expose-group-apps -bool true
 defaults write com.apple.dock mru-spaces -bool true
 defaults write com.apple.spaces spans-displays -bool false
 defaults write com.apple.WindowManager GloballyEnabled -bool false
+defaults write -g NSQuitAlwaysKeepsWindows -bool false
+defaults write -g ApplePersistenceIgnoreState -bool true
+defaults write com.apple.loginwindow TALLogoutSavesState -bool false
+defaults write com.apple.loginwindow LoginwindowLaunchesRelaunchApps -bool false
+for app_id in \
+  com.apple.Terminal \
+  com.googlecode.iterm2 \
+  com.github.wez.wezterm \
+  com.openai.codex \
+  com.knollsoft.Rectangle \
+  com.raycast.macos \
+  com.spotify.client \
+  io.tailscale.ipn.macos \
+  org.pqrs.Karabiner-Elements.Settings \
+  ru.starmel.OpenSuperWhisper \
+  org.mozilla.firefox \
+  com.google.Chrome \
+  com.microsoft.VSCode \
+  com.anthropic.claudefordesktop; do
+  defaults write "$app_id" NSQuitAlwaysKeepsWindows -bool false
+  defaults write "$app_id" ApplePersistenceIgnoreState -bool true
+done
 
 # Keep screenshots in a stable folder.
 mkdir -p "$HOME/Pictures/Screenshots"

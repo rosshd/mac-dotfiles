@@ -11,6 +11,8 @@
   Codex, Claude, OpenCode, Copilot CLI, and Gemini CLI global instruction paths point at the same `agents/AGENTS.md`.
 - Shell efficiency: fzf keybindings, atuin history, direnv, and tmux session
   persistence (tpm + resurrect + continuum).
+- Simplified the default `ship` workspace to `home` and `notes` only.
+- Added reusable coding templates with tool ownership and rationale.
 - Committed the legacy-to-terminal-first migration and pushed the branch.
 
 ## Manual steps (need your password / one-time)
@@ -21,17 +23,11 @@
 
 ## Medium Priority
 
-1. Add project templates for common agent workflows.
+1. Disable all macOS Login Items and per-app "launch on login" settings.
 
-   Useful templates:
-
-   - new repo setup
-   - review pass
-   - validation pass
-   - worktree branch setup
+   Check at System Settings > General > Login Items and in each app that can self-register.
+   Priority apps to inspect: WezTerm, Raycast, Rectangle, Karabiner-Elements, OpenSuperWhisper, Aerial, no-mistakes, and any menu bar utility.
 
 ## Low Priority
 
-2. Decide whether Aerial should remain a Login Item.
-
-3. Decide whether VS Code needs any dotfiles at all or stays outside this workflow.
+2. Decide whether VS Code needs any dotfiles at all or stays outside this workflow.

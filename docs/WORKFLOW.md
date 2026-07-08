@@ -8,6 +8,7 @@ Agent-facing instructions live in `agents/AGENTS.md` and the shared skills under
 
 Your job is the outer loop only.
 Everything inside a lane runs without you until a gate or the end.
+The `captain` command is the terminal control surface for this loop.
 
 ```text
 intake (idea, bug, issue)
@@ -24,10 +25,29 @@ intake (idea, bug, issue)
   -> compound reusable learning (ce-compound)
 ```
 
+Daily commands:
+
+```bash
+captain status              # one-shot status across fleet, Treehouse, no-mistakes, GitHub, voice
+captain phone-status        # compact iPhone Shortcut status output
+captain dispatch "<task>"   # create a fleet brief and dispatch from phone voice/text
+captain watch               # live terminal dashboard
+captain brief <slug>        # write a bounded task brief
+captain start <slug>        # dispatch a fleet run in a Treehouse-leased worktree
+captain done <path>         # return/remove a finished worktree
+captain review "<intent>"   # run no-mistakes for interactive-lane work
+captain voice               # open OpenSuperWhisper and show voice vocabulary
+captain station             # test the local station notification sound
+```
+
 ## Workspace
 
 Open WezTerm.
 Fish runs `ship`, which attaches to the persistent tmux session named `main`.
+Nothing should launch automatically at login.
+The day starts with a clean desktop; open WezTerm only when you are ready to work.
+tmux saves sessions periodically and restores the last saved workspace when a new tmux server starts.
+If no snapshot exists, `ship` creates the fallback `home` and `notes` windows.
 
 ```bash
 ship          # attaches to main
@@ -37,10 +57,15 @@ gh dash       # PR and issue board across repos
 
 Session windows:
 
+- `home` - project navigation, Git status, quick commands
+- `notes` - plans, lavish artifacts, review surfaces
+
+Open extra tmux windows only when the task needs them:
+
 - `code` - Neovim, git status, diffs
 - `agent` - primary interactive agent (Codex default)
 - `test` - focused checks, green gate, smoke flows
-- `notes` - plans, lavish artifacts, review surfaces
+- `captain` - `captain watch`, fleet state, gates, and station alerts
 
 ## Agent roles
 
@@ -85,7 +110,7 @@ fleet done <worktree-path>  # remove a finished worktree
 ```
 
 Briefs live at `.artifacts/fleet/<slug>.md` in the repo (gitignored).
-Worktrees live at `~/Developer/worktrees/<repo>/fleet-<slug>`.
+Fleet worktrees are leased from Treehouse by default and their paths are recorded next to the brief.
 A run ends at a green PR; you review and merge.
 `fleet start` on an existing slug resumes the run from where gnhf left off.
 
@@ -121,15 +146,96 @@ gh dash                   # PR and issue board
 ## Notifications
 
 `notify` fans out to a macOS banner and an ntfy push (phone), so agent done/blocked/gate events reach you anywhere.
+Local station notifications also play a sound.
+Sound playback is single-owner through `afplay`, so alerts do not double-trigger through the macOS notification system.
+Use `Glass` for captain-needed alerts because it is clear, pleasant, and less fatiguing than harsher system sounds.
+Tune it with `--volume quiet|normal|loud|urgent` and `--repeat <n>`.
 
 ```bash
 notify "title" "message"
+notify --sound Glass --volume loud --repeat 2 --priority high --tag rotating_light "Captain needed" "Review the gate"
+notify --sound Glass --volume normal --repeat 1 "Done" "The run finished"
+captain station
 notify "title" "message" --priority high --tag rotating_light
 ```
 
 Config at `~/.config/notify/notify.conf` (NTFY_SERVER, NTFY_TOPIC).
+Optional defaults: `NOTIFY_SOUND`, `NOTIFY_VOLUME`, and `NOTIFY_REPEAT`.
 Wired into: Claude Code Stop/Notification hooks, `fleet start` run end, no-mistakes gates.
 Only fires on done/blocked/gate - never on progress updates.
+
+Use the tmux `Ctrl-a N` binding to test the sound from the terminal.
+
+## Phone Shortcuts
+
+Phone access uses Tailscale plus normal macOS Remote Login.
+The Tailscale macOS app gives the phone a private network path to this Mac; macOS `sshd` handles the actual Shortcut command execution.
+Do not rely on Tailscale SSH for the Mac app variant because the standalone macOS app is not a Tailscale SSH server.
+
+Mac setup:
+
+```bash
+brew install --cask tailscale-app
+open -a Tailscale
+sudo systemsetup -setremotelogin on
+tailscale status
+```
+
+Sign in to Tailscale on the Mac and phone with the same account.
+Use the Mac's Tailscale hostname or `100.x.y.z` address as the SSH host in Shortcuts.
+Keep Remote Login limited to your user account in System Settings > General > Sharing > Remote Login.
+
+Use `captain phone-status` for iPhone Shortcuts instead of `captain status`.
+It is designed for the small Shortcuts result modal: short lines, no ANSI escape codes, no raw tool tables, and a decision-first `Needs You` section.
+
+```bash
+/bin/zsh -lc 'cd /Users/ross/Developer/projects/openlearn && /Users/ross/.local/bin/captain phone-status'
+```
+
+Keep full terminal status on `captain status`.
+
+Use `captain dispatch` for voice-driven work from the phone.
+The command turns rough dictated text into a dispatch preview by default.
+It does not create a brief, worktree, or fleet run unless you pass `--start`.
+This prevents accidental Shortcut submissions from creating worktrees.
+
+Shortcut: `Captain Dispatch`
+
+1. Add `Dictate Text`.
+2. Add `Run Script over SSH` for preview.
+3. Set host to the Mac SSH host, user `ross`, port `22`, and authentication to the iPhone SSH key.
+4. Pass the dictated text as Shortcut Input.
+5. Use this preview script:
+
+```bash
+/bin/zsh -lc 'cd /Users/ross/Developer/projects/openlearn && /Users/ross/.local/bin/captain dispatch "$1"' -- 'DICTATED_TEXT'
+```
+
+Replace `DICTATED_TEXT` with the dictated text variable in Shortcuts.
+6. Add `Choose from Menu` with `Yes` and `No`.
+7. Under `Yes`, run this start script with the same dictated text:
+
+```bash
+/bin/zsh -lc 'cd /Users/ross/Developer/projects/openlearn && /Users/ross/.local/bin/captain dispatch --start "$1"' -- 'DICTATED_TEXT'
+```
+
+8. Under `No`, run the `Captain Dispatch` shortcut again when you want a clean retry.
+
+Use `--ship committed-branch` in the start script when a phone task should stop before opening a PR.
+
+## Voice Input
+
+OpenSuperWhisper is the local voice entry surface.
+Use it for long prompts, fleet briefs, and planning notes instead of squeezing ideas into short typed commands.
+
+```bash
+captain voice
+voice-vocab
+```
+
+Keep voice input as a prompt accelerator, not a hidden automation layer.
+The agent still needs explicit scope, done criteria, and verification.
+Update `voice/vocabulary.md` whenever new tool names or project terms are misheard.
 
 ## GitHub tools
 
@@ -184,6 +290,23 @@ no-mistakes axi logs --step review --full
 
 The fleet lane drives no-mistakes automatically.
 Run it manually only for interactive-lane work.
+
+## Reusable Templates
+
+Use [Coding Templates](CODING_TEMPLATES.md) for repeatable repo setup, bug fix, review, validation, worktree, and planning workflows.
+The templates map each workflow part to the tool that owns it and explain why.
+
+## Model Policy
+
+Codex defaults to `gpt-5.5` for captain, planning, difficult implementation, review, debugging, and computer-use work.
+Use faster/lighter models only for read-heavy scouts, summarization, and low-risk support agents.
+Let Codex choose subagent settings when the task is routine; pin model/reasoning only when the brief needs it.
+
+Good split:
+
+- Captain/orchestrator: strongest available model, medium or high reasoning.
+- Review/security/debug agents: high reasoning.
+- Scouts/status/document extraction: fast model, low or medium reasoning.
 
 ## Task intake (interactive lane)
 
@@ -252,13 +375,16 @@ One active scoped task can use the working tree directly when its state is clear
 Use a worktree when another task or agent needs independent filesystem state.
 
 ```bash
+wt get                    # lease a Treehouse worktree for this repo
+wt status                 # show Treehouse pool state
+wt return <path>          # return a Treehouse worktree
 wt new <slug>             # create worktree at ~/Developer/worktrees/<repo>/<slug>
 wt list                   # list worktrees
 wt done <path>            # remove a clean worktree
 wt prune                  # prune stale git metadata
 ```
 
-Fleet runs create and manage their own worktrees automatically.
+Fleet runs lease and resume Treehouse worktrees automatically.
 Manual worktrees are for interactive-lane parallel work.
 Parallel tasks need separate subsystems, separate worktrees, and independent stop conditions.
 

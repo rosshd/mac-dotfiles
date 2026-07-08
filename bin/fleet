@@ -5,6 +5,7 @@
 set -euo pipefail
 
 FLEET_AGENT_DEFAULT="codex"
+FLEET_WORKTREE_ENGINE="${FLEET_WORKTREE_ENGINE:-treehouse}"
 STOP_DEFAULT="the project green gate passes, the change is committed on a feature branch, and no-mistakes has produced a green pull request"
 
 usage() {
@@ -21,6 +22,8 @@ start options:
   --max-iterations <n>             gnhf iteration cap (default: 12)
   --ship <green-pr|committed-branch>
                                    how far the run goes alone (default: green-pr)
+  --worktree-engine <treehouse|git>
+                                   worktree provider (default: treehouse)
 
 commands:
   start   write/load the brief, then run gnhf in a fleet worktree branched
@@ -53,6 +56,78 @@ base_ref() {
   fi
 }
 
+treehouse_path_file() {
+  echo "$(dirname "$(brief_path "$1")")/$1.worktree"
+}
+
+prepare_git_worktree() {
+  local repo="$1"
+  local slug="$2"
+  local branch="$3"
+  local wt_root="${WORKTREE_ROOT:-$HOME/Developer/worktrees}"
+  local wt_path="$wt_root/$repo/fleet-$slug"
+  if [ -d "$wt_path" ]; then
+    current="$(git -C "$wt_path" branch --show-current)"
+    if [ "$current" != "$branch" ]; then
+      echo "Worktree $wt_path exists but is on '$current', expected '$branch'" >&2
+      exit 2
+    fi
+    echo "$wt_path"
+    return 0
+  fi
+
+  base="$(base_ref)"
+  git fetch --quiet origin 2>/dev/null || true
+  mkdir -p "$(dirname "$wt_path")"
+  git worktree add -b "$branch" "$wt_path" "$base"
+  echo "$wt_path"
+}
+
+prepare_treehouse_worktree() {
+  local repo="$1"
+  local slug="$2"
+  local branch="$3"
+  local path_file wt_path base
+  path_file="$(treehouse_path_file "$slug")"
+  if [ -f "$path_file" ]; then
+    wt_path="$(cat "$path_file")"
+    if git -C "$wt_path" rev-parse --show-toplevel >/dev/null 2>&1; then
+      current="$(git -C "$wt_path" branch --show-current)"
+      if [ "$current" != "$branch" ]; then
+        if git -C "$wt_path" show-ref --verify --quiet "refs/heads/$branch"; then
+          git -C "$wt_path" switch "$branch"
+        else
+          base="$(base_ref)"
+          git -C "$wt_path" switch -c "$branch" "$base"
+        fi
+      fi
+      echo "$wt_path"
+      return 0
+    fi
+  fi
+
+  if ! command -v treehouse >/dev/null 2>&1; then
+    prepare_git_worktree "$repo" "$slug" "$branch"
+    return 0
+  fi
+
+  base="$(base_ref)"
+  git fetch --quiet origin 2>/dev/null || true
+  wt_path="$(treehouse get --lease --lease-holder "fleet:$repo/$slug")"
+  if [ -z "$wt_path" ] || [ ! -d "$wt_path" ]; then
+    echo "treehouse did not return a worktree path" >&2
+    exit 1
+  fi
+  git -C "$wt_path" fetch --quiet origin 2>/dev/null || true
+  if git -C "$wt_path" show-ref --verify --quiet "refs/heads/$branch"; then
+    git -C "$wt_path" switch "$branch"
+  else
+    git -C "$wt_path" switch -c "$branch" "$base"
+  fi
+  echo "$wt_path" > "$path_file"
+  echo "$wt_path"
+}
+
 cmd="${1:-help}"
 shift || true
 
@@ -77,6 +152,7 @@ case "$cmd" in
     issue=""
     max_iter="12"
     ship="green-pr"
+    worktree_engine="$FLEET_WORKTREE_ENGINE"
     objective=()
     while [ $# -gt 0 ]; do
       case "$1" in
@@ -84,6 +160,7 @@ case "$cmd" in
         --issue) issue="${2:?}"; shift 2 ;;
         --max-iterations) max_iter="${2:?}"; shift 2 ;;
         --ship) ship="${2:?}"; shift 2 ;;
+        --worktree-engine) worktree_engine="${2:?}"; shift 2 ;;
         *) objective+=("$1"); shift ;;
       esac
     done
@@ -138,22 +215,12 @@ case "$cmd" in
       cat "$path"
     } > "$prompt_file"
 
-    wt_root="${WORKTREE_ROOT:-$HOME/Developer/worktrees}"
-    wt_path="$wt_root/$repo/fleet-$slug"
     branch="fleet/$slug"
-    if [ -d "$wt_path" ]; then
-      current="$(git -C "$wt_path" branch --show-current)"
-      if [ "$current" != "$branch" ]; then
-        echo "Worktree $wt_path exists but is on '$current', expected '$branch'" >&2
-        exit 2
-      fi
-      echo "reusing worktree: $wt_path"
-    else
-      base="$(base_ref)"
-      git fetch --quiet origin 2>/dev/null || true
-      mkdir -p "$(dirname "$wt_path")"
-      git worktree add -b "$branch" "$wt_path" "$base"
-    fi
+    case "$worktree_engine" in
+      treehouse) wt_path="$(prepare_treehouse_worktree "$repo" "$slug" "$branch")" ;;
+      git) wt_path="$(prepare_git_worktree "$repo" "$slug" "$branch")" ;;
+      *) echo "unknown worktree engine: $worktree_engine" >&2; exit 2 ;;
+    esac
 
     # tmux runs window commands under the user's default-shell (fish), so
     # dispatch through a generated bash runner instead of an inline string.
@@ -165,9 +232,9 @@ gnhf --agent "$agent" --current-branch --max-iterations "$max_iter" \\
   --stop-when "$stop_cond" "\$(cat "$prompt_file")"
 ec=\$?
 if [ \$ec -eq 0 ]; then
-  notify "fleet done: $repo/$slug" "stop condition reached" --tag white_check_mark
+  notify "fleet done: $repo/$slug" "stop condition reached" --tag white_check_mark --sound Glass --volume normal --repeat 1
 else
-  notify "fleet blocked: $repo/$slug" "gnhf exited \$ec" --priority high --tag rotating_light
+  notify "fleet blocked: $repo/$slug" "gnhf exited \$ec" --priority high --tag rotating_light --sound Glass --volume loud --repeat 2
 fi
 echo
 read -r -p "[fleet] run ended (exit \$ec) - press enter to close" _
@@ -206,7 +273,7 @@ RUNNER
       fi
     fi
 
-    echo "dispatched: $window (agent=$agent, ship=$ship, branch=$branch)"
+    echo "dispatched: $window (agent=$agent, ship=$ship, branch=$branch, worktree=$worktree_engine)"
     echo "  brief:    $path"
     echo "  worktree: $wt_path"
     ;;
@@ -214,6 +281,9 @@ RUNNER
   status)
     echo "fleet tmux windows:"
     tmux list-windows -a -F '#S:#I #W' 2>/dev/null | grep ' fleet-' || echo "  none"
+    echo
+    echo "treehouse:"
+    treehouse status 2>&1 | sed 's/^/  /' || echo "  unavailable"
     echo
     echo "worktrees:"
     found=0
@@ -233,7 +303,11 @@ RUNNER
   done)
     path="${1:-}"
     [ -z "$path" ] && { usage >&2; exit 2; }
-    wt done "$path"
+    if command -v treehouse >/dev/null 2>&1 && [[ "$path" == "$HOME/.treehouse/"* ]]; then
+      treehouse return "$path"
+    else
+      wt done "$path"
+    fi
     ;;
 
   *)

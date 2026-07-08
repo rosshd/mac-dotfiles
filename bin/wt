@@ -14,6 +14,19 @@ repo_name() {
 }
 
 case "$cmd" in
+  get|lease)
+    if command -v treehouse >/dev/null 2>&1; then
+      treehouse get --lease --lease-holder "wt:$(repo_name)"
+    else
+      "$0" new "${1:-agent-$(date +%Y%m%d-%H%M%S)}"
+    fi
+    ;;
+  return)
+    treehouse return "${1:-}" ;;
+  status)
+    treehouse status ;;
+  treehouse)
+    treehouse "$@" ;;
   new)
     slug="${1:-agent-$(date +%Y%m%d-%H%M%S)}"
     base="${2:-HEAD}"
@@ -42,6 +55,11 @@ case "$cmd" in
     ;;
   help|*)
     cat <<'USAGE'
+treehouse:
+  wt get                    lease a Treehouse worktree for this repo
+  wt return <path>          return a Treehouse worktree
+  wt status                 show Treehouse pool status
+
 usage:
   wt new <slug> [base]      create worktree at $WORKTREE_ROOT/<repo>/<slug>
   wt list                   list worktrees

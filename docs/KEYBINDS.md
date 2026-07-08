@@ -26,26 +26,22 @@ Ctrl + Option + Command
 ### Rectangle
 
 Rectangle must be running and enabled in System Settings > Privacy & Security > Accessibility.
-Enable "Launch on login" in Rectangle so the shortcuts remain available after a restart.
+Keep "Launch on login" disabled for a clean desktop after restart.
+Open Rectangle manually when you need its shortcuts.
 
-The active Rectangle shortcuts use `Control+Option`.
-On the K350, that means the physical `Ctrl+Alt` keys and does not include the Windows-logo key.
+The active Rectangle shortcuts use Hyper: `Control+Option+Command`.
+On the K350, hold Caps Lock to emit Hyper through Karabiner-Elements.
+You can also use the physical `Ctrl+Alt+Windows-logo` keys.
 
 | Action | macOS keys | Logitech K350 keys |
 | --- | --- | --- |
-| Left half | `Control+Option+Left` | `Ctrl+Alt+Left` |
-| Right half | `Control+Option+Right` | `Ctrl+Alt+Right` |
-| Top half | `Control+Option+Up` | `Ctrl+Alt+Up` |
-| Bottom half | `Control+Option+Down` | `Ctrl+Alt+Down` |
-| Maximize | `Control+Option+Return` | `Ctrl+Alt+Enter` |
-| Top left | `Control+Option+U` | `Ctrl+Alt+U` |
-| Top right | `Control+Option+I` | `Ctrl+Alt+I` |
-| Bottom left | `Control+Option+J` | `Ctrl+Alt+J` |
-| Bottom right | `Control+Option+K` | `Ctrl+Alt+K` |
-| Restore | `Control+Option+Backspace` | `Ctrl+Alt+Backspace` |
-
-Do not use Caps Lock as Hyper for the half-screen shortcuts.
-Hyper adds `Command`, so `Caps Lock+Left/Right` invokes Rectangle's previous/next-display commands instead.
+| Almost maximize | `Hyper+Z` | `Caps Lock+Z` |
+| Left half | `Hyper+Left` | `Caps Lock+Left` |
+| Right half | `Hyper+Right` | `Caps Lock+Right` |
+| Top half | `Hyper+Up` | `Caps Lock+Up` |
+| Bottom half | `Hyper+Down` | `Caps Lock+Down` |
+| Maximize | `Hyper+F` | `Caps Lock+F` |
+| Center | `Hyper+C` | `Caps Lock+C` |
 
 Open Rectangle Settings > Shortcuts to inspect or change the active bindings.
 
@@ -72,6 +68,7 @@ Configured keys:
 | Move word right | `Option+Right` |
 
 Most workspace navigation should happen in tmux, not WezTerm tabs.
+Fresh WezTerm windows open large and centered, matching the intent of Rectangle's `Almost maximize` action without needing Rectangle at login.
 
 ## Shell (Fish)
 
@@ -122,6 +119,16 @@ Agent panes:
 | Open Claude side pane | `Ctrl+o` |
 | Open OpenCode side pane | `Ctrl-a o` |
 
+Captain workflow:
+
+| Action | Key |
+| --- | --- |
+| Captain status popup | `Ctrl-a C` |
+| Captain watch popup | `Ctrl-a F` |
+| Voice prompt popup | `Ctrl-a V` |
+| Fleet brief popup | `Ctrl-a B` |
+| Test station notification | `Ctrl-a N` |
+
 Persistence (tpm + resurrect/continuum):
 
 | Action | Key |
@@ -130,7 +137,8 @@ Persistence (tpm + resurrect/continuum):
 | Restore session | `Ctrl-a Ctrl-r` |
 | Install plugins | `Ctrl-a I` |
 
-Sessions also auto-save every 15 min and restore on tmux start, so these are rarely needed by hand.
+Sessions auto-save every 15 min and restore when a new tmux server starts.
+WezTerm itself still stays manual so login starts clean.
 
 ## Neovim
 
@@ -218,7 +226,8 @@ Copilot:
 | `cdx` | `codex` |
 | `cc` | `claude` |
 | `oc` | `opencode` |
+| `captain` | captain command deck |
+| `deck` | `captain status` |
 | `worktrees` | `wt list` |
 | `vocab` | `voice-vocab` |
 | `plan` | `plan-artifact` |
-| `captain` | `crew` |

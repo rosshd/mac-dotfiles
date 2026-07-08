@@ -1,0 +1,63 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+echo "Scheduling a clean reboot."
+echo "This will close visible user apps first, then reboot."
+
+defaults write -g NSQuitAlwaysKeepsWindows -bool false
+defaults write -g ApplePersistenceIgnoreState -bool true
+defaults write com.apple.loginwindow TALLogoutSavesState -bool false
+defaults write com.apple.loginwindow LoginwindowLaunchesRelaunchApps -bool false
+
+for app_id in \
+  com.apple.Terminal \
+  com.googlecode.iterm2 \
+  com.github.wez.wezterm \
+  com.openai.codex \
+  com.knollsoft.Rectangle \
+  com.raycast.macos \
+  com.spotify.client \
+  io.tailscale.ipn.macos \
+  org.pqrs.Karabiner-Elements.Settings \
+  ru.starmel.OpenSuperWhisper \
+  org.mozilla.firefox \
+  com.google.Chrome \
+  com.microsoft.VSCode \
+  com.anthropic.claudefordesktop; do
+  defaults write "$app_id" NSQuitAlwaysKeepsWindows -bool false
+  defaults write "$app_id" ApplePersistenceIgnoreState -bool true
+done
+
+killall cfprefsd 2>/dev/null || true
+
+echo "Preparing sudo. Enter your password if asked."
+sudo -v
+
+(
+  sleep 1
+  /usr/bin/osascript <<'APPLESCRIPT' >/dev/null 2>&1 || true
+set appsToQuit to {"WezTerm", "Spotify", "Tailscale", "Firefox", "Codex", "Rectangle", "Raycast", "OpenSuperWhisper", "Google Chrome", "Visual Studio Code", "Claude"}
+repeat with appName in appsToQuit
+  try
+    tell application appName to quit
+  end try
+end repeat
+APPLESCRIPT
+  sleep 2
+  /usr/bin/killall WezTerm >/dev/null 2>&1 || true
+  /usr/bin/killall wezterm-gui >/dev/null 2>&1 || true
+  /usr/bin/killall Spotify >/dev/null 2>&1 || true
+  /usr/bin/killall Tailscale >/dev/null 2>&1 || true
+  /usr/bin/killall firefox >/dev/null 2>&1 || true
+  /usr/bin/killall Codex >/dev/null 2>&1 || true
+  /usr/bin/killall Rectangle >/dev/null 2>&1 || true
+  /usr/bin/killall Raycast >/dev/null 2>&1 || true
+  /usr/bin/killall OpenSuperWhisper >/dev/null 2>&1 || true
+  /usr/bin/killall "Google Chrome" >/dev/null 2>&1 || true
+  /usr/bin/killall "Visual Studio Code" >/dev/null 2>&1 || true
+  /usr/bin/killall Claude >/dev/null 2>&1 || true
+  /usr/bin/killall cfprefsd >/dev/null 2>&1 || true
+  /usr/bin/sudo -n /sbin/shutdown -r now
+) >/tmp/clean-reboot.log 2>&1 &
+
+echo "Reboot worker started. Visible user apps should close before shutdown begins."

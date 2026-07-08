@@ -1,0 +1,507 @@
+#!/usr/bin/env bash
+# captain: keyboard-first command deck for Ross's AI workflow.
+set -euo pipefail
+
+usage() {
+  cat <<'USAGE'
+usage:
+  captain status
+  captain phone-status
+  captain dispatch [--start] [--agent codex|claude] [--ship green-pr|committed-branch] <dictated task...>
+  captain watch [seconds]
+  captain brief <slug>
+  captain start <slug> [fleet options] [objective...]
+  captain done <worktree-path>
+  captain review <intent...>
+  captain station [title] [message]
+  captain voice
+  captain tools
+
+The captain loop is:
+  brief -> fleet start -> captain status/watch -> no-mistakes gate -> review/merge.
+
+Use this command when Ross is acting as captain.
+Agents do implementation, testing, and review; Ross handles product decisions and gates.
+USAGE
+}
+
+section() {
+  printf '\n== %s ==\n' "$1"
+}
+
+strip_ansi() {
+  if command -v perl >/dev/null 2>&1; then
+    perl -pe 's/\e\[[0-9;?]*[ -\/]*[@-~]//g'
+  else
+    cat
+  fi
+}
+
+shorten() {
+  local value="$1"
+  local max="${2:-28}"
+  if [ "${#value}" -le "$max" ]; then
+    printf '%s\n' "$value"
+  elif [ "$max" -le 3 ]; then
+    printf '%.*s\n' "$max" "$value"
+  else
+    printf '%.*s...\n' "$((max - 3))" "$value"
+  fi
+}
+
+wrap_value() {
+  local prefix="$1"
+  local value="$2"
+  local width="${3:-24}"
+  local indent="${4:-   }"
+
+  if [ -z "$value" ]; then
+    printf '%s\n' "$prefix"
+    return 0
+  fi
+
+  local chunk
+  chunk="${value:0:$width}"
+  value="${value:$width}"
+  if [ -n "$value" ] && [[ "$chunk" == *[-,]* ]]; then
+    local split_char="-"
+    [[ "$chunk" == *,* ]] && split_char=","
+    local before="${chunk%$split_char*}$split_char"
+    local after="${chunk##*$split_char}"
+    if [ "${#before}" -ge 8 ]; then
+      chunk="$before"
+      value="$after$value"
+    fi
+  fi
+  printf '%s%s\n' "$prefix" "$chunk"
+  while [ -n "$value" ]; do
+    while [[ "$value" == " "* ]]; do
+      value="${value# }"
+    done
+    chunk="${value:0:$width}"
+    value="${value:$width}"
+    if [ -n "$value" ] && [[ "$chunk" == *[-,]* ]]; then
+      local split_char="-"
+      [[ "$chunk" == *,* ]] && split_char=","
+      local before="${chunk%$split_char*}$split_char"
+      local after="${chunk##*$split_char}"
+      if [ "${#before}" -ge 8 ]; then
+        chunk="$before"
+        value="$after$value"
+      fi
+    fi
+    printf '%s%s\n' "$indent" "$chunk"
+  done
+}
+
+short_gh_status() {
+  if ! command -v gh >/dev/null 2>&1; then
+    echo "missing gh"
+    return 0
+  fi
+  if gh auth status >/tmp/captain-gh-auth.out 2>&1; then
+    echo "ok gh authenticated"
+  else
+    echo "needs attention: gh auth is invalid"
+    sed -n '1,6p' /tmp/captain-gh-auth.out | sed 's/^/  /'
+  fi
+}
+
+short_no_mistakes_status() {
+  if ! command -v no-mistakes >/dev/null 2>&1; then
+    echo "missing no-mistakes"
+    return 0
+  fi
+  local out
+  out="$(no-mistakes axi status 2>&1 || true)"
+  printf '%s\n' "$out" | strip_ansi | awk '
+    /^error:/ {
+      if (length($0) > 180) {
+        print substr($0, 1, 180) "..."
+      } else {
+        print
+      }
+      next
+    }
+    length($0) > 220 {
+      print substr($0, 1, 220) "..."
+      next
+    }
+    { print }
+  ' | sed -n '1,50p'
+}
+
+short_treehouse_status() {
+  if ! command -v treehouse >/dev/null 2>&1; then
+    echo "missing treehouse"
+    return 0
+  fi
+  treehouse status 2>&1 | strip_ansi | sed -n '1,80p' || true
+}
+
+short_fleet_windows() {
+  if ! command -v tmux >/dev/null 2>&1; then
+    echo "missing tmux"
+    return 0
+  fi
+  local out
+  out="$(tmux list-windows -a -F '#{session_name}:#{window_index} #{window_name} #{pane_current_command}' 2>/dev/null | grep ' fleet-' || true)"
+  if [ -n "$out" ]; then
+    echo "$out" | sed 's/^/  /'
+  else
+    echo "  none"
+  fi
+}
+
+repo_root() {
+  git rev-parse --show-toplevel
+}
+
+slugify() {
+  printf '%s\n' "$*" |
+    tr '[:upper:]' '[:lower:]' |
+    sed -E 's/[^a-z0-9]+/-/g; s/^-+//; s/-+$//; s/-+/-/g' |
+    cut -c 1-42 |
+    sed -E 's/-+$//'
+}
+
+status() {
+  section "captain"
+  printf 'cwd: %s\n' "$(pwd)"
+  if git rev-parse --show-toplevel >/dev/null 2>&1; then
+    printf 'repo: %s\n' "$(git rev-parse --show-toplevel)"
+    printf 'branch: %s\n' "$(git branch --show-current 2>/dev/null || true)"
+    local changes
+    changes="$(git status --short 2>/dev/null || true)"
+    if [ -n "$changes" ]; then
+      echo "$changes" | sed 's/^/  /'
+    else
+      echo "  clean"
+    fi
+  else
+    echo "repo: none"
+  fi
+
+  section "fleet windows"
+  short_fleet_windows
+
+  section "treehouse"
+  short_treehouse_status
+
+  section "no-mistakes"
+  short_no_mistakes_status
+
+  section "github"
+  short_gh_status
+
+  section "voice"
+  if [ -d /Applications/OpenSuperWhisper.app ]; then
+    echo "ok OpenSuperWhisper installed"
+  else
+    echo "missing OpenSuperWhisper"
+  fi
+}
+
+phone_status() {
+  local repo_name="no repo"
+  local branch="none"
+  local git_state="not a git repo"
+  local changes=""
+  local now
+
+  if git rev-parse --show-toplevel >/dev/null 2>&1; then
+    repo_name="$(basename "$(git rev-parse --show-toplevel)")"
+    branch="$(git branch --show-current 2>/dev/null || true)"
+    branch="${branch:-detached}"
+    changes="$(git status --short 2>/dev/null || true)"
+    if [ -n "$changes" ]; then
+      git_state="$(printf '%s\n' "$changes" | wc -l | tr -d ' ') changed"
+    else
+      git_state="clean"
+    fi
+  fi
+
+  now="$(date '+%b %-d  %-I:%M %p')"
+
+  local fleet_line="-"
+  local fleet_count="0"
+  local fleet_windows=""
+  if command -v tmux >/dev/null 2>&1; then
+    fleet_windows="$(tmux list-windows -a -F '#{session_name}:#{window_index} #{window_name} #{pane_current_command}' 2>/dev/null | awk '$2 ~ /^fleet-/ { sub(/^fleet-/, "", $2); print $2 }' || true)"
+    if [ -n "$fleet_windows" ]; then
+      fleet_count="$(printf '%s\n' "$fleet_windows" | wc -l | tr -d ' ')"
+      fleet_line="$(printf '%s\n' "$fleet_windows" | awk 'BEGIN { sep="" } { printf "%s%s", sep, $0; sep=", " }')"
+    fi
+  else
+    fleet_line="tmux missing"
+  fi
+
+  local attention=()
+  local gate_line="no-mistakes missing"
+  local gate_detail=""
+  if command -v no-mistakes >/dev/null 2>&1; then
+    local nm
+    nm="$(no-mistakes axi status 2>&1 || true)"
+    nm="$(printf '%s\n' "$nm" | strip_ansi)"
+    local nm_status nm_step nm_findings nm_update
+    nm_status="$(printf '%s\n' "$nm" | awk -F': ' '/^[[:space:]]*status:/ { print $2; exit }')"
+    nm_findings="$(printf '%s\n' "$nm" | awk -F': ' '/^[[:space:]]*findings:/ { print $2; exit }')"
+    nm_step="$(printf '%s\n' "$nm" | awk -F',' '$2 == "failed" { print $1; exit }' | sed 's/^[[:space:]]*//')"
+    nm_update="$(printf '%s\n' "$nm" | awk '/new version of no-mistakes/ { print; exit }')"
+    nm_status="${nm_status:-unknown}"
+    gate_line="no-mistakes $nm_status"
+    if [ -n "$nm_step" ]; then
+      gate_detail="$(shorten "$nm_step" 18) failed"
+      attention+=("No-mistakes failed")
+    fi
+    if [ -n "$nm_findings" ]; then
+      if [ -n "$gate_detail" ]; then
+        gate_detail="$gate_detail, $nm_findings"
+      else
+        gate_detail="findings: $nm_findings"
+      fi
+    fi
+    if [ -n "$nm_update" ]; then
+      gate_detail="${gate_detail:+$gate_detail, }update ready"
+    fi
+  else
+    attention+=("Install no-mistakes")
+  fi
+
+  local treehouse_line="tree miss"
+  if command -v treehouse >/dev/null 2>&1; then
+    local th
+    th="$(treehouse status 2>&1 || true)"
+    th="$(printf '%s\n' "$th" | strip_ansi)"
+    if printf '%s\n' "$th" | grep -qi 'No worktrees in pool'; then
+      treehouse_line="treehouse clear"
+    elif printf '%s\n' "$th" | grep -qi 'operation not permitted'; then
+      treehouse_line="treehouse access"
+      attention+=("Treehouse permission")
+    else
+      local th_first
+      th_first="$(printf '%s\n' "$th" | sed -n '1p')"
+      treehouse_line="$(shorten "$th_first" 22)"
+    fi
+  fi
+
+  local gh_line="gh missing"
+  if command -v gh >/dev/null 2>&1; then
+    if gh auth status >/tmp/captain-gh-auth.out 2>&1; then
+      gh_line="github ok"
+    else
+      gh_line="github login"
+      attention+=("GitHub auth")
+    fi
+  fi
+  local voice_line="voice missing"
+  if [ -d /Applications/OpenSuperWhisper.app ]; then
+    voice_line="voice ready"
+  fi
+
+  local needs_line="nothing urgent"
+  if [ "${#attention[@]}" -eq 0 ]; then
+    needs_line="nothing urgent"
+  else
+    local item
+    needs_line=""
+    for item in "${attention[@]}"; do
+      if [ -n "$needs_line" ]; then
+        needs_line="$needs_line, $item"
+      else
+        needs_line="$item"
+      fi
+    done
+  fi
+
+  printf '🐉  CAPTAIN DECK  ✦ %s\n' "$(shorten "$repo_name" 18)"
+  printf '◆ %s\n' "$now"
+  printf '━━━━━━━━━━━━\n'
+  wrap_value '🛡  ' "$branch" 26 '   '
+  printf '✦ git %s · gate %s\n' "$git_state" "$(shorten "${gate_line#no-mistakes }" 12)"
+  wrap_value "⚔  agents $fleet_count · " "$fleet_line" 24 '   '
+  if [ -n "$gate_detail" ]; then
+    wrap_value '🔥 ' "$gate_detail" 25 '   '
+  fi
+  printf '🏰 %s · %s · %s\n' "$treehouse_line" "$gh_line" "$voice_line"
+  printf '━━━━━━━━━━━━\n'
+  wrap_value 'Needs you: ' "$needs_line" 20 '   '
+}
+
+watch_status() {
+  local delay="${1:-5}"
+  while true; do
+    clear
+    date '+%Y-%m-%d %H:%M:%S'
+    status
+    printf '\n[captain] refresh every %ss - Ctrl-C to exit\n' "$delay"
+    sleep "$delay"
+  done
+}
+
+voice() {
+  if [ -d /Applications/OpenSuperWhisper.app ]; then
+    open -a OpenSuperWhisper >/dev/null 2>&1 || true
+    echo "Opened OpenSuperWhisper."
+    echo "Use it for dictating rich prompts into Codex, fleet briefs, and planning notes."
+  else
+    echo "OpenSuperWhisper is not installed."
+    echo "Install path expected: /Applications/OpenSuperWhisper.app"
+  fi
+  echo
+  voice-vocab 2>/dev/null || true
+}
+
+station() {
+  local title="${1:-Captain needed}"
+  local message="${2:-An agent station needs attention}"
+  notify --priority urgent --tag rotating_light --sound Glass --volume loud --repeat 2 "$title" "$message"
+}
+
+review() {
+  if [ "$#" -eq 0 ]; then
+    echo "usage: captain review <intent...>" >&2
+    exit 2
+  fi
+  no-mistakes axi run --intent "$*"
+}
+
+dispatch() {
+  local start=0
+  local agent="codex"
+  local ship="green-pr"
+  local args=()
+
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --dry-run|--preview) start=0; shift ;;
+      --start|--go|--yes) start=1; shift ;;
+      --agent) agent="${2:?}"; shift 2 ;;
+      --ship) ship="${2:?}"; shift 2 ;;
+      --) shift; args+=("$@"); break ;;
+      *) args+=("$1"); shift ;;
+    esac
+  done
+
+  local task
+  task="${args[*]}"
+  if [ -z "$task" ] && [ ! -t 0 ]; then
+    task="$(cat)"
+  fi
+  task="$(printf '%s\n' "$task" | sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//')"
+  if [ -z "$task" ]; then
+    echo "usage: captain dispatch <dictated task...>" >&2
+    exit 2
+  fi
+
+  local root repo slug_base slug path
+  root="$(repo_root)"
+  repo="$(basename "$root")"
+  slug_base="$(slugify "$task")"
+  slug_base="${slug_base:-phone-task}"
+  slug="$(date '+phone-%m%d-%H%M')-$slug_base"
+  path="$root/.artifacts/fleet/$slug.md"
+
+  printf '🐉 Dispatch preview\n'
+  printf 'repo: %s\n' "$repo"
+  printf 'slug: %s\n' "$slug"
+  printf 'agent: %s\n' "$agent"
+  printf 'ship: %s\n' "$ship"
+  printf 'task: %s\n' "$(shorten "$task" 80)"
+
+  if [ "$start" -eq 0 ]; then
+    printf '\nNot started.\n'
+    printf 'Run again with --start to create the worktree.\n'
+    return 0
+  fi
+
+  if [ "$start" -eq 1 ]; then
+    mkdir -p "$(dirname "$path")"
+    cat > "$path" <<BRIEF
+# Fleet Brief: $slug
+
+## Objective
+
+$task
+
+## Source
+
+Phone voice dispatch through \`captain dispatch\`.
+
+## Scope
+
+In:
+- Implement the requested task end to end.
+- Follow the closest AGENTS.md instructions.
+- Preserve existing behavior unless the objective explicitly requires a change.
+- Keep changes scoped to the requested outcome.
+
+Out:
+- Unrelated refactors.
+- Dependency churn unless required.
+- Product decisions that were not stated in the request.
+
+## Verification
+
+- Reproduce or understand the user-visible behavior before patching when this is a bug.
+- Run the narrow relevant check first.
+- Run the repo green gate before calling the work complete.
+- For openlearn, use \`make check\`.
+
+## Escalation
+
+Stop and report back instead of guessing when:
+- The task needs a product/design decision.
+- The implementation would require risky permissions, secrets, credentials, or destructive commands.
+- The requested behavior conflicts with AGENTS.md or repo constraints.
+- The green gate fails after one focused fix attempt.
+
+## Stop condition
+
+The requested outcome is implemented, relevant verification passes, the change is committed on a feature branch, and a concise handoff explains changed files, verification, risks, and the next decision Ross needs to make.
+BRIEF
+  fi
+
+  printf '\nStarted.\n'
+
+  (cd "$root" && fleet start "$slug" --agent "$agent" --ship "$ship")
+}
+
+tools() {
+  for cmd in codex claude opencode treehouse gnhf no-mistakes lavish-axi firstmate fleet notify voice-vocab gh tmux nvim; do
+    if command -v "$cmd" >/dev/null 2>&1; then
+      printf 'ok   %-16s %s\n' "$cmd" "$(command -v "$cmd")"
+    else
+      printf 'miss %-16s\n' "$cmd"
+    fi
+  done
+}
+
+cmd="${1:-status}"
+shift || true
+
+case "$cmd" in
+  status)
+    if [ "${1:-}" = "--phone" ]; then
+      phone_status
+    else
+      status
+    fi
+    ;;
+  phone-status|phone) phone_status ;;
+  watch) watch_status "${1:-5}" ;;
+  brief) fleet brief "$@" ;;
+  start) fleet start "$@" ;;
+  done) fleet done "$@" ;;
+  review) review "$@" ;;
+  dispatch|phone-dispatch) dispatch "$@" ;;
+  station|notify) station "$@" ;;
+  voice|dictate) voice ;;
+  tools|doctor) tools ;;
+  -h|--help|help) usage ;;
+  *)
+    echo "unknown captain command: $cmd" >&2
+    usage >&2
+    exit 2
+    ;;
+esac
