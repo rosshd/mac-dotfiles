@@ -26,8 +26,8 @@ Ctrl + Option + Command
 ### Rectangle
 
 Rectangle must be running and enabled in System Settings > Privacy & Security > Accessibility.
-Keep "Launch on login" disabled for a clean desktop after restart.
-Open Rectangle manually when you need its shortcuts.
+Keep "Launch on login" enabled so Caps Lock window shortcuts work immediately after startup.
+Rectangle is allowed as a quiet background utility; clean startup means no restored workspaces, not no keyboard helpers.
 
 The active Rectangle shortcuts use Hyper: `Control+Option+Command`.
 On the K350, hold Caps Lock to emit Hyper through Karabiner-Elements.

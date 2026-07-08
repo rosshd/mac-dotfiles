@@ -107,10 +107,18 @@ else
 fi
 
 if osascript -e 'tell application "System Events" to get the name of every login item' >/tmp/doctor-login-items.out 2>/dev/null; then
-  if [ -s /tmp/doctor-login-items.out ] && [ "$(tr -d '[:space:]' </tmp/doctor-login-items.out)" != "" ]; then
-    printf 'warn login items configured: %s\n' "$(cat /tmp/doctor-login-items.out)"
+  login_items="$(cat /tmp/doctor-login-items.out)"
+  if printf '%s\n' "$login_items" | grep -q 'Rectangle'; then
+    printf 'ok   Rectangle login item configured\n'
   else
-    printf 'ok   no login items configured\n'
+    printf 'fail Rectangle login item missing; Caps Lock window shortcuts will not work after startup\n'
+    failures=$((failures + 1))
+  fi
+  extras="$(printf '%s\n' "$login_items" | tr ',' '\n' | sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//' | grep -v '^$' | grep -v '^Rectangle$' || true)"
+  if [ -n "$extras" ]; then
+    printf 'warn extra login items configured: %s\n' "$extras"
+  else
+    printf 'ok   no extra login items configured\n'
   fi
 else
   printf 'warn could not inspect login items; check System Settings > General > Login Items manually\n'

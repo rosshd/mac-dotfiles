@@ -23,10 +23,11 @@
 
 ## Medium Priority
 
-1. Disable all macOS Login Items and per-app "launch on login" settings.
+1. Disable all non-essential macOS Login Items and per-app "launch on login" settings.
 
    Check at System Settings > General > Login Items and in each app that can self-register.
-   Priority apps to inspect: WezTerm, Raycast, Rectangle, Karabiner-Elements, OpenSuperWhisper, Aerial, no-mistakes, and any menu bar utility.
+   Keep Rectangle and Karabiner available at startup because Caps Lock Hyper window shortcuts depend on them.
+   Priority apps to inspect: WezTerm, Raycast, OpenSuperWhisper, Aerial, no-mistakes, and any menu bar utility.
 
 ## Low Priority
 

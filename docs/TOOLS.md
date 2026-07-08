@@ -131,8 +131,8 @@ Global launcher and Mac command palette. Keep this as the Mac-level entry point.
 
 Simple macOS-native window movement and a fallback rather than the primary workspace manager.
 Rectangle must be running and have System Settings > Privacy & Security > Accessibility permission before its shortcuts can move windows.
-Keep its "Launch on login" setting disabled so reboot starts clean.
-Open Rectangle manually when you need Hyper window shortcuts.
+Keep its "Launch on login" setting enabled so Hyper window shortcuts work immediately after startup.
+This is compatible with clean startup because Rectangle is a quiet background utility, not a restored work session.
 
 See [Keybinds](KEYBINDS.md#rectangle) for the recommended shortcuts and Logitech K350 key labels.
 

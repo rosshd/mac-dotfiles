@@ -124,6 +124,7 @@ defaults write com.apple.dock expose-group-apps -bool true
 defaults write com.apple.dock mru-spaces -bool true
 defaults write com.apple.spaces spans-displays -bool false
 defaults write com.apple.WindowManager GloballyEnabled -bool false
+defaults write com.knollsoft.Rectangle launchOnLogin -bool true
 defaults write -g NSQuitAlwaysKeepsWindows -bool false
 defaults write -g ApplePersistenceIgnoreState -bool true
 defaults write com.apple.loginwindow TALLogoutSavesState -bool false
@@ -146,6 +147,14 @@ for app_id in \
   defaults write "$app_id" NSQuitAlwaysKeepsWindows -bool false
   defaults write "$app_id" ApplePersistenceIgnoreState -bool true
 done
+
+osascript <<'APPLESCRIPT' >/dev/null 2>&1 || true
+tell application "System Events"
+  if not (exists login item "Rectangle") then
+    make login item at end with properties {path:"/Applications/Rectangle.app", hidden:true}
+  end if
+end tell
+APPLESCRIPT
 
 # Keep screenshots in a stable folder.
 mkdir -p "$HOME/Pictures/Screenshots"
