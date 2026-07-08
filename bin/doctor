@@ -39,6 +39,8 @@ check_link() {
   local expected="$2"
   if [ -L "$path" ] && [ "$(/usr/bin/readlink "$path")" = "$expected" ]; then
     printf 'ok   %s -> %s\n' "$path" "$expected"
+  elif [ -L "$path" ] && [ -f "$path" ] && [ -f "$expected" ] && cmp -s "$path" "$expected"; then
+    printf 'ok   %s -> Home Manager store copy of %s\n' "$path" "$expected"
   else
     printf 'fail %s should point to %s\n' "$path" "$expected"
     failures=$((failures + 1))
