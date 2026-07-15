@@ -28,7 +28,7 @@ usage:
   captain tools
 
 The captain loop is:
-  brief -> fleet start -> captain status/watch -> no-mistakes gate -> review/merge.
+  brief -> fleet start -> captain status/watch -> selected review or shipping gate -> review/merge.
 
 Use this command when Ross is acting as captain.
 Agents do implementation, testing, and review; Ross handles product decisions and gates.
@@ -394,7 +394,7 @@ fleet_run_info() {
   local slug="$2"
   local worktree log end_line abort_line run_line status reason
   local iterations commits pid age mtime state detail
-  local review_file review_line review_state review_head current_head ship_file ship
+  local review_file review_line review_state review_head review_run current_run current_head ship_file ship
   local gate_info gate_state gate_label gate_detail gate_attention
 
   worktree="$(fleet_worktree_for_slug "$root" "$slug")"
@@ -413,6 +413,7 @@ fleet_run_info() {
   abort_line="$(grep '"event":"orchestrator:abort"' "$log" | tail -n 1 || true)"
 
   if [ -n "$end_line" ]; then
+    current_run="$(basename "$(dirname "$log")")"
     status="$(printf '%s\n' "$end_line" | jq -r '.status // "unknown"' 2>/dev/null)"
     iterations="$(printf '%s\n' "$end_line" | jq -r '.iterations // 0' 2>/dev/null)"
     commits="$(printf '%s\n' "$end_line" | jq -r '.commitCount // 0' 2>/dev/null)"
@@ -435,9 +436,10 @@ fleet_run_info() {
     review_file="$root/.artifacts/fleet/$slug.review-status"
     if [ "$state" != "ready" ] && [ -f "$review_file" ]; then
       review_line="$(sed -n '1p' "$review_file")"
-      IFS='|' read -r review_state review_head mtime <<< "$review_line"
+      IFS='|' read -r review_state review_head mtime review_run <<< "$review_line"
       current_head="$(git -C "$worktree" rev-parse HEAD 2>/dev/null || true)"
-      if [ -n "$review_head" ] && [ "$review_head" = "$current_head" ]; then
+      if [ -n "$review_head" ] && [ "$review_head" = "$current_head" ] \
+        && [ -n "$review_run" ] && [ "$review_run" = "$current_run" ]; then
         case "$review_state" in
           reviewed)
             state="reviewed"; detail="$detail, recovered by independent local review" ;;
@@ -450,7 +452,7 @@ fleet_run_info() {
     review_file="$root/.artifacts/fleet/$slug.review-status"
     if [ "$state" = "ready" ] && [ -f "$review_file" ]; then
       review_line="$(sed -n '1p' "$review_file")"
-      IFS='|' read -r review_state review_head mtime <<< "$review_line"
+      IFS='|' read -r review_state review_head mtime review_run <<< "$review_line"
       current_head="$(git -C "$worktree" rev-parse HEAD 2>/dev/null || true)"
       ship_file="$root/.artifacts/fleet/$slug.ship"
       ship="$(sed -n '1p' "$ship_file" 2>/dev/null || true)"
@@ -473,7 +475,8 @@ fleet_run_info() {
           fi
           ;;
       esac
-      if [ "$state" = "ready" ] && [ -n "$review_head" ] && [ "$review_head" = "$current_head" ]; then
+      if [ "$state" = "ready" ] && [ -n "$review_head" ] && [ "$review_head" = "$current_head" ] \
+        && [ -n "$review_run" ] && [ "$review_run" = "$current_run" ]; then
         case "$review_state" in
           reviewing) state="reviewing"; detail="$detail, no-mistakes running" ;;
           waiting) state="review-needed"; detail="$detail, no-mistakes needs a decision" ;;

@@ -17,7 +17,7 @@ intake (idea, bug, issue)
       interactive  - ambiguous or design-heavy work
       fleet        - any well-briefed task (default)
       cloud        - scheduled or off-machine work
-  -> lane runs to the no-mistakes gate
+  -> lane runs to its selected review or shipping target
   -> notify: done / blocked / gate
   -> review PR or gate finding
       approve -> merge
@@ -52,7 +52,8 @@ Override the three-day window with `CAPTAIN_NO_MISTAKES_MAX_AGE_SECONDS` and the
 
 Open WezTerm.
 Fish runs `ship`, which attaches to the persistent tmux session named `main`.
-Nothing should launch automatically at login.
+Rectangle is the sole login-item exception because Karabiner Hyper window shortcuts depend on it.
+No other user app should launch automatically at login.
 The day starts with a clean desktop; open WezTerm only when you are ready to work.
 tmux saves sessions periodically and restores the last saved workspace when a new tmux server starts.
 If no snapshot exists, `ship` creates the fallback `home` and `notes` windows.
@@ -146,9 +147,10 @@ fleet done <worktree-path>  # remove a finished worktree
 Briefs live at `.artifacts/fleet/<slug>.md` in the repo (gitignored).
 Fleet worktrees are leased from Treehouse by default and their paths are recorded next to the brief.
 A default run ends at an independently reviewed local branch; you decide whether to ship it.
-The fleet runner enforces this as two stages: GNHF owns bounded implementation and local verification, then no-mistakes owns independent review and any explicitly selected push, PR, and CI work.
-`--ship committed-branch` intentionally stops after the first stage and is reported as ready for review rather than reviewed.
-`--ship green-pr` explicitly enables the push, PR, and CI stages; the default `--ship reviewed-branch` skips them.
+The fleet runner starts with bounded GNHF implementation and local verification.
+The default `--ship reviewed-branch` then runs exactly one bounded, lightweight, read-only Codex review and never starts no-mistakes.
+`--ship committed-branch` stops after implementation and is reported as ready for review without running an independent review.
+`--ship green-pr` instead starts the full no-mistakes push, PR, and CI gate.
 `fleet start` on an existing slug resumes the run from where gnhf left off.
 
 Brief template fields: objective, scope (in/out/conflicts-with), stop condition, verification, escalation, ship.
@@ -338,7 +340,8 @@ no-mistakes axi status
 no-mistakes axi logs --step review --full
 ```
 
-The fleet lane starts no-mistakes automatically after a successful GNHF implementation for `--ship reviewed-branch` and `--ship green-pr`.
+The fleet lane starts no-mistakes automatically after a successful GNHF implementation only for `--ship green-pr`.
+The default `--ship reviewed-branch` runs one bounded, lightweight, read-only Codex review instead, while `--ship committed-branch` skips independent review.
 No-mistakes may pause at an approval gate; use `captain status` to see the decision and `no-mistakes axi respond` to continue.
 Run it manually only for interactive-lane work.
 

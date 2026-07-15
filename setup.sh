@@ -19,6 +19,24 @@ brew bundle --file "$DOTFILES/Brewfile"
 #   firstmate -> crew, lavish -> plan-artifact.
 echo "Installing agent orchestration stack..."
 
+mkdir -p "$HOME/.local/bin" "$HOME/Developer/tools"
+
+link_managed_directory() {
+  local source="$1"
+  local target="$2"
+  local backup
+
+  if [ -L "$target" ] || [ ! -e "$target" ]; then
+    ln -sfn "$source" "$target"
+    return
+  fi
+
+  backup="$target.pre-dotfiles.$(date +%Y%m%d%H%M%S)"
+  mv "$target" "$backup"
+  echo "  moved existing $target to $backup"
+  ln -s "$source" "$target"
+}
+
 # treehouse: Git worktree orchestrator (Go module -> ~/go/bin).
 go install github.com/kunchenguid/treehouse@v2.0.0
 ln -sfn "$(go env GOPATH)/bin/treehouse" "$HOME/.local/bin/treehouse"
@@ -30,9 +48,17 @@ npm install -g gnhf@0.1.41 lavish-axi@0.1.31
 lavish-axi setup hooks
 
 # Herdr: terminal-native agent multiplexer and agent state surface.
+integration_failures=()
 for integration in codex claude opencode copilot; do
-  herdr integration install "$integration" || true
+  if ! herdr integration install "$integration"; then
+    integration_failures+=("$integration")
+  fi
 done
+if [ "${#integration_failures[@]}" -gt 0 ]; then
+  printf 'Herdr integration installation failed: %s\n' "${integration_failures[*]}" >&2
+  echo "Rerun setup after resolving the reported integration errors." >&2
+  exit 1
+fi
 
 # gh-dash: terminal dashboard for GitHub PRs and issues.
 gh extension install dlvhdr/gh-dash 2>/dev/null || gh extension upgrade dlvhdr/gh-dash
@@ -51,9 +77,19 @@ fi
 
 # no-mistakes: local git proxy that validates changes through an AI pipeline
 # before pushing. Installs to ~/.no-mistakes/bin, symlinks ~/.local/bin/no-mistakes,
-# and starts a daemon. Re-inspect docs/install.sh before trusting a new version.
+# and starts a daemon.
 if ! command -v no-mistakes >/dev/null 2>&1; then
-  curl -fsSL https://raw.githubusercontent.com/kunchenguid/no-mistakes/main/docs/install.sh | sh
+  NO_MISTAKES_REV="2bbbc143bd4520056e97957883a02615657b2a62"
+  NO_MISTAKES_INSTALL_SHA256="502c518c70ac4ed49ba0e42816db4b1312caad44760fa3619ca4bd41f786678b"
+  no_mistakes_installer="$(mktemp)"
+  trap 'rm -f "$no_mistakes_installer"' EXIT
+  curl -fsSL \
+    "https://raw.githubusercontent.com/kunchenguid/no-mistakes/$NO_MISTAKES_REV/docs/install.sh" \
+    -o "$no_mistakes_installer"
+  printf '%s  %s\n' "$NO_MISTAKES_INSTALL_SHA256" "$no_mistakes_installer" | shasum -a 256 -c -
+  sh "$no_mistakes_installer"
+  rm -f "$no_mistakes_installer"
+  trap - EXIT
 fi
 # ------------------------------------------------------------------------------
 
@@ -62,7 +98,6 @@ mkdir -p \
   "$HOME/.config" \
   "$HOME/.config/wezterm" \
   "$HOME/.config/karabiner" \
-  "$HOME/.config/nvim" \
   "$HOME/.config/voice" \
   "$HOME/.config/herdr" \
   "$HOME/.local/bin" \
@@ -78,7 +113,7 @@ ln -sfn "$DOTFILES/starship.toml" "$HOME/.config/starship.toml"
 ln -sfn "$DOTFILES/.tmux.conf" "$HOME/.tmux.conf"
 ln -sfn "$DOTFILES/wezterm/wezterm.lua" "$HOME/.config/wezterm/wezterm.lua"
 ln -sfn "$DOTFILES/karabiner/karabiner.json" "$HOME/.config/karabiner/karabiner.json"
-ln -sfn "$DOTFILES/nvim" "$HOME/.config/nvim"
+link_managed_directory "$DOTFILES/nvim" "$HOME/.config/nvim"
 ln -sfn "$DOTFILES/voice/vocabulary.md" "$HOME/.config/voice/vocabulary.md"
 ln -sfn "$DOTFILES/herdr/config.toml" "$HOME/.config/herdr/config.toml"
 ln -sfn "$DOTFILES/no-mistakes/config.yaml" "$HOME/.no-mistakes/config.yaml"
@@ -99,9 +134,9 @@ ln -sfn "$DOTFILES/agents/AGENTS.md" "$HOME/.gemini/GEMINI.md"
 # Opinions/voice files that AGENTS.md defers to, kept lean for token efficiency.
 ln -sfn "$DOTFILES/STYLE.md" "$HOME/STYLE.md"
 ln -sfn "$DOTFILES/agents/VOICE.md" "$HOME/VOICE.md"
-ln -sfn "$DOTFILES/agents/skills" "$HOME/.codex/skills"
-ln -sfn "$DOTFILES/agents/skills" "$HOME/.claude/skills"
-ln -sfn "$DOTFILES/agents/skills" "$HOME/.config/opencode/skills"
+link_managed_directory "$DOTFILES/agents/skills" "$HOME/.codex/skills"
+link_managed_directory "$DOTFILES/agents/skills" "$HOME/.claude/skills"
+link_managed_directory "$DOTFILES/agents/skills" "$HOME/.config/opencode/skills"
 
 # tmux session persistence: tpm + resurrect/continuum (.tmux.conf lists the plugins).
 if [ ! -d "$HOME/.tmux/plugins/tpm" ]; then

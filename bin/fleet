@@ -225,9 +225,9 @@ case "$cmd" in
     } > "$prompt_file"
 
     intent="$(awk '
-      $0 == "## Objective" { in_objective = 1; next }
-      in_objective && /^## / { exit }
-      in_objective && NF { print; exit }
+      /^## (Objective|Scope|Stop condition|Verification|Escalation)$/ { include = 1 }
+      /^## / && $0 !~ /^## (Objective|Scope|Stop condition|Verification|Escalation)$/ { include = 0 }
+      include { print }
     ' "$path")"
     intent="${intent:-Fleet $slug}"
 
@@ -254,10 +254,12 @@ ship=$ship_q
 intent=$intent_q
 review_status_file=$review_status_file_q
 review_base=$review_base_q
+rm -f "\$review_status_file"
 gnhf --agent "$agent" --current-branch --max-iterations "$max_iter" \\
   --stop-when "$stop_cond" "\$(cat "$prompt_file")"
 ec=\$?
 latest_gnhf_log=\$(ls -t .gnhf/runs/*/gnhf.log 2>/dev/null | head -n 1 || true)
+gnhf_run_id=\$(basename "\$(dirname "\$latest_gnhf_log")")
 gnhf_reason=""
 if [ -n "\$latest_gnhf_log" ]; then
   gnhf_reason=\$(grep '"event":"orchestrator:abort"' "\$latest_gnhf_log" | tail -n 1 | jq -r '.reason // empty' 2>/dev/null || true)
@@ -267,7 +269,7 @@ if [ \$ec -eq 0 ] && [ "\$gnhf_reason" != "stop condition met" ]; then
 fi
 if [ \$ec -eq 0 ] && [ "\$ship" != "committed-branch" ]; then
   head=\$(git rev-parse HEAD)
-  printf 'reviewing|%s|%s\n' "\$head" "\$(date +%s)" > "\$review_status_file"
+  printf 'reviewing|%s|%s|%s\n' "\$head" "\$(date +%s)" "\$gnhf_run_id" > "\$review_status_file"
   if [ "\$ship" = "reviewed-branch" ]; then
     review_head="\$head"
     review_log="\${review_status_file%.review-status}.review.log"
@@ -285,10 +287,10 @@ if [ \$ec -eq 0 ] && [ "\$ship" != "committed-branch" ]; then
       && [ "\$review_verdict" = "FLEET_REVIEW: PASS" ] \
       && [ "\$current_head" = "\$review_head" ] \
       && [ -z "\$(git status --porcelain)" ]; then
-      printf 'reviewed|%s|%s\n' "\$review_head" "\$(date +%s)" > "\$review_status_file"
+      printf 'reviewed|%s|%s|%s\n' "\$review_head" "\$(date +%s)" "\$gnhf_run_id" > "\$review_status_file"
       ec=0
     else
-      printf 'failed|%s|%s\n' "\$current_head" "\$(date +%s)" > "\$review_status_file"
+      printf 'failed|%s|%s|%s\n' "\$current_head" "\$(date +%s)" "\$gnhf_run_id" > "\$review_status_file"
       ec=1
     fi
   else
@@ -299,15 +301,16 @@ if [ \$ec -eq 0 ] && [ "\$ship" != "committed-branch" ]; then
     nm_status=\$(printf '%s\n' "\$nm" | awk -F': ' '/^[[:space:]]*status:/ { print \$2; exit }')
     nm_outcome=\$(printf '%s\n' "\$nm" | awk -F': ' '/^outcome:/ { print \$2; exit }')
     head=\$(git rev-parse HEAD)
-    if [ "\$nm_status" = "completed" ] && [ "\$nm_outcome" = "passed" ]; then
-      printf 'passed|%s|%s\n' "\$head" "\$(date +%s)" > "\$review_status_file"
+    if [ "\$nm_status" = "completed" ] \
+      && { [ "\$nm_outcome" = "passed" ] || [ "\$nm_outcome" = "checks-passed" ]; }; then
+      printf 'passed|%s|%s|%s\n' "\$head" "\$(date +%s)" "\$gnhf_run_id" > "\$review_status_file"
       ec=0
     elif [ "\$nm_status" = "failed" ] || [ \$nm_ec -ne 0 ]; then
-      printf 'failed|%s|%s\n' "\$head" "\$(date +%s)" > "\$review_status_file"
+      printf 'failed|%s|%s|%s\n' "\$head" "\$(date +%s)" "\$gnhf_run_id" > "\$review_status_file"
       ec=\${nm_ec:-1}
       [ \$ec -eq 0 ] && ec=1
     else
-      printf 'waiting|%s|%s\n' "\$head" "\$(date +%s)" > "\$review_status_file"
+      printf 'waiting|%s|%s|%s\n' "\$head" "\$(date +%s)" "\$gnhf_run_id" > "\$review_status_file"
       ec=3
     fi
   fi

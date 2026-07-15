@@ -76,7 +76,7 @@ Fields every brief must have:
 | Scope - In | Files, subsystems, behaviors this task owns. |
 | Scope - Out | Adjacent things the agent must not touch. |
 | Conflicts with | Other active fleet slugs sharing files or storage. |
-| Stop condition | Verifiable implementation outcome and green gate. GNHF commits after the response, then the runner starts no-mistakes when independent review was requested. |
+| Stop condition | Verifiable implementation outcome and green gate. GNHF commits after the response, then the runner follows the selected review or shipping lane. |
 | Verification | Exact commands that prove the change works. |
 | Escalation | Decisions the agent must not make alone. On hit: stop and report. |
 | Ship | `reviewed-branch` (default), explicit `green-pr`, or `committed-branch`. |
@@ -123,9 +123,10 @@ Prompt sources: `~/mac-dotfiles/agents/routines/`.
 4. **CE deep review** (`ce-code-review`) - only for broad/risky/architecturally important changes.
 5. **no-mistakes gate** - owns rebase, review, tests, docs, lint, push, PR, CI. Start after committing on a feature branch.
 
-Fleet runs bounded implementation first, then starts no-mistakes automatically for `reviewed-branch` and `green-pr` shipping.
-The default `reviewed-branch` skips push, PR, and CI; `green-pr` must be selected explicitly.
-The no-mistakes stage pauses only at a decision point or terminal outcome, and `captain status` reports whether it is reviewing, waiting, failed, or ship-ready.
+Fleet runs bounded implementation first.
+The default `reviewed-branch` then runs exactly one bounded, lightweight, read-only Codex review and never starts no-mistakes.
+The explicit `green-pr` lane starts the full no-mistakes push, PR, and CI gate, while `committed-branch` skips independent review.
+The no-mistakes stage in the `green-pr` lane pauses only at a decision point or terminal outcome, and `captain status` reports whether it is reviewing, waiting, failed, or ship-ready.
 Run no-mistakes manually only for interactive-lane work.
 
 ---

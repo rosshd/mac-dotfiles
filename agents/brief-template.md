@@ -12,7 +12,7 @@
 
 ## Stop condition
 
-<The verifiable implementation and local-verification end state. Set `should_fully_stop=true` when that end state is achieved by this iteration. GNHF commits successful iteration changes automatically afterward, so do not make that commit a prerequisite and do not commit manually. The fleet runner starts no-mistakes afterward for `reviewed-branch` or `green-pr`.>
+<The verifiable implementation and local-verification end state. Set `should_fully_stop=true` when that end state is achieved by this iteration. GNHF commits successful iteration changes automatically afterward, so do not make that commit a prerequisite and do not commit manually. The fleet runner then runs one bounded read-only Codex review for `reviewed-branch`, the full no-mistakes gate for `green-pr`, or no independent review for `committed-branch`.>
 
 ## Verification
 

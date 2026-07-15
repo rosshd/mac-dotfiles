@@ -51,10 +51,10 @@ if [ "${1:-}" = "axi" ] && [ "${2:-}" = "run" ]; then
   printf '%s\n' "$*" >> "$NM_CALLS"
   exit 0
 fi
-cat <<'STATUS'
+cat <<STATUS
 run:
   status: completed
-outcome: passed
+outcome: ${NM_OUTCOME:-passed}
 STATUS
 SCRIPT
 chmod +x "$fakebin/no-mistakes"
@@ -72,6 +72,7 @@ run_case() {
   local reason="${3:-stop condition met}"
   local review_result="${4:-PASS}"
   local mutate="${5:-0}"
+  local nm_outcome="${6:-passed}"
   rm -f "$calls" "$review_calls"
   (
     cd "$repo"
@@ -79,14 +80,18 @@ run_case() {
       "$root/bin/fleet" start "$slug" --worktree-engine git --ship "$ship" "test review stage"
   ) >/dev/null
   [ "$(cat "$repo/.artifacts/fleet/$slug.ship")" = "$ship" ]
+  printf 'reviewed|%s|0\n' "$(git -C "$repo" rev-parse HEAD)" > \
+    "$repo/.artifacts/fleet/$slug.review-status"
   printf '\n' | PATH="$fakebin:$PATH" NM_CALLS="$calls" REVIEW_CALLS="$review_calls" \
     FLEET_REVIEW_RESULT="$review_result" GNHF_TEST_REASON="$reason" \
-    FLEET_REVIEW_MUTATE="$mutate" \
+    FLEET_REVIEW_MUTATE="$mutate" NM_OUTCOME="$nm_outcome" \
     bash "$repo/.artifacts/fleet/$slug.run.sh" >/dev/null
 }
 
 run_case committed-branch
 [ ! -f "$calls" ]
+[ ! -f "$review_calls" ]
+[ ! -f "$repo/.artifacts/fleet/review-committed-branch.review-status" ]
 
 run_case green-pr capped-green-pr "max iterations reached (8)"
 [ ! -f "$calls" ]
@@ -106,7 +111,56 @@ run_case reviewed-branch changed-during-review "stop condition met" PASS 1
 rg -Fq 'failed|' "$repo/.artifacts/fleet/changed-during-review.review-status"
 
 run_case green-pr
-[ "$(wc -l < "$calls" | tr -d ' ')" = "1" ]
+[ "$(rg -c '^axi run --intent ' "$calls")" = "1" ]
 rg -Fq 'passed|' "$repo/.artifacts/fleet/review-green-pr.review-status"
+
+mkdir -p "$repo/.artifacts/fleet"
+cat > "$repo/.artifacts/fleet/full-intent.md" <<'BRIEF'
+# Fleet Brief: full-intent
+
+## Objective
+
+First objective line.
+Second objective line.
+
+## Scope
+
+- In: preserve all constraints.
+- Out: unrelated behavior.
+
+## Stop condition
+
+The focused contract passes.
+
+## Verification
+
+Run the focused test.
+
+## Escalation
+
+Preserve the deliberate tradeoff.
+
+## Ship
+
+green-pr
+BRIEF
+run_case green-pr full-intent "stop condition met" PASS 0 checks-passed
+rg -Fq 'passed|' "$repo/.artifacts/fleet/full-intent.review-status"
+for expected in \
+  'First objective line.' \
+  'Second objective line.' \
+  'preserve all constraints.' \
+  'Preserve the deliberate tradeoff.'; do
+  rg -Fq "$expected" "$calls"
+done
+
+rg -Fq 'exactly one bounded, lightweight, read-only Codex review' \
+  "$root/docs/WORKFLOW.md" "$root/docs/WORKFLOW-QUICKLEARN.md"
+if rg -Fq 'starts no-mistakes automatically for `reviewed-branch`' \
+  "$root/docs/WORKFLOW.md" "$root/docs/WORKFLOW-QUICKLEARN.md" \
+  "$root/agents/brief-template.md"; then
+  echo "reviewed-branch documentation must not delegate review to no-mistakes" >&2
+  exit 1
+fi
 
 echo "fleet review stage: ok"

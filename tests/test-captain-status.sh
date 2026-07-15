@@ -45,11 +45,11 @@ cat > "$worktree/.gnhf/runs/run/gnhf.log" <<'LOG'
 {"event":"orchestrator:end","status":"aborted","iterations":2,"commitCount":2}
 LOG
 
-printf 'reviewing|%s|%s\n' "$head" "$now" > "$tmp/.artifacts/fleet/$slug.review-status"
+printf 'reviewing|%s|%s|run\n' "$head" "$now" > "$tmp/.artifacts/fleet/$slug.review-status"
 [[ "$(fleet_run_info "$tmp" "$slug")" == reviewing\|* ]]
-printf 'passed|%s|%s\n' "$head" "$now" > "$tmp/.artifacts/fleet/$slug.review-status"
+printf 'passed|%s|%s|run\n' "$head" "$now" > "$tmp/.artifacts/fleet/$slug.review-status"
 [[ "$(fleet_run_info "$tmp" "$slug")" == ship-ready\|* ]]
-printf 'reviewed|%s|%s\n' "$head" "$now" > "$tmp/.artifacts/fleet/$slug.review-status"
+printf 'reviewed|%s|%s|run\n' "$head" "$now" > "$tmp/.artifacts/fleet/$slug.review-status"
 [[ "$(fleet_run_info "$tmp" "$slug")" == reviewed\|* ]]
 
 cat > "$worktree/.gnhf/runs/run/gnhf.log" <<'LOG'
@@ -57,5 +57,8 @@ cat > "$worktree/.gnhf/runs/run/gnhf.log" <<'LOG'
 {"event":"orchestrator:end","status":"aborted","iterations":8,"commitCount":7}
 LOG
 [[ "$(fleet_run_info "$tmp" "$slug")" == reviewed\|*recovered* ]]
+
+printf 'reviewed|%s|%s|older-run\n' "$head" "$now" > "$tmp/.artifacts/fleet/$slug.review-status"
+[[ "$(fleet_run_info "$tmp" "$slug")" == capped\|* ]]
 
 echo "captain status freshness policy: ok"

@@ -15,8 +15,8 @@ The workflow is terminal-centric and macOS-native:
 - Herdr is available as the terminal-native agent multiplexer for long-lived multi-agent sessions.
 - The `captain` command is the main control surface for dispatch, status, voice entry, and station notifications.
 - Raycast remains the global launcher.
-- Rectangle remains the lightweight macOS window helper.
-- Login items should stay off; the laptop should boot to a clean desktop with no user apps or windows.
+- Rectangle remains the lightweight macOS window helper and the sole login-item exception because Karabiner Hyper window shortcuts depend on it.
+- Other login items should stay off; the laptop should boot to a clean desktop with no visible app windows.
 - Open WezTerm manually when you want the saved terminal workspace back.
 - Karabiner-Elements provides the Caps Lock Hyper key.
 
