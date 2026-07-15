@@ -1,26 +1,26 @@
-# ── Starship — orange space theme ─────────────────────────────────────────
+# ── Starship - mystic mycology theme ─────────────────────────────────────
 
 format = """
-[╭](dimmed yellow) $directory$git_branch$git_status$python$golang$nodejs$rust$fill$cmd_duration$jobs$time
-[╰❯](bold yellow) """
+[╭](#755866) $directory$git_branch$git_status$python$golang$nodejs$rust$fill$cmd_duration$jobs$time
+[╰❯](bold #e58da0) """
 
 # ── Directory ─────────────────────────────────────────────────────────────
 [directory]
-style = "bold yellow"
+style = "bold #e58da0"
 truncation_length = 4
 truncate_to_repo = true
 read_only = " 󰌾"
-format = "[$path]($style)[$read_only](red) "
+format = "[$path]($style)[$read_only](#d46a82) "
 
 # ── Git ───────────────────────────────────────────────────────────────────
 [git_branch]
 format = "on [$symbol$branch(:$remote_branch)]($style) "
 symbol = " "
-style = "bold purple"
+style = "bold #d46a82"
 
 [git_status]
 format = '([$all_status$ahead_behind]($style) )'
-style = "bold blue"
+style = "bold #b8c0d8"
 conflicted = "⚡"
 ahead = "⇡${count}"
 behind = "⇣${count}"
@@ -36,23 +36,23 @@ deleted = "✘${count}"
 [python]
 format = '[${symbol}${pyenv_prefix}${version}( \($virtualenv\))]($style) '
 symbol = " "
-style = "bold yellow"
+style = "bold #e58da0"
 pyenv_version_name = true
 
 [golang]
 format = '[$symbol$version]($style) '
 symbol = " "
-style = "bold blue"
+style = "bold #b8c0d8"
 
 [nodejs]
 format = '[$symbol$version]($style) '
 symbol = " "
-style = "bold green"
+style = "bold #b69ac7"
 
 [rust]
 format = '[$symbol$version]($style) '
 symbol = " "
-style = "bold red"
+style = "bold #d46a82"
 
 # ── Right side ────────────────────────────────────────────────────────────
 [fill]
@@ -60,20 +60,20 @@ symbol = " "
 
 [cmd_duration]
 format = "took [$duration]($style) "
-style = "dimmed yellow"
+style = "#b99aa4"
 min_time = 2_000
 show_milliseconds = false
 
 [jobs]
 format = "[$symbol$number]($style) "
-style = "bold blue"
+style = "bold #b69ac7"
 symbol = "✦ "
 number_threshold = 1
 
 [time]
 disabled = false
 format = '[$time]($style) '
-style = "dimmed purple"
+style = "#e58da0"
 time_format = "%H:%M"
 
 # ── Prompt character (turns red on error) ─────────────────────────────────

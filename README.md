@@ -48,4 +48,5 @@ The script installs the current toolchain, links configs into `~/.config`, links
 
 The package list lives in `Brewfile`.
 Use `rebuild-mac check` to detect package drift and `rebuild-mac brew` to reapply it.
-The Lix-backed Nix scaffold is present for a future full nix-darwin migration, but it is not activated by default.
+The Lix-backed nix-darwin and Home Manager configuration is active and owns the reproducible system and user configuration.
+Use `rebuild-mac nix` to build and activate it.

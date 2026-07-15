@@ -12,13 +12,6 @@ end
 vim.opt.rtp:prepend(lazypath)
 
 require("lazy").setup({
-	{
-		"folke/tokyonight.nvim",
-		priority = 1000,
-		config = function()
-			vim.cmd.colorscheme("tokyonight-night")
-		end,
-	},
 	{ "folke/which-key.nvim", opts = {} },
 	{ "nvim-tree/nvim-web-devicons", lazy = true },
 	{ "tpope/vim-sleuth" },

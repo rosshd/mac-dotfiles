@@ -16,7 +16,7 @@ usage() {
 usage:
   captain status
   captain phone-status
-  captain dispatch [--start] [--agent codex|claude] [--ship green-pr|committed-branch] <dictated task...>
+  captain dispatch [--start] [--agent codex|claude] [--ship reviewed-branch|green-pr|committed-branch] <dictated task...>
   captain watch [seconds]
   captain brief <slug>
   captain start <slug> [fleet options] [objective...]
@@ -113,36 +113,168 @@ short_gh_status() {
     echo "missing gh"
     return 0
   fi
-  if gh auth status >/tmp/captain-gh-auth.out 2>&1; then
-    echo "ok gh authenticated"
+  # Credential presence is the durable auth signal. `gh auth status` may
+  # contact GitHub and used to turn transient network failures into false
+  # "login required" alerts, especially from iPhone SSH shortcuts.
+  if gh auth token >/dev/null 2>&1; then
+    echo "ok gh credentials configured"
   else
-    echo "needs attention: gh auth is invalid"
-    sed -n '1,6p' /tmp/captain-gh-auth.out | sed 's/^/  /'
+    echo "needs attention: gh login required"
   fi
 }
 
-short_no_mistakes_status() {
-  if ! command -v no-mistakes >/dev/null 2>&1; then
-    echo "missing no-mistakes"
+default_branch_for_root() {
+  local root="$1"
+  local ref
+  ref="$(git -C "$root" symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null || true)"
+  if [ -n "$ref" ]; then
+    printf '%s\n' "${ref#origin/}"
+  elif git -C "$root" show-ref --verify --quiet refs/heads/main; then
+    printf 'main\n'
+  elif git -C "$root" show-ref --verify --quiet refs/heads/master; then
+    printf 'master\n'
+  else
+    git -C "$root" branch --show-current 2>/dev/null || true
+  fi
+}
+
+repo_needs_gate() {
+  local root="$1"
+  local branch default_branch changes ahead="0"
+  branch="$(git -C "$root" branch --show-current 2>/dev/null || true)"
+  default_branch="$(default_branch_for_root "$root")"
+  changes="$(git -C "$root" status --short 2>/dev/null || true)"
+  if git -C "$root" rev-parse --verify '@{upstream}' >/dev/null 2>&1; then
+    ahead="$(git -C "$root" rev-list --count '@{upstream}..HEAD' 2>/dev/null || echo 0)"
+  fi
+  [ -n "$changes" ] || [ -z "$branch" ] || [ "$branch" != "$default_branch" ] || [ "$ahead" -gt 0 ]
+}
+
+no_mistakes_updated_epoch() {
+  local run_id="$1"
+  local db="$HOME/.no-mistakes/state.sqlite"
+  [[ "$run_id" =~ ^[0-9A-Z]+$ ]] || return 0
+  command -v sqlite3 >/dev/null 2>&1 || return 0
+  [ -f "$db" ] || return 0
+  sqlite3 "$db" "select updated_at from runs where id = '$run_id' limit 1;" 2>/dev/null || true
+}
+
+classify_no_mistakes() {
+  local status="$1"
+  local run_branch="$2"
+  local run_head="$3"
+  local current_branch="$4"
+  local current_head="$5"
+  local needs_gate="$6"
+  local updated_epoch="${7:-0}"
+  local now="${8:-$(date +%s)}"
+  local findings="${9:-}"
+  local failed_step="${10:-}"
+  local age=0 age_label="unknown" matches_current="false"
+  local max_age="${CAPTAIN_NO_MISTAKES_MAX_AGE_SECONDS:-259200}"
+  local stuck_age="${CAPTAIN_NO_MISTAKES_STUCK_SECONDS:-1200}"
+
+  if [ "$updated_epoch" -gt 0 ] 2>/dev/null; then
+    if [ "$updated_epoch" -gt "$((now * 100))" ]; then
+      updated_epoch="$((updated_epoch / 1000))"
+    fi
+    age="$((now - updated_epoch))"
+    [ "$age" -lt 0 ] && age=0
+    age_label="$(format_age "$age") ago"
+  fi
+
+  if [ -n "$run_branch" ] && [ -n "$run_head" ] && [ -n "$current_head" ] &&
+    [ "$run_branch" = "$current_branch" ] &&
+    { [[ "$current_head" == "$run_head"* ]] || [[ "$run_head" == "$current_head"* ]]; }; then
+    matches_current="true"
+  fi
+
+  if [ -z "$status" ] || [ "$status" = "unknown" ]; then
+    if [ "$needs_gate" = "true" ]; then
+      printf 'needed|needed|current work has not been checked|Run no-mistakes\n'
+    else
+      printf 'idle|idle|no validation needed|\n'
+    fi
     return 0
   fi
-  local out
-  out="$(no-mistakes axi status 2>&1 || true)"
-  printf '%s\n' "$out" | strip_ansi | awk '
-    /^error:/ {
-      if (length($0) > 180) {
-        print substr($0, 1, 180) "..."
-      } else {
-        print
-      }
-      next
-    }
-    length($0) > 220 {
-      print substr($0, 1, 220) "..."
-      next
-    }
-    { print }
-  ' | sed -n '1,50p'
+
+  case "$status" in
+    completed|failed|aborted|cancelled|canceled) ;;
+    awaiting*|blocked|paused)
+      if [ "$updated_epoch" -gt 0 ] && [ "$age" -ge "$stuck_age" ]; then
+        printf 'stuck|stuck|%s, no update for %s|Check no-mistakes\n' "$run_branch" "$age_label"
+      else
+        printf 'waiting|waiting|%s, updated %s|Check no-mistakes\n' "$run_branch" "$age_label"
+      fi
+      return 0
+      ;;
+    *)
+      if [ "$updated_epoch" -gt 0 ] && [ "$age" -ge "$stuck_age" ]; then
+        printf 'stuck|stuck|%s, no update for %s|Check no-mistakes\n' "$run_branch" "$age_label"
+      else
+        printf 'running|running|%s, updated %s|\n' "$run_branch" "$age_label"
+      fi
+      return 0
+      ;;
+  esac
+
+  if [ "$matches_current" = "true" ] &&
+    { [ "$updated_epoch" -eq 0 ] || [ "$age" -lt "$max_age" ]; }; then
+    if [ "$status" = "completed" ]; then
+      if [ -n "$findings" ] && [ "$findings" != "none" ]; then
+        printf 'review|review|findings: %s|Review no-mistakes findings\n' "$findings"
+      else
+        printf 'passed|passed|validated %s|\n' "$age_label"
+      fi
+    else
+      printf 'failed|failed|%s%s|No-mistakes failed\n' \
+        "${failed_step:-run}" "${age_label:+, $age_label}"
+    fi
+    return 0
+  fi
+
+  if [ "$needs_gate" = "true" ]; then
+    printf 'needed|needed|current work has not been checked|Run no-mistakes\n'
+  else
+    printf 'idle|idle|no validation needed|\n'
+  fi
+}
+
+no_mistakes_info() {
+  local root="$1"
+  if ! command -v no-mistakes >/dev/null 2>&1; then
+    printf 'missing|missing|not installed|Install no-mistakes\n'
+    return 0
+  fi
+
+  local out run_id run_branch run_head run_status findings failed_step updated_epoch
+  local current_branch current_head needs_gate="false"
+  out="$(cd "$root" && no-mistakes axi status 2>&1 || true)"
+  out="$(printf '%s\n' "$out" | strip_ansi)"
+  run_id="$(printf '%s\n' "$out" | awk -F': ' '/^[[:space:]]*id:/ { gsub(/"/, "", $2); print $2; exit }')"
+  run_branch="$(printf '%s\n' "$out" | awk -F': ' '/^[[:space:]]*branch:/ { gsub(/"/, "", $2); print $2; exit }')"
+  run_status="$(printf '%s\n' "$out" | awk -F': ' '/^[[:space:]]*status:/ { print $2; exit }')"
+  run_head="$(printf '%s\n' "$out" | awk -F': ' '/^[[:space:]]*head:/ { print $2; exit }')"
+  findings="$(printf '%s\n' "$out" | awk -F': ' '/^[[:space:]]*findings:/ { print $2; exit }')"
+  failed_step="$(printf '%s\n' "$out" | awk -F',' '$2 == "failed" { print $1; exit }' | sed 's/^[[:space:]]*//')"
+  updated_epoch="$(no_mistakes_updated_epoch "$run_id")"
+  current_branch="$(git -C "$root" branch --show-current 2>/dev/null || true)"
+  current_head="$(git -C "$root" rev-parse HEAD 2>/dev/null || true)"
+  repo_needs_gate "$root" && needs_gate="true"
+
+  classify_no_mistakes \
+    "${run_status:-unknown}" "$run_branch" "$run_head" \
+    "$current_branch" "$current_head" "$needs_gate" \
+    "${updated_epoch:-0}" "$(date +%s)" "$findings" "$failed_step"
+}
+
+short_no_mistakes_status() {
+  local root info state label detail attention
+  root="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+  info="$(no_mistakes_info "$root")"
+  IFS='|' read -r state label detail attention <<< "$info"
+  printf '%s\n' "$label"
+  [ -n "$detail" ] && printf '  %s\n' "$detail"
 }
 
 short_treehouse_status() {
@@ -184,15 +316,222 @@ short_repro_status() {
   fi
 }
 
-short_fleet_windows() {
-  if ! command -v tmux >/dev/null 2>&1; then
-    echo "missing tmux"
+format_age() {
+  local seconds="${1:-0}"
+  if [ "$seconds" -lt 60 ]; then
+    printf '%ss\n' "$seconds"
+  elif [ "$seconds" -lt 3600 ]; then
+    printf '%sm\n' "$((seconds / 60))"
+  elif [ "$seconds" -lt 86400 ]; then
+    printf '%sh\n' "$((seconds / 3600))"
+  else
+    printf '%sd\n' "$((seconds / 86400))"
+  fi
+}
+
+fleet_slugs() {
+  local root="$1"
+  {
+    if command -v tmux >/dev/null 2>&1; then
+      tmux list-windows -a -F '#{window_name}' 2>/dev/null |
+        awk '/^fleet-/ { sub(/^fleet-/, ""); print }'
+    fi
+
+    git -C "$root" worktree list --porcelain 2>/dev/null |
+      awk '$1 == "branch" && $2 ~ /^refs\/heads\/fleet\// {
+        sub(/^refs\/heads\/fleet\//, "", $2)
+        print $2
+      }'
+
+    local path
+    for path in "$root"/.artifacts/fleet/*.worktree; do
+      [ -f "$path" ] || continue
+      basename "$path" .worktree
+    done
+  } | sed '/^$/d' | sort -u
+}
+
+fleet_worktree_for_slug() {
+  local root="$1"
+  local slug="$2"
+  local path_file="$root/.artifacts/fleet/$slug.worktree"
+  local worktree=""
+
+  if [ -f "$path_file" ]; then
+    worktree="$(sed -n '1p' "$path_file")"
+    if [ -n "$worktree" ] && [ -d "$worktree" ]; then
+      printf '%s\n' "$worktree"
+      return 0
+    fi
+  fi
+
+  git -C "$root" worktree list --porcelain 2>/dev/null |
+    awk -v branch="refs/heads/fleet/$slug" '
+      $1 == "worktree" { path = $2 }
+      $1 == "branch" && $2 == branch { print path; exit }
+    '
+}
+
+latest_gnhf_log() {
+  local worktree="$1"
+  local latest=""
+  local latest_mtime="0"
+  local log mtime
+
+  while IFS= read -r log; do
+    mtime="$(stat -f '%m' "$log" 2>/dev/null || echo 0)"
+    if [ "$mtime" -gt "$latest_mtime" ]; then
+      latest="$log"
+      latest_mtime="$mtime"
+    fi
+  done < <(find "$worktree/.gnhf/runs" -mindepth 2 -maxdepth 2 -name gnhf.log -type f 2>/dev/null)
+
+  printf '%s\n' "$latest"
+}
+
+fleet_run_info() {
+  local root="$1"
+  local slug="$2"
+  local worktree log end_line abort_line run_line status reason
+  local iterations commits pid age mtime state detail
+  local review_file review_line review_state review_head current_head ship_file ship
+  local gate_info gate_state gate_label gate_detail gate_attention
+
+  worktree="$(fleet_worktree_for_slug "$root" "$slug")"
+  if [ -z "$worktree" ] || [ ! -d "$worktree" ]; then
+    printf 'stale|missing worktree\n'
     return 0
   fi
-  local out
-  out="$(tmux list-windows -a -F '#{session_name}:#{window_index} #{window_name} #{pane_current_command}' 2>/dev/null | grep ' fleet-' || true)"
-  if [ -n "$out" ]; then
-    echo "$out" | sed 's/^/  /'
+
+  log="$(latest_gnhf_log "$worktree")"
+  if [ -z "$log" ]; then
+    printf 'idle|no GNHF run log\n'
+    return 0
+  fi
+
+  end_line="$(grep '"event":"orchestrator:end"' "$log" | tail -n 1 || true)"
+  abort_line="$(grep '"event":"orchestrator:abort"' "$log" | tail -n 1 || true)"
+
+  if [ -n "$end_line" ]; then
+    status="$(printf '%s\n' "$end_line" | jq -r '.status // "unknown"' 2>/dev/null)"
+    iterations="$(printf '%s\n' "$end_line" | jq -r '.iterations // 0' 2>/dev/null)"
+    commits="$(printf '%s\n' "$end_line" | jq -r '.commitCount // 0' 2>/dev/null)"
+    reason="$(printf '%s\n' "$abort_line" | jq -r '.reason // empty' 2>/dev/null)"
+
+    if [ "$status" = "completed" ] || [ "$reason" = "stop condition met" ]; then
+      state="ready"
+      detail="$commits commits, $iterations iterations"
+    elif [[ "$reason" == max\ iterations* ]]; then
+      state="capped"
+      detail="$commits commits, $iterations iterations, $reason"
+    elif [[ "$reason" == *consecutive\ failures* ]]; then
+      state="failed"
+      detail="$commits commits, $iterations iterations, $reason"
+    else
+      state="failed"
+      detail="$commits commits, $iterations iterations${reason:+, $reason}"
+    fi
+
+    review_file="$root/.artifacts/fleet/$slug.review-status"
+    if [ "$state" != "ready" ] && [ -f "$review_file" ]; then
+      review_line="$(sed -n '1p' "$review_file")"
+      IFS='|' read -r review_state review_head mtime <<< "$review_line"
+      current_head="$(git -C "$worktree" rev-parse HEAD 2>/dev/null || true)"
+      if [ -n "$review_head" ] && [ "$review_head" = "$current_head" ]; then
+        case "$review_state" in
+          reviewed)
+            state="reviewed"; detail="$detail, recovered by independent local review" ;;
+          passed)
+            state="ship-ready"; detail="$detail, recovered by independent shipping gate" ;;
+        esac
+      fi
+    fi
+
+    review_file="$root/.artifacts/fleet/$slug.review-status"
+    if [ "$state" = "ready" ] && [ -f "$review_file" ]; then
+      review_line="$(sed -n '1p' "$review_file")"
+      IFS='|' read -r review_state review_head mtime <<< "$review_line"
+      current_head="$(git -C "$worktree" rev-parse HEAD 2>/dev/null || true)"
+      ship_file="$root/.artifacts/fleet/$slug.ship"
+      ship="$(sed -n '1p' "$ship_file" 2>/dev/null || true)"
+      gate_info="$(no_mistakes_info "$worktree")"
+      IFS='|' read -r gate_state gate_label gate_detail gate_attention <<< "$gate_info"
+      case "$gate_state" in
+        running) state="reviewing"; detail="$detail, no-mistakes running" ;;
+        waiting|stuck) state="review-needed"; detail="$detail, no-mistakes needs a decision" ;;
+        failed|review) state="review-failed"; detail="$detail, no-mistakes needs attention" ;;
+        passed)
+          if [ "$ship" = "green-pr" ]; then
+            state="ship-ready"; detail="$detail, independent gate passed"
+          else
+            state="reviewed"; detail="$detail, independent local gate passed"
+          fi
+          ;;
+        needed)
+          if [ -z "$review_head" ] || [ "$review_head" != "$current_head" ]; then
+            state="review-needed"; detail="$detail, current HEAD is not reviewed"
+          fi
+          ;;
+      esac
+      if [ "$state" = "ready" ] && [ -n "$review_head" ] && [ "$review_head" = "$current_head" ]; then
+        case "$review_state" in
+          reviewing) state="reviewing"; detail="$detail, no-mistakes running" ;;
+          waiting) state="review-needed"; detail="$detail, no-mistakes needs a decision" ;;
+          failed) state="review-failed"; detail="$detail, no-mistakes failed" ;;
+          reviewed) state="reviewed"; detail="$detail, independent local gate passed" ;;
+          passed) state="ship-ready"; detail="$detail, independent gate passed" ;;
+        esac
+      fi
+    fi
+
+    printf '%s|%s\n' "$state" "$detail"
+    return 0
+  fi
+
+  run_line="$(grep '"event":"run:start"' "$log" | tail -n 1 || true)"
+  pid="$(printf '%s\n' "$run_line" | jq -r '.pid // 0' 2>/dev/null)"
+  run_line="$(grep '"event":"iteration:start"' "$log" | tail -n 1 || true)"
+  iterations="$(printf '%s\n' "$run_line" | jq -r '.iteration // 0' 2>/dev/null)"
+  commits="$(printf '%s\n' "$run_line" | jq -r '.git.commitCount // 0' 2>/dev/null)"
+  mtime="$(stat -f '%m' "$log" 2>/dev/null || echo 0)"
+  age="$(( $(date +%s) - mtime ))"
+  [ "$age" -lt 0 ] && age=0
+
+  if [ "$pid" -gt 0 ] && kill -0 "$pid" 2>/dev/null; then
+    if [ "$age" -ge "${CAPTAIN_FLEET_STUCK_SECONDS:-1200}" ]; then
+      state="stuck"
+    else
+      state="running"
+    fi
+    detail="$commits commits, iteration $iterations, quiet $(format_age "$age")"
+  else
+    state="orphaned"
+    detail="$commits commits, iteration $iterations, process exited"
+  fi
+
+  printf '%s|%s\n' "$state" "$detail"
+}
+
+fleet_status_rows() {
+  local root="$1"
+  local slug info state detail
+  while IFS= read -r slug; do
+    [ -n "$slug" ] || continue
+    info="$(fleet_run_info "$root" "$slug")"
+    state="${info%%|*}"
+    detail="${info#*|}"
+    printf '%s|%s|%s\n' "$slug" "$state" "$detail"
+  done < <(fleet_slugs "$root")
+}
+
+short_fleet_windows() {
+  local root rows slug state detail
+  root="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+  rows="$(fleet_status_rows "$root")"
+  if [ -n "$rows" ]; then
+    while IFS='|' read -r slug state detail; do
+      printf '  %s [%s] %s\n' "$slug" "$state" "$detail"
+    done <<< "$rows"
   else
     echo "  none"
   fi
@@ -227,7 +566,7 @@ status() {
     echo "repo: none"
   fi
 
-  section "fleet windows"
+  section "fleets"
   short_fleet_windows
 
   section "treehouse"
@@ -255,14 +594,12 @@ phone_status() {
   local branch="none"
   local git_state="not a git repo"
   local changes=""
-  local current_head=""
   local now
 
   if git rev-parse --show-toplevel >/dev/null 2>&1; then
     repo_name="$(basename "$(git rev-parse --show-toplevel)")"
     branch="$(git branch --show-current 2>/dev/null || true)"
     branch="${branch:-detached}"
-    current_head="$(git rev-parse --short HEAD 2>/dev/null || true)"
     changes="$(git status --short 2>/dev/null || true)"
     if [ -n "$changes" ]; then
       git_state="$(printf '%s\n' "$changes" | wc -l | tr -d ' ') changed"
@@ -273,60 +610,39 @@ phone_status() {
 
   now="$(date '+%b %-d  %-I:%M %p')"
 
-  local fleet_line="-"
+  local attention=()
   local fleet_count="0"
-  local fleet_windows=""
-  if command -v tmux >/dev/null 2>&1; then
-    fleet_windows="$(tmux list-windows -a -F '#{session_name}:#{window_index} #{window_name} #{pane_current_command}' 2>/dev/null | awk '$2 ~ /^fleet-/ { sub(/^fleet-/, "", $2); print $2 }' || true)"
-    if [ -n "$fleet_windows" ]; then
-      fleet_count="$(printf '%s\n' "$fleet_windows" | wc -l | tr -d ' ')"
-      fleet_line="$(printf '%s\n' "$fleet_windows" | awk 'BEGIN { sep="" } { printf "%s%s", sep, $0; sep=", " }')"
-    fi
-  else
-    fleet_line="tmux missing"
+  local fleet_rows=""
+  local root
+  root="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+  fleet_rows="$(fleet_status_rows "$root")"
+  if [ -n "$fleet_rows" ]; then
+    fleet_count="$(printf '%s\n' "$fleet_rows" | wc -l | tr -d ' ')"
+    while IFS='|' read -r slug state detail; do
+      case "$state" in
+        ready) attention+=("Review $(shorten "$slug" 18)") ;;
+        reviewing) ;;
+        review-needed) attention+=("Review gate $(shorten "$slug" 18)") ;;
+        review-failed) attention+=("Review failed $(shorten "$slug" 18)") ;;
+        reviewed) attention+=("Decide $(shorten "$slug" 18)") ;;
+        ship-ready) attention+=("Merge $(shorten "$slug" 18)") ;;
+        capped) attention+=("Capped $(shorten "$slug" 18)") ;;
+        failed) attention+=("Failed $(shorten "$slug" 18)") ;;
+        stuck) attention+=("Stuck $(shorten "$slug" 18)") ;;
+        orphaned) attention+=("Orphaned $(shorten "$slug" 18)") ;;
+        stale) attention+=("Close stale $(shorten "$slug" 18)") ;;
+        idle|untracked) attention+=("Set up $(shorten "$slug" 18)") ;;
+      esac
+    done <<< "$fleet_rows"
   fi
 
-  local attention=()
   local gate_line="no-mistakes missing"
   local gate_detail=""
-  if command -v no-mistakes >/dev/null 2>&1; then
-    local nm
-    nm="$(no-mistakes axi status 2>&1 || true)"
-    nm="$(printf '%s\n' "$nm" | strip_ansi)"
-    local nm_status nm_head nm_step nm_findings nm_update nm_stale
-    nm_status="$(printf '%s\n' "$nm" | awk -F': ' '/^[[:space:]]*status:/ { print $2; exit }')"
-    nm_head="$(printf '%s\n' "$nm" | awk -F': ' '/^[[:space:]]*head:/ { print $2; exit }')"
-    nm_findings="$(printf '%s\n' "$nm" | awk -F': ' '/^[[:space:]]*findings:/ { print $2; exit }')"
-    nm_step="$(printf '%s\n' "$nm" | awk -F',' '$2 == "failed" { print $1; exit }' | sed 's/^[[:space:]]*//')"
-    nm_update="$(printf '%s\n' "$nm" | awk '/new version of no-mistakes/ { print; exit }')"
-    nm_status="${nm_status:-unknown}"
-    nm_stale="false"
-    if [ -n "$current_head" ] && [ -n "$nm_head" ] && [ "$nm_head" != "$current_head" ]; then
-      nm_stale="true"
-    fi
-    gate_line="no-mistakes $nm_status"
-    if [ -n "$nm_step" ]; then
-      if [ "$nm_stale" = "true" ]; then
-        gate_line="no-mistakes stale"
-        gate_detail="old $(shorten "$nm_step" 14) failed"
-      else
-        gate_detail="$(shorten "$nm_step" 18) failed"
-        attention+=("No-mistakes failed")
-      fi
-    fi
-    if [ -n "$nm_findings" ]; then
-      if [ -n "$gate_detail" ]; then
-        gate_detail="$gate_detail, $nm_findings"
-      else
-        gate_detail="findings: $nm_findings"
-      fi
-    fi
-    if [ -n "$nm_update" ]; then
-      gate_detail="${gate_detail:+$gate_detail, }update ready"
-    fi
-  else
-    attention+=("Install no-mistakes")
-  fi
+  local gate_info gate_state gate_label gate_attention
+  gate_info="$(no_mistakes_info "$root")"
+  IFS='|' read -r gate_state gate_label gate_detail gate_attention <<< "$gate_info"
+  gate_line="no-mistakes $gate_label"
+  [ -n "$gate_attention" ] && attention+=("$gate_attention")
 
   local treehouse_line="tree miss"
   if command -v treehouse >/dev/null 2>&1; then
@@ -349,49 +665,48 @@ phone_status() {
   fi
 
   local gh_line="gh missing"
-  if command -v gh >/dev/null 2>&1; then
-    if gh auth status >/tmp/captain-gh-auth.out 2>&1; then
-      gh_line="github ok"
-    else
-      gh_line="github login"
-      attention+=("GitHub auth")
-    fi
+  if ! command -v gh >/dev/null 2>&1; then
+    attention+=("Install GitHub CLI")
+  elif gh auth token >/dev/null 2>&1; then
+    gh_line="github configured"
+  else
+    gh_line="github login"
+    attention+=("GitHub login")
   fi
   local voice_line="voice missing"
   if [ -d /Applications/OpenSuperWhisper.app ]; then
-    voice_line="voice ready"
+    voice_line="voice installed"
   fi
   local repro_line
   repro_line="$(short_repro_status | awk 'BEGIN { sep="" } { printf "%s%s", sep, $0; sep=" · " }')"
-
-  local needs_line="nothing urgent"
-  if [ "${#attention[@]}" -eq 0 ]; then
-    needs_line="nothing urgent"
-  else
-    local item
-    needs_line=""
-    for item in "${attention[@]}"; do
-      if [ -n "$needs_line" ]; then
-        needs_line="$needs_line · $item"
-      else
-        needs_line="$item"
-      fi
-    done
-  fi
 
   printf '🐉  CAPTAIN DECK  ✦ %s\n' "$(shorten "$repo_name" 18)"
   printf '◆ %s\n' "$now"
   printf '━━━━━━━━━━━━\n'
   wrap_value '🛡  ' "$branch" 26 '   '
   printf '✦ git %s · gate %s\n' "$git_state" "$(shorten "${gate_line#no-mistakes }" 12)"
-  wrap_value "⚔  agents $fleet_count · " "$fleet_line" 24 '   '
+  printf '⚔  fleets %s\n' "$fleet_count"
+  if [ -n "$fleet_rows" ]; then
+    while IFS='|' read -r slug state detail; do
+      printf '   %-8s %s\n' "$state" "$(shorten "$slug" 20)"
+      wrap_value '     ' "$detail" 26 '     '
+    done <<< "$fleet_rows"
+  fi
   if [ -n "$gate_detail" ]; then
     wrap_value '🔥 ' "$gate_detail" 25 '   '
   fi
   wrap_value '⚙  ' "$repro_line" 33 '   '
   printf '🏰 %s · %s · %s\n' "$treehouse_line" "$gh_line" "$voice_line"
   printf '━━━━━━━━━━━━\n'
-  wrap_value 'Needs you: ' "$needs_line" 20 '   '
+  if [ "${#attention[@]}" -eq 0 ]; then
+    printf 'Needs you: nothing urgent\n'
+  else
+    printf 'Needs you:\n'
+    local item
+    for item in "${attention[@]}"; do
+      printf '   • %s\n' "$item"
+    done
+  fi
 }
 
 phone_host() {
@@ -452,7 +767,7 @@ review() {
 dispatch() {
   local start=0
   local agent="codex"
-  local ship="green-pr"
+  local ship="reviewed-branch"
   local args=()
 
   while [ "$#" -gt 0 ]; do
@@ -541,7 +856,9 @@ Stop and report back instead of guessing when:
 
 ## Stop condition
 
-The requested outcome is implemented, relevant verification passes, the change is committed on a feature branch, and a concise handoff explains changed files, verification, risks, and the next decision Ross needs to make.
+The requested outcome is implemented, relevant verification passes, and a concise handoff explains changed files, verification, risks, and the next decision Ross needs to make.
+Set `should_fully_stop=true` when those outcomes are complete after this iteration's work.
+GNHF commits successful iteration changes automatically after the response, so do not wait for the commit to exist and do not commit manually.
 BRIEF
   fi
 
@@ -559,6 +876,10 @@ tools() {
     fi
   done
 }
+
+if [ "${CAPTAIN_SOURCE_ONLY:-0}" = "1" ]; then
+  return 0 2>/dev/null || exit 0
+fi
 
 cmd="${1:-status}"
 shift || true

@@ -6,7 +6,9 @@ set -euo pipefail
 
 FLEET_AGENT_DEFAULT="codex"
 FLEET_WORKTREE_ENGINE="${FLEET_WORKTREE_ENGINE:-treehouse}"
-STOP_DEFAULT="the project green gate passes, the change is committed on a feature branch, and no-mistakes has produced a green pull request"
+STOP_COMMIT_GUIDANCE="Set should_fully_stop=true when the scoped outcome and required verification are complete after this iteration's work. GNHF commits successful iteration changes automatically after your response, so do not wait for the commit to exist and do not commit manually."
+STOP_DEFAULT="the scoped outcome is complete and the project green gate passes. $STOP_COMMIT_GUIDANCE The fleet runner starts its independent review stage after GNHF exits, so do not run review or shipping automation inside this implementation loop."
+STOP_COMMITTED_BRANCH="the scoped outcome is complete and the project green gate passes. $STOP_COMMIT_GUIDANCE"
 
 usage() {
   cat <<'USAGE'
@@ -20,8 +22,8 @@ start options:
   --agent <codex|claude>           harness for this run (default: codex)
   --issue <n>                      seed the brief from a GitHub issue
   --max-iterations <n>             gnhf iteration cap (default: 12)
-  --ship <green-pr|committed-branch>
-                                   how far the run goes alone (default: green-pr)
+  --ship <reviewed-branch|green-pr|committed-branch>
+                                   how far the run goes alone (default: reviewed-branch)
   --worktree-engine <treehouse|git>
                                    worktree provider (default: treehouse)
 
@@ -79,7 +81,7 @@ prepare_git_worktree() {
   base="$(base_ref)"
   git fetch --quiet origin 2>/dev/null || true
   mkdir -p "$(dirname "$wt_path")"
-  git worktree add -b "$branch" "$wt_path" "$base"
+  git worktree add -b "$branch" "$wt_path" "$base" >&2
   echo "$wt_path"
 }
 
@@ -151,7 +153,7 @@ case "$cmd" in
     agent="$FLEET_AGENT_DEFAULT"
     issue=""
     max_iter="12"
-    ship="green-pr"
+    ship="reviewed-branch"
     worktree_engine="$FLEET_WORKTREE_ENGINE"
     objective=()
     while [ $# -gt 0 ]; do
@@ -205,15 +207,29 @@ case "$cmd" in
       fi
     fi
 
-    stop_cond="$STOP_DEFAULT"
-    [ "$ship" = "committed-branch" ] && stop_cond="the project green gate passes and the change is committed on a feature branch"
+    case "$ship" in
+      reviewed-branch|green-pr) stop_cond="$STOP_DEFAULT" ;;
+      committed-branch) stop_cond="$STOP_COMMITTED_BRANCH" ;;
+      *) echo "unknown ship target: $ship" >&2; exit 2 ;;
+    esac
+    printf '%s\n' "$ship" > "$(dirname "$path")/$slug.ship"
 
     prompt_file="$(dirname "$path")/$slug.prompt"
     {
       echo "Follow the brief below exactly. Respect its scope, verification, and escalation rules. If you hit an escalation item, stop and report instead of guessing."
+      if [ "$ship" != "committed-branch" ]; then
+        echo "Complete implementation and local verification only. The fleet runner starts the independent review stage after GNHF commits your final successful iteration."
+      fi
       echo
       cat "$path"
     } > "$prompt_file"
+
+    intent="$(awk '
+      $0 == "## Objective" { in_objective = 1; next }
+      in_objective && /^## / { exit }
+      in_objective && NF { print; exit }
+    ' "$path")"
+    intent="${intent:-Fleet $slug}"
 
     branch="fleet/$slug"
     case "$worktree_engine" in
@@ -225,16 +241,87 @@ case "$cmd" in
     # tmux runs window commands under the user's default-shell (fish), so
     # dispatch through a generated bash runner instead of an inline string.
     runner="$(dirname "$path")/$slug.run.sh"
+    review_status_file="$(dirname "$path")/$slug.review-status"
+    review_base="$(base_ref)"
+    printf -v ship_q '%q' "$ship"
+    printf -v intent_q '%q' "$intent"
+    printf -v review_status_file_q '%q' "$review_status_file"
+    printf -v review_base_q '%q' "$review_base"
     cat > "$runner" <<RUNNER
 #!/usr/bin/env bash
 cd "$wt_path" || exit 1
+ship=$ship_q
+intent=$intent_q
+review_status_file=$review_status_file_q
+review_base=$review_base_q
 gnhf --agent "$agent" --current-branch --max-iterations "$max_iter" \\
   --stop-when "$stop_cond" "\$(cat "$prompt_file")"
 ec=\$?
-if [ \$ec -eq 0 ]; then
-  notify "fleet done: $repo/$slug" "stop condition reached" --tag white_check_mark --sound Glass --volume normal --repeat 1
+latest_gnhf_log=\$(ls -t .gnhf/runs/*/gnhf.log 2>/dev/null | head -n 1 || true)
+gnhf_reason=""
+if [ -n "\$latest_gnhf_log" ]; then
+  gnhf_reason=\$(grep '"event":"orchestrator:abort"' "\$latest_gnhf_log" | tail -n 1 | jq -r '.reason // empty' 2>/dev/null || true)
+fi
+if [ \$ec -eq 0 ] && [ "\$gnhf_reason" != "stop condition met" ]; then
+  ec=2
+fi
+if [ \$ec -eq 0 ] && [ "\$ship" != "committed-branch" ]; then
+  head=\$(git rev-parse HEAD)
+  printf 'reviewing|%s|%s\n' "\$head" "\$(date +%s)" > "\$review_status_file"
+  if [ "\$ship" = "reviewed-branch" ]; then
+    review_head="\$head"
+    review_log="\${review_status_file%.review-status}.review.log"
+    review_result="\${review_status_file%.review-status}.review-result"
+    notify "fleet review: $repo/$slug" "implementation complete; lightweight review started" --tag mag --sound Glass --volume normal --repeat 1
+    if codex exec --ephemeral -s read-only -o "\$review_result" "Perform a lightweight independent review of git diff \$review_base...HEAD. Focus on actionable correctness, regression, security, and test-confidence problems introduced by the diff. Do not edit files. End the final response with exactly FLEET_REVIEW: PASS when there are no actionable P0-P2 findings, otherwise end with exactly FLEET_REVIEW: FAIL." > "\$review_log" 2>&1 </dev/null; then
+      review_ec=0
+    else
+      review_ec=\$?
+    fi
+    cat "\$review_log"
+    current_head=\$(git rev-parse HEAD)
+    review_verdict=\$(awk 'NF { line = \$0 } END { print line }' "\$review_result" 2>/dev/null || true)
+    if [ \$review_ec -eq 0 ] \
+      && [ "\$review_verdict" = "FLEET_REVIEW: PASS" ] \
+      && [ "\$current_head" = "\$review_head" ] \
+      && [ -z "\$(git status --porcelain)" ]; then
+      printf 'reviewed|%s|%s\n' "\$review_head" "\$(date +%s)" > "\$review_status_file"
+      ec=0
+    else
+      printf 'failed|%s|%s\n' "\$current_head" "\$(date +%s)" > "\$review_status_file"
+      ec=1
+    fi
+  else
+    notify "fleet review: $repo/$slug" "implementation complete; no-mistakes shipping gate started" --tag mag --sound Glass --volume normal --repeat 1
+    no-mistakes axi run --intent "\$intent"
+    nm_ec=\$?
+    nm=\$(no-mistakes axi status 2>&1 || true)
+    nm_status=\$(printf '%s\n' "\$nm" | awk -F': ' '/^[[:space:]]*status:/ { print \$2; exit }')
+    nm_outcome=\$(printf '%s\n' "\$nm" | awk -F': ' '/^outcome:/ { print \$2; exit }')
+    head=\$(git rev-parse HEAD)
+    if [ "\$nm_status" = "completed" ] && [ "\$nm_outcome" = "passed" ]; then
+      printf 'passed|%s|%s\n' "\$head" "\$(date +%s)" > "\$review_status_file"
+      ec=0
+    elif [ "\$nm_status" = "failed" ] || [ \$nm_ec -ne 0 ]; then
+      printf 'failed|%s|%s\n' "\$head" "\$(date +%s)" > "\$review_status_file"
+      ec=\${nm_ec:-1}
+      [ \$ec -eq 0 ] && ec=1
+    else
+      printf 'waiting|%s|%s\n' "\$head" "\$(date +%s)" > "\$review_status_file"
+      ec=3
+    fi
+  fi
+fi
+if [ \$ec -eq 0 ] && [ "\$ship" = "green-pr" ]; then
+  notify "fleet ship-ready: $repo/$slug" "independent review and shipping gate passed" --tag white_check_mark --sound Glass --volume normal --repeat 1
+elif [ \$ec -eq 0 ] && [ "\$ship" = "reviewed-branch" ]; then
+  notify "fleet reviewed: $repo/$slug" "independent local gate passed; ready for your decision" --tag white_check_mark --sound Glass --volume normal --repeat 1
+elif [ \$ec -eq 0 ]; then
+  notify "fleet ready: $repo/$slug" "implementation committed; review not requested" --tag white_check_mark --sound Glass --volume normal --repeat 1
+elif [ \$ec -eq 3 ]; then
+  notify "fleet review needs you: $repo/$slug" "run captain status for the decision" --priority high --tag warning --sound Glass --volume loud --repeat 2
 else
-  notify "fleet blocked: $repo/$slug" "gnhf exited \$ec" --priority high --tag rotating_light --sound Glass --volume loud --repeat 2
+  notify "fleet blocked: $repo/$slug" "pipeline exited \$ec" --priority high --tag rotating_light --sound Glass --volume loud --repeat 2
 fi
 echo
 read -r -p "[fleet] run ended (exit \$ec) - press enter to close" _

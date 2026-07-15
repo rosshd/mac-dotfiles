@@ -7,7 +7,10 @@ while [ -L "$SOURCE" ]; do
   SOURCE="$(readlink "$SOURCE")"
   [[ "$SOURCE" != /* ]] && SOURCE="$DIR/$SOURCE"
 done
-DOTFILES="$(cd -P "$(dirname "$SOURCE")/.." && pwd)"
+DOTFILES="${MAC_DOTFILES:-$(cd -P "$(dirname "$SOURCE")/.." && pwd)}"
+if [ ! -f "$DOTFILES/flake.nix" ] && [ -f "$HOME/mac-dotfiles/flake.nix" ]; then
+  DOTFILES="$HOME/mac-dotfiles"
+fi
 HOSTNAME="$(scutil --get LocalHostName 2>/dev/null || hostname -s)"
 PATH="$HOME/.local/bin:/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:$PATH"
 

@@ -12,7 +12,7 @@
 
 ## Stop condition
 
-<The verifiable end state. Default: project green gate passes, the change is committed on a feature branch, and no-mistakes has produced a green PR.>
+<The verifiable implementation and local-verification end state. Set `should_fully_stop=true` when that end state is achieved by this iteration. GNHF commits successful iteration changes automatically afterward, so do not make that commit a prerequisite and do not commit manually. The fleet runner starts no-mistakes afterward for `reviewed-branch` or `green-pr`.>
 
 ## Verification
 
@@ -24,4 +24,4 @@
 
 ## Ship
 
-<green-pr (default) | committed-branch>
+<reviewed-branch (default) | green-pr | committed-branch>

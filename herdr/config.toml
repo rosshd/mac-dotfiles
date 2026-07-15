@@ -1,7 +1,25 @@
 onboarding = false
 
 [theme]
-name = "tokyo-night"
+name = "rose-pine"
+
+[theme.custom]
+panel_bg = "#070407"
+surface0 = "#12070d"
+surface1 = "#1b0d15"
+surface_dim = "#0b060a"
+overlay0 = "#b99aa4"
+overlay1 = "#d8bec7"
+text = "#f3e4e8"
+subtext0 = "#d8bec7"
+accent = "#e58da0"
+red = "#d46a82"
+green = "#b69ac7"
+yellow = "#e58da0"
+blue = "#e58da0"
+mauve = "#b69ac7"
+teal = "#e2c5ce"
+peach = "#d46a82"
 
 [terminal]
 default_shell = "fish"
@@ -52,7 +70,7 @@ pane_gaps = true
 show_agent_labels_on_pane_borders = true
 hide_tab_bar_when_single_tab = false
 agent_panel_sort = "priority"
-accent = "cyan"
+accent = "#e58da0"
 
 [ui.toast]
 delivery = "herdr"

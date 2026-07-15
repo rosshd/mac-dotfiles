@@ -8,6 +8,12 @@
   home.file.".config/starship.toml".source = ../starship.toml;
   home.file.".tmux.conf".source = ../.tmux.conf;
   home.file.".config/wezterm/wezterm.lua".source = ../wezterm/wezterm.lua;
+  home.file."Library/Application Support/Firefox/Profiles/bsa8ntkn.default-release/user.js".source =
+    ../firefox/user.js;
+  home.file."Library/Application Support/Firefox/Profiles/bsa8ntkn.default-release/chrome/userChrome.css".source =
+    ../firefox/userChrome.css;
+  home.file."Library/Application Support/Firefox/Profiles/bsa8ntkn.default-release/chrome/userContent.css".source =
+    ../firefox/userContent.css;
   home.file.".config/karabiner/karabiner.json".source = ../karabiner/karabiner.json;
   home.file.".config/nvim" = {
     source = ../nvim;
@@ -19,12 +25,18 @@
   home.file.".config/herdr/config.toml".source = ../herdr/config.toml;
   home.file.".no-mistakes/config.yaml".source = ../no-mistakes/config.yaml;
   home.file.".local/bin/agent".source = ../bin/agent;
-  home.file.".local/bin/captain".source = ../bin/captain;
+  home.file.".local/bin/captain" = {
+    source = ../bin/captain;
+    force = true;
+  };
   home.file.".local/bin/clean-reboot".source = ../bin/clean-reboot;
   home.file.".local/bin/crew".source = ../bin/crew;
   home.file.".local/bin/doctor".source = ../bin/doctor;
   home.file.".local/bin/firstmate".source = ../bin/firstmate;
-  home.file.".local/bin/fleet".source = ../bin/fleet;
+  home.file.".local/bin/fleet" = {
+    source = ../bin/fleet;
+    force = true;
+  };
   home.file.".local/bin/notify".source = ../bin/notify;
   home.file.".local/bin/plan-artifact".source = ../bin/plan-artifact;
   home.file.".local/bin/rebuild-mac".source = ../bin/rebuild-mac;

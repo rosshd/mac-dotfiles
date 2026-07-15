@@ -1,10 +1,10 @@
 # Reproducibility
 
-This repo now has two rebuild paths.
-Use the Homebrew path today.
-Use the Nix/Lix path when you want the stronger "new Mac from repo" guarantee.
+This repo has two rebuild paths.
+The active Nix/Lix path owns the reproducible system and user configuration.
+The Homebrew path remains available for package-only recovery and is also applied by nix-darwin activation.
 
-## Current Path: Brewfile
+## Package Manifest: Brewfile
 
 `Brewfile` is the canonical package manifest for the current setup.
 It owns the terminal tools, agent CLIs, Mac apps, fonts, and quiet background utilities used by the workflow.
@@ -23,11 +23,10 @@ Why this exists:
 - It gives `doctor` a concrete way to detect missing apps.
 - It makes a fresh Mac bootstrap less dependent on memory.
 
-## Next Path: Lix plus nix-darwin
+## Active Path: Lix plus nix-darwin
 
-`flake.nix`, `nix/darwin.nix`, and `nix/home.nix` are the starter nix-darwin and home-manager layer.
-They mirror the current package set and symlink the same core configs that `setup.sh` links today.
-They are intentionally present but not automatically applied.
+`flake.nix`, `nix/darwin.nix`, and `nix/home.nix` define the active nix-darwin and Home Manager layer.
+They own the package set, macOS defaults, and repo-managed configuration links.
 
 Install Lix from WezTerm because it needs your sudo password:
 
@@ -35,7 +34,7 @@ Install Lix from WezTerm because it needs your sudo password:
 curl -sSf -L https://install.lix.systems/lix | sh -s -- install
 ```
 
-Then activate nix-darwin:
+Bootstrap nix-darwin on a new Mac, then use the normal rebuild command:
 
 ```bash
 sudo /nix/var/nix/profiles/default/bin/nix run nix-darwin -- switch --flake ~/mac-dotfiles#Rosss-MacBook-Pro
@@ -44,9 +43,9 @@ rebuild-mac nix
 
 Why this exists:
 
-- It creates the path to fully reproducible macOS settings.
-- It lets you move package and config ownership to Nix gradually while using Lix as the Nix-compatible implementation.
-- It keeps the current workflow stable while giving future agents a clear destination.
+- It provides reproducible macOS settings and user configuration.
+- It keeps package and config ownership explicit while using Lix as the Nix-compatible implementation.
+- It gives future agents one active rebuild path instead of an unfinished migration target.
 
 ## What Nix Owns First
 
@@ -59,8 +58,7 @@ Why this exists:
 
 ## What Stays Manual For Now
 
-- Lix installation itself.
-- nix-darwin activation.
+- Initial Lix and nix-darwin bootstrap on a new Mac.
 - Secrets, SSH keys, API keys, and private notification topics.
 - Tool-specific sign-ins like GitHub, Tailscale, Codex, Claude, and OpenSuperWhisper permissions.
 

@@ -1,0 +1,109 @@
+:root {
+  --mystic-bg: #070407;
+  --mystic-bg-2: #12070d;
+  --mystic-surface: #1b0d15;
+  --mystic-surface-2: #28111d;
+  --mystic-border: #5c2635;
+  --mystic-fg: #f3e4e8;
+  --mystic-muted: #b99aa4;
+  --mystic-cherry: #e58da0;
+  --mystic-cherry-2: #d46a82;
+  --mystic-maroon: #8a263d;
+  --mystic-gloss: rgba(243, 228, 232, 0.1);
+}
+
+#navigator-toolbox {
+  background:
+    linear-gradient(180deg, rgba(243, 228, 232, 0.1), rgba(243, 228, 232, 0.025) 38%, rgba(7, 4, 7, 0.74)),
+    linear-gradient(90deg, rgba(138, 38, 61, 0.28), rgba(7, 4, 7, 0.7) 48%, rgba(212, 106, 130, 0.16)),
+    var(--mystic-bg) !important;
+  backdrop-filter: blur(28px) saturate(1.25) !important;
+  border-bottom: 1px solid var(--mystic-border) !important;
+  box-shadow:
+    inset 0 1px 0 var(--mystic-gloss),
+    0 8px 22px rgba(7, 4, 7, 0.44) !important;
+}
+
+#titlebar,
+#TabsToolbar,
+#nav-bar,
+#PersonalToolbar {
+  background: var(--mystic-bg) !important;
+  color: var(--mystic-fg) !important;
+}
+
+.tabbrowser-tab {
+  color: var(--mystic-muted) !important;
+}
+
+.tabbrowser-tab[selected="true"] .tab-background {
+  background:
+    linear-gradient(180deg, rgba(243, 228, 232, 0.14), rgba(243, 228, 232, 0.025) 36%, rgba(40, 17, 29, 0.96)),
+    linear-gradient(120deg, #4b2231, #1b0d15) !important;
+  border: 1px solid var(--mystic-maroon) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(243, 228, 232, 0.2),
+    0 4px 12px rgba(7, 4, 7, 0.36) !important;
+}
+
+.tabbrowser-tab[selected="true"] {
+  color: var(--mystic-fg) !important;
+}
+
+.tabbrowser-tab:hover .tab-background {
+  background: var(--mystic-surface-2) !important;
+}
+
+#urlbar-background,
+#searchbar {
+  background:
+    linear-gradient(180deg, rgba(234, 215, 223, 0.08), rgba(234, 215, 223, 0.015) 42%, rgba(25, 17, 26, 0.96)),
+    var(--mystic-surface) !important;
+  border: 1px solid var(--mystic-border) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(234, 215, 223, 0.12),
+    inset 0 -1px 0 rgba(8, 5, 8, 0.55) !important;
+}
+
+#urlbar[focused="true"] > #urlbar-background {
+  border-color: var(--mystic-maroon) !important;
+}
+
+#urlbar,
+#urlbar-input,
+.searchbar-textbox {
+  color: var(--mystic-fg) !important;
+}
+
+#urlbar ::selection {
+  background: #452632 !important;
+  color: var(--mystic-fg) !important;
+}
+
+toolbarbutton,
+.toolbarbutton-icon,
+.toolbarbutton-text,
+#identity-icon,
+#tracking-protection-icon,
+#star-button,
+#reload-button,
+#back-button,
+#forward-button {
+  color: var(--mystic-muted) !important;
+  fill: var(--mystic-muted) !important;
+}
+
+toolbarbutton:hover,
+toolbarbutton:hover .toolbarbutton-icon {
+  background: var(--mystic-surface-2) !important;
+  color: var(--mystic-cherry) !important;
+  fill: var(--mystic-cherry) !important;
+}
+
+menupopup,
+panel {
+  --panel-background: var(--mystic-surface) !important;
+  --panel-color: var(--mystic-fg) !important;
+  --panel-border-color: var(--mystic-border) !important;
+  --panel-separator-color: var(--mystic-border) !important;
+}

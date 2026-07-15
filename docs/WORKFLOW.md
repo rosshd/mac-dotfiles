@@ -41,6 +41,13 @@ captain station             # test the local station notification sound
 herdr                       # rich terminal dashboard for live agent panes
 ```
 
+`captain status` and `captain phone-status` read each fleet's latest GNHF run log rather than treating a tmux window as proof that an agent is active.
+They report running, ready, capped, failed, stuck, orphaned, idle, stale, or untracked state, plus iteration and commit progress.
+A run is considered stuck after 20 minutes without a GNHF log update; override this with `CAPTAIN_FLEET_STUCK_SECONDS` when needed.
+Captain only shows a completed no-mistakes result as current when it matches the checkout branch and HEAD and was updated within three days.
+Older or mismatched results collapse automatically to `gate needed` when work exists or `gate idle` on a clean default branch.
+Override the three-day window with `CAPTAIN_NO_MISTAKES_MAX_AGE_SECONDS` and the 20-minute active-run threshold with `CAPTAIN_NO_MISTAKES_STUCK_SECONDS`.
+
 ## Workspace
 
 Open WezTerm.
@@ -138,10 +145,15 @@ fleet done <worktree-path>  # remove a finished worktree
 
 Briefs live at `.artifacts/fleet/<slug>.md` in the repo (gitignored).
 Fleet worktrees are leased from Treehouse by default and their paths are recorded next to the brief.
-A run ends at a green PR; you review and merge.
+A default run ends at an independently reviewed local branch; you decide whether to ship it.
+The fleet runner enforces this as two stages: GNHF owns bounded implementation and local verification, then no-mistakes owns independent review and any explicitly selected push, PR, and CI work.
+`--ship committed-branch` intentionally stops after the first stage and is reported as ready for review rather than reviewed.
+`--ship green-pr` explicitly enables the push, PR, and CI stages; the default `--ship reviewed-branch` skips them.
 `fleet start` on an existing slug resumes the run from where gnhf left off.
 
 Brief template fields: objective, scope (in/out/conflicts-with), stop condition, verification, escalation, ship.
+Write the stop condition around the completed outcome and verification, not around the existence of GNHF's automatic commit.
+The agent must set `should_fully_stop=true` when the final iteration completes the scoped outcome; GNHF commits that successful iteration after the response.
 
 ### Cloud lane (scheduled and off-machine)
 
@@ -258,7 +270,8 @@ Replace `DICTATED_TEXT` with the dictated text variable in Shortcuts.
 
 8. Under `No`, run the `Captain Dispatch` shortcut again when you want a clean retry.
 
-Use `--ship committed-branch` in the start script when a phone task should stop before opening a PR.
+Phone dispatch defaults to `--ship reviewed-branch`, which performs independent local review without pushing.
+Use `--ship committed-branch` to skip independent review or `--ship green-pr` to request push, PR, and CI explicitly.
 
 ## Voice Input
 
@@ -325,14 +338,14 @@ no-mistakes axi status
 no-mistakes axi logs --step review --full
 ```
 
-The fleet lane drives no-mistakes automatically.
+The fleet lane starts no-mistakes automatically after a successful GNHF implementation for `--ship reviewed-branch` and `--ship green-pr`.
+No-mistakes may pause at an approval gate; use `captain status` to see the decision and `no-mistakes axi respond` to continue.
 Run it manually only for interactive-lane work.
 
 ## Reproducible laptop foundation
 
-The video-inspired foundation is split into a safe current path and a stronger future path.
-The safe current path is `Brewfile` plus `rebuild-mac brew`.
-The stronger future path is the Lix-backed Nix scaffold in `flake.nix`, `nix/darwin.nix`, and `nix/home.nix`.
+The active reproducibility path is the Lix-backed nix-darwin and Home Manager configuration in `flake.nix`, `nix/darwin.nix`, and `nix/home.nix`.
+The `Brewfile` remains the package manifest and package-only recovery path.
 
 ```bash
 rebuild-mac check

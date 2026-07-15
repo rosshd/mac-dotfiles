@@ -13,7 +13,7 @@ The captain does not drive every implementation step.
 
 The three modes of work:
 - **Interactive lane** - you drive the agent (exception, for ambiguous or design-heavy work)
-- **Fleet lane** - you write a brief, agent runs unattended to a green PR (default)
+- **Fleet lane** - you write a brief, agent runs unattended through an independent local review by default
 - **Cloud lane** - scheduled agents run while you sleep (routines, PR babysitter)
 
 The shift: previously 100% interactive. Target: interactive is the minority.
@@ -76,10 +76,10 @@ Fields every brief must have:
 | Scope - In | Files, subsystems, behaviors this task owns. |
 | Scope - Out | Adjacent things the agent must not touch. |
 | Conflicts with | Other active fleet slugs sharing files or storage. |
-| Stop condition | Verifiable end state (default: green gate + committed + green PR). |
+| Stop condition | Verifiable implementation outcome and green gate. GNHF commits after the response, then the runner starts no-mistakes when independent review was requested. |
 | Verification | Exact commands that prove the change works. |
 | Escalation | Decisions the agent must not make alone. On hit: stop and report. |
-| Ship | `green-pr` (default) or `committed-branch`. |
+| Ship | `reviewed-branch` (default), explicit `green-pr`, or `committed-branch`. |
 
 A bad brief is the primary cause of wasted fleet iterations.
 Tight stop conditions and explicit escalation rules are the mitigation.
@@ -123,7 +123,9 @@ Prompt sources: `~/mac-dotfiles/agents/routines/`.
 4. **CE deep review** (`ce-code-review`) - only for broad/risky/architecturally important changes.
 5. **no-mistakes gate** - owns rebase, review, tests, docs, lint, push, PR, CI. Start after committing on a feature branch.
 
-Fleet drives no-mistakes automatically.
+Fleet runs bounded implementation first, then starts no-mistakes automatically for `reviewed-branch` and `green-pr` shipping.
+The default `reviewed-branch` skips push, PR, and CI; `green-pr` must be selected explicitly.
+The no-mistakes stage pauses only at a decision point or terminal outcome, and `captain status` reports whether it is reviewing, waiting, failed, or ship-ready.
 Run no-mistakes manually only for interactive-lane work.
 
 ---

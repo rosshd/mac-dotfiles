@@ -15,8 +15,8 @@
 - Added reusable coding templates with tool ownership and rationale.
 - Committed the legacy-to-terminal-first migration and pushed the branch.
 - Added `Brewfile` as the canonical package manifest and changed `setup.sh` to use it.
-- Added `rebuild-mac` for package drift checks, Brewfile application, and future nix-darwin rebuilds.
-- Added starter Nix, nix-darwin, and home-manager config in `flake.nix` and `nix/`.
+- Added `rebuild-mac` for package drift checks, Brewfile application, and active nix-darwin rebuilds.
+- Activated the Nix, nix-darwin, and Home Manager config in `flake.nix` and `nix/`.
 - Added `doctor` checks for Brewfile drift, Nix readiness, Herdr integration status, and phone host visibility.
 - Added `captain phone-host` for stable iPhone Shortcut SSH setup.
 - Installed and configured Herdr as the live terminal agent multiplexer.
@@ -27,8 +27,6 @@
 - Set fish as the login shell:
   `echo "$(command -v fish)" | sudo tee -a /etc/shells && chsh -s "$(command -v fish)"`
 - Import existing shell history into atuin: `atuin import auto`
-- Install Lix when you want to move from the Brewfile path to the full nix-darwin path.
-- Bootstrap nix-darwin with `sudo /nix/var/nix/profiles/default/bin/nix run nix-darwin -- switch --flake ~/mac-dotfiles#Rosss-MacBook-Pro`.
 
 ## Medium Priority
 
