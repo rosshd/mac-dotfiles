@@ -19,7 +19,7 @@ Audit for drift:
 1. `docs/WORKFLOW.md` is the canonical workflow doc.
    Cross-check every command it names (in `bin/`), every tool it references, and every path it documents against the repo contents and `setup.sh`.
 2. `docs/TOOLS.md` - verify each documented tool is still installed by `setup.sh` or `Brewfile`, and that nothing setup.sh installs is undocumented.
-3. `docs/KEYBINDS.md` - spot-check documented bindings against `karabiner/karabiner.json`, `.tmux.conf`, `wezterm/wezterm.lua`, and aerospace config.
+3. `docs/KEYBINDS.md` - spot-check documented bindings against `karabiner/karabiner.json`, `.tmux.conf`, and `wezterm/wezterm.lua`.
 4. `README.md` and `docs/REMAINING.md` - flag stale claims, dead paths, or contradictions with WORKFLOW.md.
 5. `bin/doctor` - confirm every command in `bin/` is covered by a doctor check and vice versa.
 
