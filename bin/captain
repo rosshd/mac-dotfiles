@@ -438,6 +438,11 @@ fleet_run_info() {
   if [ -n "$review_head" ] && [ "$review_head" = "$current_head" ]; then
     marker_current=1
   fi
+  if [ "$marker_current" -eq 1 ] && [ "$review_state" = "implementing" ] \
+    && [ "$review_run" = "pending" ] && [ -d "$ownership_dir" ]; then
+    printf 'running|implementation running; awaiting exact GNHF run ID\n'
+    return 0
+  fi
   log=""
   exact_run_requested=0
   if [ "$marker_current" -eq 1 ] && [ -n "$review_run" ] \
@@ -450,6 +455,10 @@ fleet_run_info() {
   fi
   if [ -z "$log" ]; then
     if [ "$exact_run_requested" -eq 1 ]; then
+      if [ "$review_state" = "implementing" ] && [ -d "$ownership_dir" ]; then
+        printf 'running|implementation running; exact GNHF log is starting\n'
+        return 0
+      fi
       printf 'review-failed|exact GNHF log for status marker is missing\n'
       return 0
     fi

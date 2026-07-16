@@ -46,7 +46,7 @@ head="$(git -C "$worktree" rev-parse HEAD)"
 
 mkdir "$tmp/.artifacts/fleet/$slug.ownership"
 printf 'implementing|%s|%s|pending|\n' "$head" "$now" > "$tmp/.artifacts/fleet/$slug.review-status"
-[[ "$(fleet_run_info "$tmp" "$slug")" == running\|*no\ GNHF\ log* ]]
+[[ "$(fleet_run_info "$tmp" "$slug")" == running\|*awaiting\ exact* ]]
 rm -rf "$tmp/.artifacts/fleet/$slug.ownership"
 printf 'implementation-failed|%s|%s|unknown|\n' "$head" "$now" > "$tmp/.artifacts/fleet/$slug.review-status"
 [[ "$(fleet_run_info "$tmp" "$slug")" == failed\|*before\ creating* ]]
@@ -55,6 +55,11 @@ cat > "$worktree/.gnhf/runs/run/gnhf.log" <<'LOG'
 {"event":"orchestrator:abort","reason":"stop condition met"}
 {"event":"orchestrator:end","status":"aborted","iterations":2,"commitCount":2}
 LOG
+
+mkdir "$tmp/.artifacts/fleet/$slug.ownership"
+printf 'implementing|%s|%s|pending|\n' "$head" "$now" > "$tmp/.artifacts/fleet/$slug.review-status"
+[[ "$(fleet_run_info "$tmp" "$slug")" == running\|*awaiting\ exact* ]]
+rm -rf "$tmp/.artifacts/fleet/$slug.ownership"
 
 printf 'reviewing|%s|%s|run\n' "$head" "$now" > "$tmp/.artifacts/fleet/$slug.review-status"
 [[ "$(fleet_run_info "$tmp" "$slug")" == reviewing\|* ]]

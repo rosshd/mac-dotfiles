@@ -30,6 +30,12 @@ cat > "$fakebin/gnhf" <<'SCRIPT'
 mkdir -p .gnhf/runs/test
 reason="${GNHF_TEST_REASON:-stop condition met}"
 printf '{"event":"run:start","runId":"%s","pid":%s}\n' "${GNHF_LOGGED_RUN_ID:-test}" "$$" > .gnhf/runs/test/gnhf.log
+if [ -n "${GNHF_PAUSE_FILE:-}" ]; then
+  : > "$GNHF_PAUSE_FILE.started"
+  while [ ! -f "$GNHF_PAUSE_FILE.release" ]; do
+    sleep 0.05
+  done
+fi
 printf '{"event":"orchestrator:abort","reason":"%s"}\n' "$reason" >> .gnhf/runs/test/gnhf.log
 printf '{"event":"orchestrator:end","status":"aborted","iterations":1,"commitCount":1}\n' >> .gnhf/runs/test/gnhf.log
 exit 0
@@ -119,6 +125,41 @@ run_case committed-branch
 [ ! -f "$review_calls" ]
 rg -Fq 'ready|' "$repo/.artifacts/fleet/review-committed-branch.review-status"
 [ ! -d "$repo/.artifacts/fleet/review-committed-branch.ownership" ]
+
+(
+  cd "$repo"
+  PATH="$fakebin:$PATH" WORKTREE_ROOT="$tmp/worktrees" \
+    "$root/bin/fleet" start active-rerun --worktree-engine git --ship committed-branch \
+    "persist the active run identity"
+) >/dev/null
+active_worktree="$tmp/worktrees/repo/fleet-active-rerun"
+mkdir -p "$active_worktree/.gnhf/runs/old"
+printf '%s\n' \
+  '{"event":"orchestrator:abort","reason":"stop condition met"}' \
+  '{"event":"orchestrator:end","status":"aborted","iterations":1,"commitCount":1}' \
+  > "$active_worktree/.gnhf/runs/old/gnhf.log"
+pause_file="$tmp/active-rerun"
+PATH="$fakebin:$PATH" GNHF_PAUSE_FILE="$pause_file" \
+  bash "$repo/.artifacts/fleet/active-rerun.run.sh" >/dev/null &
+active_pid=$!
+for _ in $(seq 1 100); do
+  if rg -q '^implementing\|[^|]+\|[^|]+\|test\|$' "$repo/.artifacts/fleet/active-rerun.review-status" 2>/dev/null; then
+    break
+  fi
+  sleep 0.05
+done
+if ! rg -q '^implementing\|[^|]+\|[^|]+\|test\|$' "$repo/.artifacts/fleet/active-rerun.review-status"; then
+  : > "$pause_file.release"
+  wait "$active_pid" || true
+  echo "fleet did not persist the active GNHF run ID" >&2
+  exit 1
+fi
+active_status="$(CAPTAIN_SOURCE_ONLY=1 bash -c 'source "$1"; fleet_run_info "$2" "$3"' _ "$root/bin/captain" "$repo" active-rerun)"
+[[ "$active_status" == running\|* ]]
+: > "$pause_file.release"
+wait "$active_pid"
+rg -Fq 'ready|' "$repo/.artifacts/fleet/active-rerun.review-status"
+[ ! -d "$repo/.artifacts/fleet/active-rerun.ownership" ]
 
 run_case green-pr capped-green-pr "max iterations reached (8)"
 [ ! -f "$calls" ]
