@@ -15,17 +15,22 @@ printf '#!/usr/bin/env bash\nexit 0\n' > "$fakebin/notify"
 chmod +x "$fakebin/notify"
 cat > "$fakebin/tmux" <<'SCRIPT'
 #!/usr/bin/env bash
-if [ "${1:-}" = "list-windows" ] && [ -n "${TMUX_LIVE_SLUG:-}" ]; then
-  printf 'fleet:7 fleet-%s %s\n' "$TMUX_LIVE_SLUG" "${TMUX_LIVE_COMMAND:-gnhf}"
+if [ "${1:-}" = "list-panes" ]; then
+  [ "${TMUX_NO_SERVER:-0}" = "1" ] && exit 1
+  if [ -n "${TMUX_LIVE_SLUG:-}" ]; then
+    printf 'fleet:7.2 fleet-%s %s\n' "$TMUX_LIVE_SLUG" "${TMUX_LIVE_COMMAND:-gnhf}"
+  fi
 fi
 exit 0
 SCRIPT
 chmod +x "$fakebin/tmux"
 cat > "$fakebin/gnhf" <<'SCRIPT'
 #!/usr/bin/env bash
+[ "${GNHF_SKIP_LOG:-0}" = "1" ] && exit 0
 mkdir -p .gnhf/runs/test
 reason="${GNHF_TEST_REASON:-stop condition met}"
-printf '{"event":"orchestrator:abort","reason":"%s"}\n' "$reason" > .gnhf/runs/test/gnhf.log
+printf '{"event":"run:start","runId":"%s","pid":%s}\n' "${GNHF_LOGGED_RUN_ID:-test}" "$$" > .gnhf/runs/test/gnhf.log
+printf '{"event":"orchestrator:abort","reason":"%s"}\n' "$reason" >> .gnhf/runs/test/gnhf.log
 printf '{"event":"orchestrator:end","status":"aborted","iterations":1,"commitCount":1}\n' >> .gnhf/runs/test/gnhf.log
 exit 0
 SCRIPT
@@ -89,6 +94,8 @@ run_case() {
   local nm_status="${7:-completed}"
   local nm_run_exit="${8:-0}"
   local nm_status_id="${9:-run-current}"
+  local gnhf_skip_log="${10:-0}"
+  local gnhf_logged_run_id="${11:-test}"
   rm -f "$calls" "$review_calls"
   (
     cd "$repo"
@@ -102,17 +109,20 @@ run_case() {
     FLEET_REVIEW_RESULT="$review_result" GNHF_TEST_REASON="$reason" \
     FLEET_REVIEW_MUTATE="$mutate" NM_OUTCOME="$nm_outcome" \
     NM_STATUS="$nm_status" NM_RUN_EXIT="$nm_run_exit" NM_STATUS_ID="$nm_status_id" \
-    bash "$repo/.artifacts/fleet/$slug.run.sh" >/dev/null
+    GNHF_SKIP_LOG="$gnhf_skip_log" GNHF_LOGGED_RUN_ID="$gnhf_logged_run_id" \
+    bash "$repo/.artifacts/fleet/$slug.run.sh" >/dev/null || true
+  [ ! -d "$repo/.artifacts/fleet/$slug.ownership" ]
 }
 
 run_case committed-branch
 [ ! -f "$calls" ]
 [ ! -f "$review_calls" ]
-[ ! -f "$repo/.artifacts/fleet/review-committed-branch.review-status" ]
+rg -Fq 'ready|' "$repo/.artifacts/fleet/review-committed-branch.review-status"
+[ ! -d "$repo/.artifacts/fleet/review-committed-branch.ownership" ]
 
 run_case green-pr capped-green-pr "max iterations reached (8)"
 [ ! -f "$calls" ]
-[ ! -f "$repo/.artifacts/fleet/capped-green-pr.review-status" ]
+rg -Fq 'capped|' "$repo/.artifacts/fleet/capped-green-pr.review-status"
 
 run_case reviewed-branch
 [ ! -f "$calls" ]
@@ -128,8 +138,10 @@ run_case reviewed-branch changed-during-review "stop condition met" PASS 1
 rg -Fq 'failed|' "$repo/.artifacts/fleet/changed-during-review.review-status"
 
 run_case green-pr
-[ "$(rg -c '^axi run --intent ' "$calls")" = "1" ]
-rg -Fq 'passed|' "$repo/.artifacts/fleet/review-green-pr.review-status"
+[ "$(rg -c '^axi run --yes --intent ' "$calls")" = "1" ]
+[ ! -f "$review_calls" ]
+rg -Fq 'ship-ready|' "$repo/.artifacts/fleet/review-green-pr.review-status"
+rg -q '\|run-current$' "$repo/.artifacts/fleet/review-green-pr.review-status"
 
 mkdir -p "$repo/.artifacts/fleet"
 cat > "$repo/.artifacts/fleet/full-intent.md" <<'BRIEF'
@@ -162,7 +174,7 @@ Preserve the deliberate tradeoff.
 green-pr
 BRIEF
 run_case green-pr full-intent "stop condition met" PASS 0 checks-passed running
-rg -Fq 'passed|' "$repo/.artifacts/fleet/full-intent.review-status"
+rg -Fq 'ship-ready|' "$repo/.artifacts/fleet/full-intent.review-status"
 for expected in \
   'First objective line.' \
   'Second objective line.' \
@@ -175,11 +187,19 @@ run_case green-pr failed-gate-old-pass "stop condition met" PASS 0 passed comple
 rg -Fq 'failed|' "$repo/.artifacts/fleet/failed-gate-old-pass.review-status"
 
 run_case green-pr mismatched-gate-status "stop condition met" PASS 0 passed completed 0 old-run
-rg -Fq 'waiting|' "$repo/.artifacts/fleet/mismatched-gate-status.review-status"
-if rg -Fq 'passed|' "$repo/.artifacts/fleet/mismatched-gate-status.review-status"; then
+rg -Fq 'failed|' "$repo/.artifacts/fleet/mismatched-gate-status.review-status"
+if rg -Fq 'ship-ready|' "$repo/.artifacts/fleet/mismatched-gate-status.review-status"; then
   echo "fleet accepted status from a different no-mistakes run" >&2
   exit 1
 fi
+
+run_case reviewed-branch missing-gnhf-identity "stop condition met" PASS 0 passed completed 0 run-current 1
+rg -Fq 'failed|' "$repo/.artifacts/fleet/missing-gnhf-identity.review-status"
+[ ! -f "$review_calls" ]
+
+run_case reviewed-branch mismatched-gnhf-identity "stop condition met" PASS 0 passed completed 0 run-current 0 other-run
+rg -Fq 'failed|' "$repo/.artifacts/fleet/mismatched-gnhf-identity.review-status"
+[ ! -f "$review_calls" ]
 
 cat > "$repo/.artifacts/fleet/unknown-sections.md" <<'BRIEF'
 # Fleet Brief: unknown-sections
@@ -230,6 +250,37 @@ printf '\n' | PATH="$fakebin:$PATH" REVIEW_CALLS="$review_calls" \
   bash "$repo/.artifacts/fleet/shell-quoted.run.sh" >/dev/null
 [ ! -e "$tmp/pwned" ]
 
+(
+  cd "$repo"
+  PATH="$fakebin:$PATH" WORKTREE_ROOT="$tmp/worktrees" TMUX_NO_SERVER=1 \
+    "$root/bin/fleet" start first-tmux --worktree-engine git --ship committed-branch \
+    "start without an existing tmux server"
+) >/dev/null
+[ -d "$repo/.artifacts/fleet/first-tmux.ownership" ]
+PATH="$fakebin:$PATH" bash "$repo/.artifacts/fleet/first-tmux.run.sh" >/dev/null
+[ ! -d "$repo/.artifacts/fleet/first-tmux.ownership" ]
+
+(
+  cd "$repo"
+  PATH="$fakebin:$PATH" WORKTREE_ROOT="$tmp/worktrees" \
+    "$root/bin/fleet" start durable-owner --worktree-engine git --ship committed-branch \
+    "hold ownership through runner acknowledgement"
+) >/dev/null
+durable_output="$tmp/durable-output"
+if (
+  cd "$repo"
+  PATH="$fakebin:$PATH" WORKTREE_ROOT="$tmp/worktrees" \
+    "$root/bin/fleet" start durable-owner --worktree-engine git --ship committed-branch \
+    "reject duplicate ownership"
+) >"$durable_output" 2>&1; then
+  echo "fleet accepted a second durable owner for one slug" >&2
+  exit 1
+fi
+rg -Fq "already has an active owner" "$durable_output"
+rg -Fq "captain status" "$durable_output"
+PATH="$fakebin:$PATH" bash "$repo/.artifacts/fleet/durable-owner.run.sh" >/dev/null
+[ ! -d "$repo/.artifacts/fleet/durable-owner.ownership" ]
+
 live_output="$tmp/live-output"
 if (
   cd "$repo"
@@ -239,9 +290,9 @@ if (
   echo "fleet accepted a concurrent runner for the same slug" >&2
   exit 1
 fi
-rg -Fq "already has a live runner at fleet:7 (gnhf)" "$live_output"
-rg -Fq "tmux select-window -t 'fleet:7'" "$live_output"
-rg -Fq "tmux kill-window -t 'fleet:7'" "$live_output"
+rg -Fq "already has a live runner at fleet:7.2 (gnhf)" "$live_output"
+rg -Fq "tmux select-window -t 'fleet:7.2'" "$live_output"
+rg -Fq "tmux kill-window -t 'fleet:7.2'" "$live_output"
 [ ! -e "$repo/.artifacts/fleet/already-running.md" ]
 
 rg -Fq 'exactly one bounded, lightweight, read-only Codex review' \

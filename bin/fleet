@@ -53,7 +53,9 @@ validate_slug() {
 
 live_fleet_window() {
   local window="$1"
-  tmux list-windows -a -F '#{session_name}:#{window_index} #{window_name} #{pane_current_command}' 2>/dev/null |
+  local panes
+  panes="$(tmux list-panes -a -F '#{session_name}:#{window_index}.#{pane_index} #{window_name} #{pane_current_command}' 2>/dev/null || true)"
+  printf '%s\n' "$panes" |
     awk -v window="$window" '$2 == window && $3 != "fish" && $3 != "zsh" { print; exit }'
 }
 
@@ -204,13 +206,19 @@ case "$cmd" in
     reject_live_fleet "$window"
     path="$(brief_path "$slug")"
     mkdir -p "$(dirname "$path")"
-    dispatch_lock="$(dirname "$path")/$slug.dispatch-lock"
-    if ! mkdir "$dispatch_lock" 2>/dev/null; then
-      echo "fleet slug '$slug' is already being dispatched" >&2
-      echo "Inspect fleet status and remove $dispatch_lock only if no dispatch is active." >&2
+    ownership_dir="$(dirname "$path")/$slug.ownership"
+    ownership_token="$$-$(date +%s)-$RANDOM"
+    if ! mkdir "$ownership_dir" 2>/dev/null; then
+      owner="$(cat "$ownership_dir/owner" 2>/dev/null || echo unknown)"
+      echo "fleet slug '$slug' already has an active owner: $owner" >&2
+      echo "Inspect it with: captain status" >&2
+      echo "Stop the matching tmux runner if appropriate, then retry." >&2
+      echo "Remove $ownership_dir only after confirming no runner owns it." >&2
       exit 2
     fi
-    trap '[ -z "${dispatch_lock:-}" ] || rmdir "$dispatch_lock" 2>/dev/null || true' EXIT
+    printf '%s\n' "$ownership_token" > "$ownership_dir/token"
+    printf 'dispatching pid=%s window=%s started=%s\n' "$$" "$window" "$(date +%s)" > "$ownership_dir/owner"
+    trap '[ -z "${ownership_dir:-}" ] || rm -rf "$ownership_dir"' EXIT
 
     if [ ! -f "$path" ]; then
       if [ -n "$issue" ]; then
@@ -293,9 +301,11 @@ case "$cmd" in
     printf -v intent_q '%q' "$intent"
     printf -v review_status_file_q '%q' "$review_status_file"
     printf -v review_base_q '%q' "$review_base"
+    printf -v ownership_dir_q '%q' "$ownership_dir"
+    printf -v ownership_token_q '%q' "$ownership_token"
     cat > "$runner" <<RUNNER
 #!/usr/bin/env bash
-cd $wt_path_q || exit 1
+set -uo pipefail
 agent=$agent_q
 max_iter=$max_iter_q
 stop_cond=$stop_cond_q
@@ -305,12 +315,45 @@ ship=$ship_q
 intent=$intent_q
 review_status_file=$review_status_file_q
 review_base=$review_base_q
+ownership_dir=$ownership_dir_q
+ownership_token=$ownership_token_q
+cleanup_ownership() {
+  if [ "\$(cat "\$ownership_dir/token" 2>/dev/null || true)" = "\$ownership_token" ]; then
+    rm -rf "\$ownership_dir"
+  fi
+}
+trap cleanup_ownership EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM HUP
+if [ "\$(cat "\$ownership_dir/token" 2>/dev/null || true)" != "\$ownership_token" ]; then
+  echo "[fleet] ownership lost before runner start" >&2
+  exit 1
+fi
+printf 'running pid=%s label=%s started=%s\n' "\$\$" "\$fleet_label" "\$(date +%s)" > "\$ownership_dir/owner"
+if ! cd $wt_path_q; then
+  printf 'implementation-failed||%s|unknown|\n' "\$(date +%s)" > "\$review_status_file"
+  exit 1
+fi
 rm -f "\$review_status_file"
+head=\$(git rev-parse HEAD 2>/dev/null || true)
+printf 'implementing|%s|%s|pending|\n' "\$head" "\$(date +%s)" > "\$review_status_file"
+before_logs=\$(find .gnhf/runs -type f -name gnhf.log -exec shasum -a 256 {} \; 2>/dev/null | sort || true)
 gnhf --agent "\$agent" --current-branch --max-iterations "\$max_iter" \\
   --stop-when "\$stop_cond" "\$(cat "\$prompt_file")"
 ec=\$?
-latest_gnhf_log=\$(ls -t .gnhf/runs/*/gnhf.log 2>/dev/null | head -n 1 || true)
-gnhf_run_id=\$(basename "\$(dirname "\$latest_gnhf_log")")
+after_logs=\$(find .gnhf/runs -type f -name gnhf.log -exec shasum -a 256 {} \; 2>/dev/null | sort || true)
+changed_logs=\$(comm -13 <(printf '%s\n' "\$before_logs" | sed '/^\$/d') <(printf '%s\n' "\$after_logs" | sed '/^\$/d') | sed 's/^[^ ]*  //')
+changed_count=\$(printf '%s\n' "\$changed_logs" | sed '/^\$/d' | wc -l | tr -d ' ')
+latest_gnhf_log=""
+gnhf_run_id="unknown"
+if [ "\$changed_count" -eq 1 ]; then
+  latest_gnhf_log="\$changed_logs"
+  gnhf_run_id=\$(basename "\$(dirname "\$latest_gnhf_log")")
+  logged_run_id=\$(grep '"event":"run:start"' "\$latest_gnhf_log" | tail -n 1 | jq -r '.runId // empty' 2>/dev/null || true)
+  [ "\$logged_run_id" = "\$gnhf_run_id" ] || ec=2
+else
+  ec=2
+fi
 gnhf_reason=""
 if [ -n "\$latest_gnhf_log" ]; then
   gnhf_reason=\$(grep '"event":"orchestrator:abort"' "\$latest_gnhf_log" | tail -n 1 | jq -r '.reason // empty' 2>/dev/null || true)
@@ -318,9 +361,12 @@ fi
 if [ \$ec -eq 0 ] && [ "\$gnhf_reason" != "stop condition met" ]; then
   ec=2
 fi
-if [ \$ec -eq 0 ] && [ "\$ship" != "committed-branch" ]; then
+head=\$(git rev-parse HEAD 2>/dev/null || true)
+if [ \$ec -eq 0 ] && [ "\$ship" = "committed-branch" ]; then
+  printf 'ready|%s|%s|%s|\n' "\$head" "\$(date +%s)" "\$gnhf_run_id" > "\$review_status_file"
+elif [ \$ec -eq 0 ]; then
   head=\$(git rev-parse HEAD)
-  printf 'reviewing|%s|%s|%s\n' "\$head" "\$(date +%s)" "\$gnhf_run_id" > "\$review_status_file"
+  printf 'reviewing|%s|%s|%s|\n' "\$head" "\$(date +%s)" "\$gnhf_run_id" > "\$review_status_file"
   if [ "\$ship" = "reviewed-branch" ]; then
     review_head="\$head"
     review_log="\${review_status_file%.review-status}.review.log"
@@ -338,15 +384,15 @@ if [ \$ec -eq 0 ] && [ "\$ship" != "committed-branch" ]; then
       && [ "\$review_verdict" = "FLEET_REVIEW: PASS" ] \
       && [ "\$current_head" = "\$review_head" ] \
       && [ -z "\$(git status --porcelain)" ]; then
-      printf 'reviewed|%s|%s|%s\n' "\$review_head" "\$(date +%s)" "\$gnhf_run_id" > "\$review_status_file"
+      printf 'reviewed|%s|%s|%s|\n' "\$review_head" "\$(date +%s)" "\$gnhf_run_id" > "\$review_status_file"
       ec=0
     else
-      printf 'failed|%s|%s|%s\n' "\$current_head" "\$(date +%s)" "\$gnhf_run_id" > "\$review_status_file"
+      printf 'failed|%s|%s|%s|\n' "\$current_head" "\$(date +%s)" "\$gnhf_run_id" > "\$review_status_file"
       ec=1
     fi
   else
     notify "fleet review: \$fleet_label" "implementation complete; no-mistakes shipping gate started" --tag mag --sound Glass --volume normal --repeat 1
-    nm_run=\$(no-mistakes axi run --intent "\$intent")
+    nm_run=\$(no-mistakes axi run --yes --intent "\$intent")
     nm_ec=\$?
     printf '%s\n' "\$nm_run"
     nm_run_id=\$(printf '%s\n' "\$nm_run" | awk -F': ' '/^[[:space:]]*id:/ { gsub(/"/, "", \$2); print \$2; exit }')
@@ -360,17 +406,21 @@ if [ \$ec -eq 0 ] && [ "\$ship" != "committed-branch" ]; then
       && [ "\$nm_run_id" = "\$nm_status_id" ] \
       && { { [ "\$nm_outcome" = "passed" ] && [ "\$nm_status" = "completed" ]; } \
         || { [ "\$nm_outcome" = "checks-passed" ] && [ "\$nm_status" = "running" ]; }; }; then
-      printf 'passed|%s|%s|%s\n' "\$head" "\$(date +%s)" "\$gnhf_run_id" > "\$review_status_file"
+      printf 'ship-ready|%s|%s|%s|%s\n' "\$head" "\$(date +%s)" "\$gnhf_run_id" "\$nm_run_id" > "\$review_status_file"
       ec=0
-    elif [ "\$nm_status" = "failed" ] || [ \$nm_ec -ne 0 ]; then
-      printf 'failed|%s|%s|%s\n' "\$head" "\$(date +%s)" "\$gnhf_run_id" > "\$review_status_file"
+    else
+      printf 'failed|%s|%s|%s|%s\n' "\$head" "\$(date +%s)" "\$gnhf_run_id" "\$nm_run_id" > "\$review_status_file"
       ec=\${nm_ec:-1}
       [ \$ec -eq 0 ] && ec=1
-    else
-      printf 'waiting|%s|%s|%s\n' "\$head" "\$(date +%s)" "\$gnhf_run_id" > "\$review_status_file"
-      ec=3
     fi
   fi
+else
+  if [[ "\$gnhf_reason" == max\ iterations* ]]; then
+    terminal_state=capped
+  else
+    terminal_state=implementation-failed
+  fi
+  printf '%s|%s|%s|%s|\n' "\$terminal_state" "\$head" "\$(date +%s)" "\$gnhf_run_id" > "\$review_status_file"
 fi
 if [ \$ec -eq 0 ] && [ "\$ship" = "green-pr" ]; then
   notify "fleet ship-ready: \$fleet_label" "independent review and shipping gate passed" --tag white_check_mark --sound Glass --volume normal --repeat 1
@@ -378,13 +428,10 @@ elif [ \$ec -eq 0 ] && [ "\$ship" = "reviewed-branch" ]; then
   notify "fleet reviewed: \$fleet_label" "independent local gate passed; ready for your decision" --tag white_check_mark --sound Glass --volume normal --repeat 1
 elif [ \$ec -eq 0 ]; then
   notify "fleet ready: \$fleet_label" "implementation committed; review not requested" --tag white_check_mark --sound Glass --volume normal --repeat 1
-elif [ \$ec -eq 3 ]; then
-  notify "fleet review needs you: \$fleet_label" "run captain status for the decision" --priority high --tag warning --sound Glass --volume loud --repeat 2
 else
   notify "fleet blocked: \$fleet_label" "pipeline exited \$ec" --priority high --tag rotating_light --sound Glass --volume loud --repeat 2
 fi
-echo
-read -r -p "[fleet] run ended (exit \$ec) - press enter to close" _
+exit "\$ec"
 RUNNER
     chmod +x "$runner"
 
@@ -394,7 +441,7 @@ RUNNER
     reject_live_fleet "$window"
 
     # Reuse an existing window for this slug only when its pane is idle.
-    existing="$(tmux list-windows -a -F '#{session_name}:#{window_index} #{window_name} #{pane_current_command}' 2>/dev/null | grep " $window " || true)"
+    existing="$(tmux list-panes -a -F '#{session_name}:#{window_index}.#{pane_index} #{window_name} #{pane_current_command}' 2>/dev/null | awk -v window="$window" '$2 == window && ($3 == "fish" || $3 == "zsh") { print }' || true)"
     reused=""
     if [ -n "$existing" ]; then
       while IFS= read -r line; do
@@ -414,8 +461,7 @@ RUNNER
       fi
     fi
 
-    rmdir "$dispatch_lock"
-    dispatch_lock=""
+    ownership_dir=""
 
     echo "dispatched: $window (agent=$agent, ship=$ship, branch=$branch, worktree=$worktree_engine)"
     echo "  brief:    $path"

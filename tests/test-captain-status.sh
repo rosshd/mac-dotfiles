@@ -47,8 +47,6 @@ LOG
 
 printf 'reviewing|%s|%s|run\n' "$head" "$now" > "$tmp/.artifacts/fleet/$slug.review-status"
 [[ "$(fleet_run_info "$tmp" "$slug")" == reviewing\|* ]]
-printf 'passed|%s|%s|run\n' "$head" "$now" > "$tmp/.artifacts/fleet/$slug.review-status"
-[[ "$(fleet_run_info "$tmp" "$slug")" == ship-ready\|* ]]
 printf 'reviewed|%s|%s|run\n' "$head" "$now" > "$tmp/.artifacts/fleet/$slug.review-status"
 [[ "$(fleet_run_info "$tmp" "$slug")" == reviewed\|* ]]
 
@@ -61,9 +59,13 @@ printf 'reviewing|%s|%s|run\n' "$head" "$now" > "$tmp/.artifacts/fleet/$slug.rev
 printf 'failed|%s|%s|run\n' "$head" "$now" > "$tmp/.artifacts/fleet/$slug.review-status"
 [[ "$(fleet_run_info "$tmp" "$slug")" == review-failed\|*lightweight* ]]
 rm "$tmp/.artifacts/fleet/$slug.review-status"
-[[ "$(fleet_run_info "$tmp" "$slug")" == ready\|* ]]
+[[ "$(fleet_run_info "$tmp" "$slug")" == review-failed\|*missing* ]]
 printf 'green-pr\n' > "$tmp/.artifacts/fleet/$slug.ship"
+[[ "$(fleet_run_info "$tmp" "$slug")" == review-failed\|*missing* ]]
+printf 'ship-ready|%s|%s|run|nm-exact\n' "$head" "$now" > "$tmp/.artifacts/fleet/$slug.review-status"
 [[ "$(fleet_run_info "$tmp" "$slug")" == ship-ready\|* ]]
+printf 'ship-ready|%s|%s|run|\n' "$head" "$now" > "$tmp/.artifacts/fleet/$slug.review-status"
+[[ "$(fleet_run_info "$tmp" "$slug")" == review-failed\|*invalid* ]]
 
 printf 'reviewed-branch\n' > "$tmp/.artifacts/fleet/$slug.ship"
 printf 'reviewed|%s|%s|run\n' "$head" "$now" > "$tmp/.artifacts/fleet/$slug.review-status"
@@ -72,7 +74,7 @@ cat > "$worktree/.gnhf/runs/run/gnhf.log" <<'LOG'
 {"event":"orchestrator:abort","reason":"max iterations reached (8)"}
 {"event":"orchestrator:end","status":"aborted","iterations":8,"commitCount":7}
 LOG
-[[ "$(fleet_run_info "$tmp" "$slug")" == reviewed\|*recovered* ]]
+[[ "$(fleet_run_info "$tmp" "$slug")" == reviewed\|* ]]
 
 printf 'reviewed|%s|%s|older-run\n' "$head" "$now" > "$tmp/.artifacts/fleet/$slug.review-status"
 [[ "$(fleet_run_info "$tmp" "$slug")" == capped\|* ]]

@@ -149,8 +149,11 @@ Fleet worktrees are leased from Treehouse by default and their paths are recorde
 A default run ends at an independently reviewed local branch; you decide whether to ship it.
 The fleet runner starts with bounded GNHF implementation and local verification.
 The default `--ship reviewed-branch` then runs exactly one bounded, lightweight, read-only Codex review and never starts no-mistakes.
+It records `reviewed` or `failed`, releases the slug owner, and exits without parking the tmux pane.
 `--ship committed-branch` stops after implementation and is reported as ready for review without running an independent review.
 `--ship green-pr` instead starts the full no-mistakes push, PR, and CI gate.
+That lane resolves findings unattended, records `ship-ready` or `failed` for the exact no-mistakes run, releases the slug owner, and exits.
+Only one runner may own a slug at a time, including the dispatch-to-runner handoff.
 `fleet start` on an existing slug resumes the run from where gnhf left off.
 
 Brief template fields: objective, scope (in/out/conflicts-with), stop condition, verification, escalation, ship.
@@ -341,9 +344,9 @@ no-mistakes axi logs --step review --full
 ```
 
 The fleet lane starts no-mistakes automatically after a successful GNHF implementation only for `--ship green-pr`.
+It runs the gate once with unattended finding resolution and closes with `ship-ready` or `failed` instead of parking at an approval gate.
 The default `--ship reviewed-branch` runs one bounded, lightweight, read-only Codex review instead, while `--ship committed-branch` skips independent review.
-No-mistakes may pause at an approval gate; use `captain status` to see the decision and `no-mistakes axi respond` to continue.
-Run it manually only for interactive-lane work.
+Use `no-mistakes axi respond` only for manually started interactive runs.
 
 ## Reproducible laptop foundation
 

@@ -13,7 +13,8 @@
   persistence (tpm + resurrect + continuum).
 - Simplified the default `ship` workspace to `home` and `notes` only.
 - Added reusable coding templates with tool ownership and rationale.
-- Committed the legacy-to-terminal-first migration and pushed the branch.
+- Removed obsolete Sketchybar and AeroSpace commits from the local feature-branch history while preserving the meaningful terminal-first commit sequence.
+- Prepared the cleaned feature branch for validation before a later force-with-lease update; this cleanup does not push it.
 - Added `Brewfile` as the canonical package manifest and changed `setup.sh` to use it.
 - Added `rebuild-mac` for package drift checks, Brewfile application, and active nix-darwin rebuilds.
 - Activated the Nix, nix-darwin, and Home Manager config in `flake.nix` and `nix/`.

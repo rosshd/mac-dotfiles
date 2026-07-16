@@ -21,6 +21,15 @@ for target in \
 done
 
 rg -Fq 'NO_MISTAKES_VERSION="v1.37.0"' "$setup"
+rg -Fq 'no_mistakes_managed="$HOME/.no-mistakes/bin/no-mistakes"' "$setup"
+rg -Fq '"$no_mistakes_managed" --version' "$setup"
+rg -Fq 'ln -sfn "$no_mistakes_managed" "$HOME/.local/bin/no-mistakes"' "$setup"
+rg -Fq 'no_mistakes_active="$(command -v no-mistakes' "$setup"
+rg -Fq 'Active no-mistakes executable is not the managed' "$setup"
+if rg -Fq 'if ! command -v no-mistakes' "$setup"; then
+  echo "setup must reconcile the managed no-mistakes pin regardless of PATH" >&2
+  exit 1
+fi
 rg -Fq 'NO_MISTAKES_ARCHIVE_SHA256="8f2ac871c0ca35dae957bf3e20eb7cafcfd5fc7de622c46e5e519081924749a1"' "$setup"
 rg -Fq 'NO_MISTAKES_ARCHIVE_SHA256="d081ac49c7c40473bf51e759639be5ede7adb735407207131bc7eadcb739d656"' "$setup"
 rg -Fq "shasum -a 256 -c -" "$setup"

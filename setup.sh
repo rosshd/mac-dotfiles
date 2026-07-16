@@ -78,8 +78,14 @@ fi
 # no-mistakes: local git proxy that validates changes through an AI pipeline
 # before pushing. Installs to ~/.no-mistakes/bin, symlinks ~/.local/bin/no-mistakes,
 # and starts a daemon.
-if ! command -v no-mistakes >/dev/null 2>&1; then
-  NO_MISTAKES_VERSION="v1.37.0"
+NO_MISTAKES_VERSION="v1.37.0"
+no_mistakes_managed="$HOME/.no-mistakes/bin/no-mistakes"
+no_mistakes_install=1
+if [ -x "$no_mistakes_managed" ] \
+  && "$no_mistakes_managed" --version 2>&1 | grep -Fq "$NO_MISTAKES_VERSION"; then
+  no_mistakes_install=0
+fi
+if [ "$no_mistakes_install" -eq 1 ]; then
   case "$(uname -m)" in
     arm64|aarch64)
       no_mistakes_arch="arm64"
@@ -103,12 +109,21 @@ if ! command -v no-mistakes >/dev/null 2>&1; then
   printf '%s  %s\n' "$NO_MISTAKES_ARCHIVE_SHA256" "$no_mistakes_tmp/$no_mistakes_archive" | shasum -a 256 -c -
   tar -xzf "$no_mistakes_tmp/$no_mistakes_archive" -C "$no_mistakes_tmp"
   mkdir -p "$HOME/.no-mistakes/bin"
-  install -m 755 "$no_mistakes_tmp/no-mistakes" "$HOME/.no-mistakes/bin/no-mistakes"
-  ln -sfn "$HOME/.no-mistakes/bin/no-mistakes" "$HOME/.local/bin/no-mistakes"
-  "$HOME/.no-mistakes/bin/no-mistakes" daemon restart >/dev/null
+  install -m 755 "$no_mistakes_tmp/no-mistakes" "$no_mistakes_managed"
+  "$no_mistakes_managed" --version 2>&1 | grep -Fq "$NO_MISTAKES_VERSION"
+  "$no_mistakes_managed" daemon restart >/dev/null
   rm -rf "$no_mistakes_tmp"
   trap - EXIT
 fi
+ln -sfn "$no_mistakes_managed" "$HOME/.local/bin/no-mistakes"
+hash -r
+no_mistakes_active="$(command -v no-mistakes 2>/dev/null || true)"
+if [ "$no_mistakes_active" != "$no_mistakes_managed" ] \
+  && [ "$(readlink "$no_mistakes_active" 2>/dev/null || true)" != "$no_mistakes_managed" ]; then
+  echo "Active no-mistakes executable is not the managed $NO_MISTAKES_VERSION pin: ${no_mistakes_active:-missing}" >&2
+  exit 1
+fi
+"$no_mistakes_active" --version 2>&1 | grep -Fq "$NO_MISTAKES_VERSION"
 # ------------------------------------------------------------------------------
 
 mkdir -p \

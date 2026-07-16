@@ -126,7 +126,8 @@ Prompt sources: `~/mac-dotfiles/agents/routines/`.
 Fleet runs bounded implementation first.
 The default `reviewed-branch` then runs exactly one bounded, lightweight, read-only Codex review and never starts no-mistakes.
 The explicit `green-pr` lane starts the full no-mistakes push, PR, and CI gate, while `committed-branch` skips independent review.
-The no-mistakes stage in the `green-pr` lane pauses only at a decision point or terminal outcome, and `captain status` reports whether it is reviewing, waiting, failed, or ship-ready.
+The `green-pr` lane resolves findings unattended and exits as `ship-ready` or `failed`; the reviewed lane exits as `reviewed` or `failed`.
+Every terminal lane releases its durable slug owner and closes instead of parking at a gate.
 Run no-mistakes manually only for interactive-lane work.
 
 ---
@@ -191,7 +192,7 @@ Do not run two agents on the same implementation without separate worktrees.
 | Focused check fails | Fix implementation or test assumption before broadening |
 | Green gate fails | Do not ship |
 | CE finds a product decision | Resolve it before applying speculative fix |
-| no-mistakes gate fires | Use `axi respond`; never edit around it |
+| Interactive no-mistakes gate fires | Use `axi respond`; never edit around it |
 | CI fails | Inspect exact job logs; fix on same branch; rerun |
 | Fleet run blocked | Read notify message; fix blocker; `fleet start <slug>` to resume |
 | no-mistakes hung | Check `axi logs`; only `axi abort` if genuinely stuck |
