@@ -33,7 +33,12 @@ worktree="$tmp/worktree"
 slug="review-state"
 mkdir -p "$tmp/.artifacts/fleet" "$worktree/.gnhf/runs/run"
 mkdir "$tmp/.artifacts/fleet/dispatching.ownership"
+printf 'dispatching pid=%s started=%s\n' "$$" "$(date +%s)" > "$tmp/.artifacts/fleet/dispatching.ownership/owner"
 [[ "$(fleet_run_info "$tmp" dispatching)" == running\|dispatching* ]]
+rm -rf "$tmp/.artifacts/fleet/dispatching.ownership"
+mkdir "$tmp/.artifacts/fleet/dispatching.ownership"
+printf 'dispatching pid=999999 started=0\n' > "$tmp/.artifacts/fleet/dispatching.ownership/owner"
+[[ "$(fleet_run_info "$tmp" dispatching)" == orphaned\|*retry\ fleet\ start* ]]
 rm -rf "$tmp/.artifacts/fleet/dispatching.ownership"
 printf '%s\n' "$worktree" > "$tmp/.artifacts/fleet/$slug.worktree"
 git -C "$worktree" init -q -b fleet/review-state
@@ -45,6 +50,7 @@ git -C "$worktree" commit -q -m "test"
 head="$(git -C "$worktree" rev-parse HEAD)"
 
 mkdir "$tmp/.artifacts/fleet/$slug.ownership"
+printf 'running pid=%s started=%s\n' "$$" "$(date +%s)" > "$tmp/.artifacts/fleet/$slug.ownership/owner"
 printf 'implementing|%s|%s|pending|\n' "$head" "$now" > "$tmp/.artifacts/fleet/$slug.review-status"
 [[ "$(fleet_run_info "$tmp" "$slug")" == running\|*awaiting\ exact* ]]
 rm -rf "$tmp/.artifacts/fleet/$slug.ownership"
@@ -57,11 +63,13 @@ cat > "$worktree/.gnhf/runs/run/gnhf.log" <<'LOG'
 LOG
 
 mkdir "$tmp/.artifacts/fleet/$slug.ownership"
+printf 'running pid=%s started=%s\n' "$$" "$(date +%s)" > "$tmp/.artifacts/fleet/$slug.ownership/owner"
 printf 'implementing|%s|%s|pending|\n' "$head" "$now" > "$tmp/.artifacts/fleet/$slug.review-status"
 [[ "$(fleet_run_info "$tmp" "$slug")" == running\|*awaiting\ exact* ]]
 rm -rf "$tmp/.artifacts/fleet/$slug.ownership"
 
 mkdir "$tmp/.artifacts/fleet/$slug.ownership"
+printf 'running pid=%s started=%s\n' "$$" "$(date +%s)" > "$tmp/.artifacts/fleet/$slug.ownership/owner"
 printf 'implementing|%s|%s|run|\n' "$head" "$now" > "$tmp/.artifacts/fleet/$slug.review-status"
 printf 'advanced\n' >> "$worktree/README"
 git -C "$worktree" add README
@@ -69,6 +77,24 @@ git -C "$worktree" commit -q -m "advance active implementation"
 [[ "$(fleet_run_info "$tmp" "$slug")" == running\|*exact\ GNHF\ run* ]]
 rm -rf "$tmp/.artifacts/fleet/$slug.ownership"
 head="$(git -C "$worktree" rev-parse HEAD)"
+
+mkdir "$tmp/.artifacts/fleet/$slug.ownership"
+printf 'running pid=999999 started=0\n' > "$tmp/.artifacts/fleet/$slug.ownership/owner"
+printf 'implementing|%s|%s|pending|\n' "$head" "$now" > "$tmp/.artifacts/fleet/$slug.review-status"
+[[ "$(fleet_run_info "$tmp" "$slug")" == orphaned\|*retry\ fleet\ start* ]]
+printf 'implementing|%s|%s|run|\n' "$head" "$now" > "$tmp/.artifacts/fleet/$slug.review-status"
+[[ "$(fleet_run_info "$tmp" "$slug")" == orphaned\|*retry\ fleet\ start* ]]
+sleep 30 &
+gnhf_pid=$!
+printf '{"event":"run:start","runId":"run","pid":%s}\n' "$gnhf_pid" > "$worktree/.gnhf/runs/run/gnhf.log"
+[[ "$(fleet_run_info "$tmp" "$slug")" == running\|*exact\ GNHF\ run* ]]
+kill "$gnhf_pid"
+wait "$gnhf_pid" 2>/dev/null || true
+rm -rf "$tmp/.artifacts/fleet/$slug.ownership"
+cat >> "$worktree/.gnhf/runs/run/gnhf.log" <<'LOG'
+{"event":"orchestrator:abort","reason":"stop condition met"}
+{"event":"orchestrator:end","status":"aborted","iterations":2,"commitCount":2}
+LOG
 
 printf 'reviewing|%s|%s|run\n' "$head" "$now" > "$tmp/.artifacts/fleet/$slug.review-status"
 [[ "$(fleet_run_info "$tmp" "$slug")" == reviewing\|* ]]

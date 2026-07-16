@@ -92,6 +92,101 @@ treehouse_path_file() {
   echo "$(dirname "$(brief_path "$1")")/$1.worktree"
 }
 
+pid_is_live() {
+  local pid="$1"
+  [[ "$pid" =~ ^[0-9]+$ ]] && [ "$pid" -gt 0 ] && kill -0 "$pid" 2>/dev/null
+}
+
+ownership_field() {
+  local ownership_dir="$1"
+  local field="$2"
+  awk -v field="$field" '{
+    for (i = 1; i <= NF; i++) {
+      if ($i ~ ("^" field "=[0-9]+$")) {
+        sub("^" field "=", "", $i)
+        print $i
+        exit
+      }
+    }
+  }' "$ownership_dir/owner" 2>/dev/null
+}
+
+existing_worktree_for_slug() {
+  local root="$1"
+  local slug="$2"
+  local path_file="$root/.artifacts/fleet/$slug.worktree"
+  local worktree=""
+
+  if [ -f "$path_file" ]; then
+    worktree="$(sed -n '1p' "$path_file")"
+    if [ -n "$worktree" ] && [ -d "$worktree" ]; then
+      printf '%s\n' "$worktree"
+      return 0
+    fi
+  fi
+
+  git -C "$root" worktree list --porcelain 2>/dev/null |
+    awk -v branch="refs/heads/fleet/$slug" '
+      $1 == "worktree" { path = $2 }
+      $1 == "branch" && $2 == branch { print path; exit }
+    '
+}
+
+ownership_gnhf_pid() {
+  local root="$1"
+  local slug="$2"
+  local review_file="$root/.artifacts/fleet/$slug.review-status"
+  local worktree run log
+
+  run="$(awk -F'|' 'NR == 1 && $1 == "implementing" { print $4 }' "$review_file" 2>/dev/null)"
+  [[ "$run" =~ ^[A-Za-z0-9][A-Za-z0-9_-]*$ ]] || return 0
+  worktree="$(existing_worktree_for_slug "$root" "$slug")"
+  [ -n "$worktree" ] || return 0
+  log="$worktree/.gnhf/runs/$run/gnhf.log"
+  [ -f "$log" ] || return 0
+  grep '"event":"run:start"' "$log" | tail -n 1 | jq -r '.pid // empty' 2>/dev/null || true
+}
+
+ownership_is_live() {
+  local root="$1"
+  local slug="$2"
+  local ownership_dir="$3"
+  local runner_pid gnhf_pid phase started now
+
+  runner_pid="$(ownership_field "$ownership_dir" pid)"
+  pid_is_live "$runner_pid" && return 0
+  gnhf_pid="$(ownership_gnhf_pid "$root" "$slug")"
+  pid_is_live "$gnhf_pid" && return 0
+  phase="$(awk 'NR == 1 { print $1 }' "$ownership_dir/owner" 2>/dev/null)"
+  started="$(ownership_field "$ownership_dir" started)"
+  now="$(date +%s)"
+  if [ "$phase" = "dispatching" ] && [[ "$started" =~ ^[0-9]+$ ]] \
+    && [ "$started" -le "$now" ] \
+    && [ "$((now - started))" -lt "${FLEET_OWNERSHIP_HANDOFF_SECONDS:-30}" ]; then
+    return 0
+  fi
+  return 1
+}
+
+acquire_ownership() {
+  local root="$1"
+  local slug="$2"
+  local ownership_dir="$3"
+  local acquisition_lock="$ownership_dir.acquire"
+  local acquired=1
+
+  shlock -f "$acquisition_lock" -p $$ || return 1
+  if mkdir "$ownership_dir" 2>/dev/null; then
+    acquired=0
+  elif ! ownership_is_live "$root" "$slug" "$ownership_dir"; then
+    rm -rf "$ownership_dir"
+    mkdir "$ownership_dir"
+    acquired=0
+  fi
+  rm -f "$acquisition_lock"
+  return "$acquired"
+}
+
 prepare_git_worktree() {
   local repo="$1"
   local slug="$2"
@@ -208,7 +303,7 @@ case "$cmd" in
     mkdir -p "$(dirname "$path")"
     ownership_dir="$(dirname "$path")/$slug.ownership"
     ownership_token="$$-$(date +%s)-$RANDOM"
-    if ! mkdir "$ownership_dir" 2>/dev/null; then
+    if ! acquire_ownership "$root" "$slug" "$ownership_dir"; then
       owner="$(cat "$ownership_dir/owner" 2>/dev/null || echo unknown)"
       echo "fleet slug '$slug' already has an active owner: $owner" >&2
       echo "Inspect it with: captain status" >&2
@@ -317,8 +412,12 @@ review_status_file=$review_status_file_q
 review_base=$review_base_q
 ownership_dir=$ownership_dir_q
 ownership_token=$ownership_token_q
+acquisition_lock="\$ownership_dir.acquire"
 gnhf_pid=""
 cleanup_ownership() {
+  if [ "\$(cat "\$acquisition_lock" 2>/dev/null || true)" = "\$\$" ]; then
+    rm -f "\$acquisition_lock"
+  fi
   if [ "\$(cat "\$ownership_dir/token" 2>/dev/null || true)" = "\$ownership_token" ]; then
     rm -rf "\$ownership_dir"
   fi
@@ -334,11 +433,25 @@ stop_runner() {
 trap cleanup_ownership EXIT
 trap 'stop_runner 130' INT
 trap 'stop_runner 143' TERM HUP
+acquired=0
+for _ in \$(seq 1 100); do
+  if shlock -f "\$acquisition_lock" -p \$\$; then
+    acquired=1
+    break
+  fi
+  sleep 0.05
+done
+if [ "\$acquired" -ne 1 ]; then
+  echo "[fleet] could not acquire ownership handoff lock" >&2
+  exit 1
+fi
 if [ "\$(cat "\$ownership_dir/token" 2>/dev/null || true)" != "\$ownership_token" ]; then
+  rm -f "\$acquisition_lock"
   echo "[fleet] ownership lost before runner start" >&2
   exit 1
 fi
 printf 'running pid=%s label=%s started=%s\n' "\$\$" "\$fleet_label" "\$(date +%s)" > "\$ownership_dir/owner"
+rm -f "\$acquisition_lock"
 if ! cd $wt_path_q; then
   printf 'implementation-failed||%s|unknown|\n' "\$(date +%s)" > "\$review_status_file"
   exit 1

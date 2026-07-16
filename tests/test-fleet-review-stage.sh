@@ -334,6 +334,46 @@ rg -Fq "captain status" "$durable_output"
 PATH="$fakebin:$PATH" bash "$repo/.artifacts/fleet/durable-owner.run.sh" >/dev/null
 [ ! -d "$repo/.artifacts/fleet/durable-owner.ownership" ]
 
+(
+  cd "$repo"
+  PATH="$fakebin:$PATH" WORKTREE_ROOT="$tmp/worktrees" \
+    "$root/bin/fleet" start stale-owner --worktree-engine git --ship committed-branch \
+    "reclaim stale durable ownership"
+) >/dev/null
+stale_token="$(cat "$repo/.artifacts/fleet/stale-owner.ownership/token")"
+printf 'running pid=999999 started=0\n' > "$repo/.artifacts/fleet/stale-owner.ownership/owner"
+stale_worktree="$tmp/worktrees/repo/fleet-stale-owner"
+mkdir -p "$stale_worktree/.gnhf/runs/live-child"
+sleep 30 &
+live_child_pid=$!
+printf '{"event":"run:start","runId":"live-child","pid":%s}\n' "$live_child_pid" > \
+  "$stale_worktree/.gnhf/runs/live-child/gnhf.log"
+printf 'implementing|unknown|0|live-child|\n' > "$repo/.artifacts/fleet/stale-owner.review-status"
+set +e
+(
+  cd "$repo"
+  PATH="$fakebin:$PATH" WORKTREE_ROOT="$tmp/worktrees" \
+    "$root/bin/fleet" start stale-owner --worktree-engine git --ship committed-branch \
+    "reject ownership while exact GNHF child lives"
+) >/dev/null 2>&1
+live_child_start_ec=$?
+set -e
+kill "$live_child_pid"
+wait "$live_child_pid" 2>/dev/null || true
+if [ "$live_child_start_ec" -eq 0 ]; then
+  echo "fleet reclaimed ownership from a live exact GNHF child" >&2
+  exit 1
+fi
+(
+  cd "$repo"
+  PATH="$fakebin:$PATH" WORKTREE_ROOT="$tmp/worktrees" \
+    "$root/bin/fleet" start stale-owner --worktree-engine git --ship committed-branch \
+    "reclaim stale durable ownership"
+) >/dev/null
+[ "$(cat "$repo/.artifacts/fleet/stale-owner.ownership/token")" != "$stale_token" ]
+PATH="$fakebin:$PATH" bash "$repo/.artifacts/fleet/stale-owner.run.sh" >/dev/null
+[ ! -d "$repo/.artifacts/fleet/stale-owner.ownership" ]
+
 live_output="$tmp/live-output"
 if (
   cd "$repo"

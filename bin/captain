@@ -399,6 +399,47 @@ gnhf_log_for_run() {
   [ -f "$log" ] && printf '%s\n' "$log"
 }
 
+fleet_pid_is_live() {
+  local pid="$1"
+  [[ "$pid" =~ ^[0-9]+$ ]] && [ "$pid" -gt 0 ] && kill -0 "$pid" 2>/dev/null
+}
+
+fleet_ownership_field() {
+  local ownership_dir="$1"
+  local field="$2"
+  awk -v field="$field" '{
+    for (i = 1; i <= NF; i++) {
+      if ($i ~ ("^" field "=[0-9]+$")) {
+        sub("^" field "=", "", $i)
+        print $i
+        exit
+      }
+    }
+  }' "$ownership_dir/owner" 2>/dev/null
+}
+
+fleet_ownership_is_live() {
+  local ownership_dir="$1"
+  local log="${2:-}"
+  local runner_pid gnhf_pid phase started now
+
+  runner_pid="$(fleet_ownership_field "$ownership_dir" pid)"
+  fleet_pid_is_live "$runner_pid" && return 0
+  if [ -n "$log" ] && [ -f "$log" ]; then
+    gnhf_pid="$(grep '"event":"run:start"' "$log" | tail -n 1 | jq -r '.pid // empty' 2>/dev/null || true)"
+    fleet_pid_is_live "$gnhf_pid" && return 0
+  fi
+  phase="$(awk 'NR == 1 { print $1 }' "$ownership_dir/owner" 2>/dev/null)"
+  started="$(fleet_ownership_field "$ownership_dir" started)"
+  now="$(date +%s)"
+  if [ "$phase" = "dispatching" ] && [[ "$started" =~ ^[0-9]+$ ]] \
+    && [ "$started" -le "$now" ] \
+    && [ "$((now - started))" -lt "${FLEET_OWNERSHIP_HANDOFF_SECONDS:-30}" ]; then
+    return 0
+  fi
+  return 1
+}
+
 fleet_run_info() {
   local root="$1"
   local slug="$2"
@@ -422,7 +463,11 @@ fleet_run_info() {
   worktree="$(fleet_worktree_for_slug "$root" "$slug")"
   if [ -z "$worktree" ] || [ ! -d "$worktree" ]; then
     if [ -d "$ownership_dir" ]; then
-      printf 'running|dispatching; worktree not ready\n'
+      if fleet_ownership_is_live "$ownership_dir"; then
+        printf 'running|dispatching; worktree not ready\n'
+      else
+        printf 'orphaned|stale Fleet ownership; retry fleet start to reclaim\n'
+      fi
       return 0
     fi
     if [ "$review_state" = "implementation-failed" ]; then
@@ -442,7 +487,11 @@ fleet_run_info() {
   if [ "$review_state" = "implementing" ] && [ -d "$ownership_dir" ]; then
     active_implementing=1
     if [ "$review_run" = "pending" ]; then
-      printf 'running|implementation running; awaiting exact GNHF run ID\n'
+      if fleet_ownership_is_live "$ownership_dir"; then
+        printf 'running|implementation running; awaiting exact GNHF run ID\n'
+      else
+        printf 'orphaned|stale Fleet ownership; retry fleet start to reclaim\n'
+      fi
       return 0
     fi
   fi
@@ -454,7 +503,9 @@ fleet_run_info() {
     log="$(gnhf_log_for_run "$worktree" "$review_run")"
   fi
   if [ "$active_implementing" -eq 1 ] && [ "$exact_run_requested" -eq 1 ]; then
-    if [ -n "$log" ]; then
+    if ! fleet_ownership_is_live "$ownership_dir" "$log"; then
+      printf 'orphaned|stale Fleet ownership; retry fleet start to reclaim\n'
+    elif [ -n "$log" ]; then
       printf 'running|implementation running; exact GNHF run %s\n' "$review_run"
     else
       printf 'running|implementation running; exact GNHF log is starting\n'
@@ -500,7 +551,11 @@ fleet_run_info() {
       esac
     fi
     if [ -d "$ownership_dir" ]; then
-      printf 'running|runner owns slug; no GNHF log yet\n'
+      if fleet_ownership_is_live "$ownership_dir"; then
+        printf 'running|runner owns slug; no GNHF log yet\n'
+      else
+        printf 'orphaned|stale Fleet ownership; retry fleet start to reclaim\n'
+      fi
       return 0
     fi
     printf 'idle|no GNHF run log\n'
