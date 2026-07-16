@@ -11,10 +11,16 @@ calls="$tmp/no-mistakes.calls"
 review_calls="$tmp/codex-review.calls"
 mkdir -p "$repo" "$fakebin"
 
-for command in tmux notify; do
-  printf '#!/usr/bin/env bash\nexit 0\n' > "$fakebin/$command"
-  chmod +x "$fakebin/$command"
-done
+printf '#!/usr/bin/env bash\nexit 0\n' > "$fakebin/notify"
+chmod +x "$fakebin/notify"
+cat > "$fakebin/tmux" <<'SCRIPT'
+#!/usr/bin/env bash
+if [ "${1:-}" = "list-windows" ] && [ -n "${TMUX_LIVE_SLUG:-}" ]; then
+  printf 'fleet:7 fleet-%s %s\n' "$TMUX_LIVE_SLUG" "${TMUX_LIVE_COMMAND:-gnhf}"
+fi
+exit 0
+SCRIPT
+chmod +x "$fakebin/tmux"
 cat > "$fakebin/gnhf" <<'SCRIPT'
 #!/usr/bin/env bash
 mkdir -p .gnhf/runs/test
@@ -49,11 +55,18 @@ cat > "$fakebin/no-mistakes" <<'SCRIPT'
 #!/usr/bin/env bash
 if [ "${1:-}" = "axi" ] && [ "${2:-}" = "run" ]; then
   printf '%s\n' "$*" >> "$NM_CALLS"
-  exit 0
+  cat <<STATUS
+run:
+  id: "${NM_RUN_ID:-run-current}"
+  status: ${NM_STATUS:-completed}
+outcome: ${NM_OUTCOME:-passed}
+STATUS
+  exit "${NM_RUN_EXIT:-0}"
 fi
 cat <<STATUS
 run:
-  status: completed
+  id: "${NM_STATUS_ID:-${NM_RUN_ID:-run-current}}"
+  status: ${NM_STATUS:-completed}
 outcome: ${NM_OUTCOME:-passed}
 STATUS
 SCRIPT
@@ -73,6 +86,9 @@ run_case() {
   local review_result="${4:-PASS}"
   local mutate="${5:-0}"
   local nm_outcome="${6:-passed}"
+  local nm_status="${7:-completed}"
+  local nm_run_exit="${8:-0}"
+  local nm_status_id="${9:-run-current}"
   rm -f "$calls" "$review_calls"
   (
     cd "$repo"
@@ -85,6 +101,7 @@ run_case() {
   printf '\n' | PATH="$fakebin:$PATH" NM_CALLS="$calls" REVIEW_CALLS="$review_calls" \
     FLEET_REVIEW_RESULT="$review_result" GNHF_TEST_REASON="$reason" \
     FLEET_REVIEW_MUTATE="$mutate" NM_OUTCOME="$nm_outcome" \
+    NM_STATUS="$nm_status" NM_RUN_EXIT="$nm_run_exit" NM_STATUS_ID="$nm_status_id" \
     bash "$repo/.artifacts/fleet/$slug.run.sh" >/dev/null
 }
 
@@ -144,7 +161,7 @@ Preserve the deliberate tradeoff.
 
 green-pr
 BRIEF
-run_case green-pr full-intent "stop condition met" PASS 0 checks-passed
+run_case green-pr full-intent "stop condition met" PASS 0 checks-passed running
 rg -Fq 'passed|' "$repo/.artifacts/fleet/full-intent.review-status"
 for expected in \
   'First objective line.' \
@@ -153,6 +170,79 @@ for expected in \
   'Preserve the deliberate tradeoff.'; do
   rg -Fq "$expected" "$calls"
 done
+
+run_case green-pr failed-gate-old-pass "stop condition met" PASS 0 passed completed 1 run-current
+rg -Fq 'failed|' "$repo/.artifacts/fleet/failed-gate-old-pass.review-status"
+
+run_case green-pr mismatched-gate-status "stop condition met" PASS 0 passed completed 0 old-run
+rg -Fq 'waiting|' "$repo/.artifacts/fleet/mismatched-gate-status.review-status"
+if rg -Fq 'passed|' "$repo/.artifacts/fleet/mismatched-gate-status.review-status"; then
+  echo "fleet accepted status from a different no-mistakes run" >&2
+  exit 1
+fi
+
+cat > "$repo/.artifacts/fleet/unknown-sections.md" <<'BRIEF'
+# Fleet Brief: unknown-sections
+
+## Objective
+
+Preserve the full issue brief.
+
+## Acceptance Criteria
+
+- Include custom acceptance criteria.
+
+## Constraints
+
+- Preserve custom constraints.
+
+## Ship
+
+green-pr
+BRIEF
+run_case green-pr unknown-sections
+rg -Fq 'Include custom acceptance criteria.' "$calls"
+rg -Fq 'Preserve custom constraints.' "$calls"
+if rg -Fq 'green-pr' "$calls"; then
+  echo "Ship metadata must not be included in gate intent" >&2
+  exit 1
+fi
+
+for invalid_slug in '../escape' 'bad_slug' 'BadSlug' 'bad$(touch-pwned)'; do
+  if (
+    cd "$repo"
+    PATH="$fakebin:$PATH" WORKTREE_ROOT="$tmp/worktrees" \
+      "$root/bin/fleet" start "$invalid_slug" --worktree-engine git "invalid slug"
+  ) >/dev/null 2>&1; then
+    echo "fleet accepted invalid slug: $invalid_slug" >&2
+    exit 1
+  fi
+done
+
+unsafe_root="$tmp/worktrees-\$(touch $tmp/pwned)"
+(
+  cd "$repo"
+  PATH="$fakebin:$PATH" WORKTREE_ROOT="$unsafe_root" \
+    "$root/bin/fleet" start shell-quoted --worktree-engine git --ship committed-branch \
+    "quote generated runner values"
+) >/dev/null
+printf '\n' | PATH="$fakebin:$PATH" REVIEW_CALLS="$review_calls" \
+  bash "$repo/.artifacts/fleet/shell-quoted.run.sh" >/dev/null
+[ ! -e "$tmp/pwned" ]
+
+live_output="$tmp/live-output"
+if (
+  cd "$repo"
+  PATH="$fakebin:$PATH" TMUX_LIVE_SLUG="already-running" \
+    "$root/bin/fleet" start already-running --worktree-engine git "duplicate run"
+) >"$live_output" 2>&1; then
+  echo "fleet accepted a concurrent runner for the same slug" >&2
+  exit 1
+fi
+rg -Fq "already has a live runner at fleet:7 (gnhf)" "$live_output"
+rg -Fq "tmux select-window -t 'fleet:7'" "$live_output"
+rg -Fq "tmux kill-window -t 'fleet:7'" "$live_output"
+[ ! -e "$repo/.artifacts/fleet/already-running.md" ]
 
 rg -Fq 'exactly one bounded, lightweight, read-only Codex review' \
   "$root/docs/WORKFLOW.md" "$root/docs/WORKFLOW-QUICKLEARN.md"

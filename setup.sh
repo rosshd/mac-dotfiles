@@ -79,16 +79,34 @@ fi
 # before pushing. Installs to ~/.no-mistakes/bin, symlinks ~/.local/bin/no-mistakes,
 # and starts a daemon.
 if ! command -v no-mistakes >/dev/null 2>&1; then
-  NO_MISTAKES_REV="2bbbc143bd4520056e97957883a02615657b2a62"
-  NO_MISTAKES_INSTALL_SHA256="502c518c70ac4ed49ba0e42816db4b1312caad44760fa3619ca4bd41f786678b"
-  no_mistakes_installer="$(mktemp)"
-  trap 'rm -f "$no_mistakes_installer"' EXIT
+  NO_MISTAKES_VERSION="v1.37.0"
+  case "$(uname -m)" in
+    arm64|aarch64)
+      no_mistakes_arch="arm64"
+      NO_MISTAKES_ARCHIVE_SHA256="8f2ac871c0ca35dae957bf3e20eb7cafcfd5fc7de622c46e5e519081924749a1"
+      ;;
+    x86_64|amd64)
+      no_mistakes_arch="amd64"
+      NO_MISTAKES_ARCHIVE_SHA256="d081ac49c7c40473bf51e759639be5ede7adb735407207131bc7eadcb739d656"
+      ;;
+    *)
+      echo "Unsupported architecture for no-mistakes: $(uname -m)" >&2
+      exit 1
+      ;;
+  esac
+  no_mistakes_archive="no-mistakes-$NO_MISTAKES_VERSION-darwin-$no_mistakes_arch.tar.gz"
+  no_mistakes_tmp="$(mktemp -d)"
+  trap 'rm -rf "$no_mistakes_tmp"' EXIT
   curl -fsSL \
-    "https://raw.githubusercontent.com/kunchenguid/no-mistakes/$NO_MISTAKES_REV/docs/install.sh" \
-    -o "$no_mistakes_installer"
-  printf '%s  %s\n' "$NO_MISTAKES_INSTALL_SHA256" "$no_mistakes_installer" | shasum -a 256 -c -
-  sh "$no_mistakes_installer"
-  rm -f "$no_mistakes_installer"
+    "https://github.com/kunchenguid/no-mistakes/releases/download/$NO_MISTAKES_VERSION/$no_mistakes_archive" \
+    -o "$no_mistakes_tmp/$no_mistakes_archive"
+  printf '%s  %s\n' "$NO_MISTAKES_ARCHIVE_SHA256" "$no_mistakes_tmp/$no_mistakes_archive" | shasum -a 256 -c -
+  tar -xzf "$no_mistakes_tmp/$no_mistakes_archive" -C "$no_mistakes_tmp"
+  mkdir -p "$HOME/.no-mistakes/bin"
+  install -m 755 "$no_mistakes_tmp/no-mistakes" "$HOME/.no-mistakes/bin/no-mistakes"
+  ln -sfn "$HOME/.no-mistakes/bin/no-mistakes" "$HOME/.local/bin/no-mistakes"
+  "$HOME/.no-mistakes/bin/no-mistakes" daemon restart >/dev/null
+  rm -rf "$no_mistakes_tmp"
   trap - EXIT
 fi
 # ------------------------------------------------------------------------------

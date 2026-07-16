@@ -395,7 +395,7 @@ fleet_run_info() {
   local worktree log end_line abort_line run_line status reason
   local iterations commits pid age mtime state detail
   local review_file review_line review_state review_head review_run current_run current_head ship_file ship
-  local gate_info gate_state gate_label gate_detail gate_attention
+  local gate_info gate_state gate_label gate_detail gate_attention marker_current
 
   worktree="$(fleet_worktree_for_slug "$root" "$slug")"
   if [ -z "$worktree" ] || [ ! -d "$worktree" ]; then
@@ -450,41 +450,51 @@ fleet_run_info() {
     fi
 
     review_file="$root/.artifacts/fleet/$slug.review-status"
+    ship_file="$root/.artifacts/fleet/$slug.ship"
+    ship="$(sed -n '1p' "$ship_file" 2>/dev/null || true)"
+    current_head="$(git -C "$worktree" rev-parse HEAD 2>/dev/null || true)"
+    marker_current=0
     if [ "$state" = "ready" ] && [ -f "$review_file" ]; then
       review_line="$(sed -n '1p' "$review_file")"
       IFS='|' read -r review_state review_head mtime review_run <<< "$review_line"
-      current_head="$(git -C "$worktree" rev-parse HEAD 2>/dev/null || true)"
-      ship_file="$root/.artifacts/fleet/$slug.ship"
-      ship="$(sed -n '1p' "$ship_file" 2>/dev/null || true)"
+      if [ -n "$review_head" ] && [ "$review_head" = "$current_head" ] \
+        && [ -n "$review_run" ] && [ "$review_run" = "$current_run" ]; then
+        marker_current=1
+        case "$review_state" in
+          reviewing)
+            state="reviewing"
+            if [ "$ship" = "green-pr" ]; then
+              detail="$detail, no-mistakes running"
+            else
+              detail="$detail, lightweight review running"
+            fi
+            ;;
+          waiting) state="review-needed"; detail="$detail, no-mistakes needs a decision" ;;
+          failed)
+            state="review-failed"
+            if [ "$ship" = "green-pr" ]; then
+              detail="$detail, no-mistakes failed"
+            else
+              detail="$detail, lightweight review failed"
+            fi
+            ;;
+          reviewed) state="reviewed"; detail="$detail, independent local gate passed" ;;
+          passed) state="ship-ready"; detail="$detail, independent gate passed" ;;
+          *) state="review-failed"; detail="$detail, invalid review status marker" ;;
+        esac
+      fi
+    fi
+
+    if [ "$state" = "ready" ] && [ "$ship" = "green-pr" ] && [ "$marker_current" -eq 0 ]; then
       gate_info="$(no_mistakes_info "$worktree")"
       IFS='|' read -r gate_state gate_label gate_detail gate_attention <<< "$gate_info"
       case "$gate_state" in
         running) state="reviewing"; detail="$detail, no-mistakes running" ;;
         waiting|stuck) state="review-needed"; detail="$detail, no-mistakes needs a decision" ;;
         failed|review) state="review-failed"; detail="$detail, no-mistakes needs attention" ;;
-        passed)
-          if [ "$ship" = "green-pr" ]; then
-            state="ship-ready"; detail="$detail, independent gate passed"
-          else
-            state="reviewed"; detail="$detail, independent local gate passed"
-          fi
-          ;;
-        needed)
-          if [ -z "$review_head" ] || [ "$review_head" != "$current_head" ]; then
-            state="review-needed"; detail="$detail, current HEAD is not reviewed"
-          fi
-          ;;
+        passed) state="ship-ready"; detail="$detail, independent gate passed" ;;
+        needed) state="review-needed"; detail="$detail, current HEAD is not reviewed" ;;
       esac
-      if [ "$state" = "ready" ] && [ -n "$review_head" ] && [ "$review_head" = "$current_head" ] \
-        && [ -n "$review_run" ] && [ "$review_run" = "$current_run" ]; then
-        case "$review_state" in
-          reviewing) state="reviewing"; detail="$detail, no-mistakes running" ;;
-          waiting) state="review-needed"; detail="$detail, no-mistakes needs a decision" ;;
-          failed) state="review-failed"; detail="$detail, no-mistakes failed" ;;
-          reviewed) state="reviewed"; detail="$detail, independent local gate passed" ;;
-          passed) state="ship-ready"; detail="$detail, independent gate passed" ;;
-        esac
-      fi
     fi
 
     printf '%s|%s\n' "$state" "$detail"

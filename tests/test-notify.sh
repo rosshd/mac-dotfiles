@@ -35,7 +35,7 @@ PATH="$fakebin:/usr/bin:/bin" OSASCRIPT_ARGS="$osascript_args" \
 [ ! -f "$terminal_notifier_args" ]
 
 PATH="$fakebin:/usr/bin:/bin" OSASCRIPT_ARGS="$osascript_args" OSASCRIPT_EXIT=1 \
-  TERMINAL_NOTIFIER_ARGS="$terminal_notifier_args" NOTIFY_USE_TERMINAL_NOTIFIER=1 \
+  TERMINAL_NOTIFIER_ARGS="$terminal_notifier_args" \
   "$root/bin/notify" --local-only --sound none "$title" "$message"
 rg -Fxq -- '-title' "$terminal_notifier_args"
 rg -Fxq -- "$title" "$terminal_notifier_args"

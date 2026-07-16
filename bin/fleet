@@ -43,6 +43,34 @@ repo_root() { git rev-parse --show-toplevel; }
 
 brief_path() { echo "$(repo_root)/.artifacts/fleet/$1.md"; }
 
+validate_slug() {
+  local slug="$1"
+  if [[ ! "$slug" =~ ^[a-z0-9][a-z0-9-]*$ ]] || [ "${#slug}" -gt 42 ]; then
+    echo "invalid fleet slug '$slug': use 1-42 lowercase letters, numbers, and hyphens" >&2
+    exit 2
+  fi
+}
+
+live_fleet_window() {
+  local window="$1"
+  tmux list-windows -a -F '#{session_name}:#{window_index} #{window_name} #{pane_current_command}' 2>/dev/null |
+    awk -v window="$window" '$2 == window && $3 != "fish" && $3 != "zsh" { print; exit }'
+}
+
+reject_live_fleet() {
+  local window="$1"
+  local live target command
+  live="$(live_fleet_window "$window")"
+  [ -z "$live" ] && return 0
+  target="${live%% *}"
+  command="${live##* }"
+  echo "fleet slug '${window#fleet-}' already has a live runner at $target ($command)" >&2
+  echo "Inspect it with: tmux select-window -t '$target'" >&2
+  echo "Stop it if appropriate with: tmux kill-window -t '$target'" >&2
+  echo "Retry fleet start only after the existing runner has stopped." >&2
+  exit 2
+}
+
 # Fleet runs must branch from the default branch, never from whatever the
 # main checkout happens to be on (gnhf --worktree branches from HEAD).
 base_ref() {
@@ -137,6 +165,7 @@ case "$cmd" in
   brief)
     slug="${1:-}"
     [ -z "$slug" ] && { usage >&2; exit 2; }
+    validate_slug "$slug"
     path="$(brief_path "$slug")"
     mkdir -p "$(dirname "$path")"
     if [ ! -f "$path" ]; then
@@ -149,6 +178,7 @@ case "$cmd" in
   start)
     slug="${1:-}"
     [ -z "$slug" ] && { usage >&2; exit 2; }
+    validate_slug "$slug"
     shift
     agent="$FLEET_AGENT_DEFAULT"
     issue=""
@@ -170,8 +200,17 @@ case "$cmd" in
     root="$(repo_root)"
     cd "$root"
     repo="$(basename "$root")"
+    window="fleet-$slug"
+    reject_live_fleet "$window"
     path="$(brief_path "$slug")"
     mkdir -p "$(dirname "$path")"
+    dispatch_lock="$(dirname "$path")/$slug.dispatch-lock"
+    if ! mkdir "$dispatch_lock" 2>/dev/null; then
+      echo "fleet slug '$slug' is already being dispatched" >&2
+      echo "Inspect fleet status and remove $dispatch_lock only if no dispatch is active." >&2
+      exit 2
+    fi
+    trap '[ -z "${dispatch_lock:-}" ] || rmdir "$dispatch_lock" 2>/dev/null || true' EXIT
 
     if [ ! -f "$path" ]; then
       if [ -n "$issue" ]; then
@@ -225,9 +264,9 @@ case "$cmd" in
     } > "$prompt_file"
 
     intent="$(awk '
-      /^## (Objective|Scope|Stop condition|Verification|Escalation)$/ { include = 1 }
-      /^## / && $0 !~ /^## (Objective|Scope|Stop condition|Verification|Escalation)$/ { include = 0 }
-      include { print }
+      $0 == "## Ship" { skip = 1; next }
+      skip && /^## / { skip = 0 }
+      !skip { print }
     ' "$path")"
     intent="${intent:-Fleet $slug}"
 
@@ -243,20 +282,32 @@ case "$cmd" in
     runner="$(dirname "$path")/$slug.run.sh"
     review_status_file="$(dirname "$path")/$slug.review-status"
     review_base="$(base_ref)"
+    fleet_label="$repo/$slug"
+    printf -v wt_path_q '%q' "$wt_path"
+    printf -v agent_q '%q' "$agent"
+    printf -v max_iter_q '%q' "$max_iter"
+    printf -v stop_cond_q '%q' "$stop_cond"
+    printf -v prompt_file_q '%q' "$prompt_file"
+    printf -v fleet_label_q '%q' "$fleet_label"
     printf -v ship_q '%q' "$ship"
     printf -v intent_q '%q' "$intent"
     printf -v review_status_file_q '%q' "$review_status_file"
     printf -v review_base_q '%q' "$review_base"
     cat > "$runner" <<RUNNER
 #!/usr/bin/env bash
-cd "$wt_path" || exit 1
+cd $wt_path_q || exit 1
+agent=$agent_q
+max_iter=$max_iter_q
+stop_cond=$stop_cond_q
+prompt_file=$prompt_file_q
+fleet_label=$fleet_label_q
 ship=$ship_q
 intent=$intent_q
 review_status_file=$review_status_file_q
 review_base=$review_base_q
 rm -f "\$review_status_file"
-gnhf --agent "$agent" --current-branch --max-iterations "$max_iter" \\
-  --stop-when "$stop_cond" "\$(cat "$prompt_file")"
+gnhf --agent "\$agent" --current-branch --max-iterations "\$max_iter" \\
+  --stop-when "\$stop_cond" "\$(cat "\$prompt_file")"
 ec=\$?
 latest_gnhf_log=\$(ls -t .gnhf/runs/*/gnhf.log 2>/dev/null | head -n 1 || true)
 gnhf_run_id=\$(basename "\$(dirname "\$latest_gnhf_log")")
@@ -274,7 +325,7 @@ if [ \$ec -eq 0 ] && [ "\$ship" != "committed-branch" ]; then
     review_head="\$head"
     review_log="\${review_status_file%.review-status}.review.log"
     review_result="\${review_status_file%.review-status}.review-result"
-    notify "fleet review: $repo/$slug" "implementation complete; lightweight review started" --tag mag --sound Glass --volume normal --repeat 1
+    notify "fleet review: \$fleet_label" "implementation complete; lightweight review started" --tag mag --sound Glass --volume normal --repeat 1
     if codex exec --ephemeral -s read-only -o "\$review_result" "Perform a lightweight independent review of git diff \$review_base...HEAD. Focus on actionable correctness, regression, security, and test-confidence problems introduced by the diff. Do not edit files. End the final response with exactly FLEET_REVIEW: PASS when there are no actionable P0-P2 findings, otherwise end with exactly FLEET_REVIEW: FAIL." > "\$review_log" 2>&1 </dev/null; then
       review_ec=0
     else
@@ -294,15 +345,21 @@ if [ \$ec -eq 0 ] && [ "\$ship" != "committed-branch" ]; then
       ec=1
     fi
   else
-    notify "fleet review: $repo/$slug" "implementation complete; no-mistakes shipping gate started" --tag mag --sound Glass --volume normal --repeat 1
-    no-mistakes axi run --intent "\$intent"
+    notify "fleet review: \$fleet_label" "implementation complete; no-mistakes shipping gate started" --tag mag --sound Glass --volume normal --repeat 1
+    nm_run=\$(no-mistakes axi run --intent "\$intent")
     nm_ec=\$?
+    printf '%s\n' "\$nm_run"
+    nm_run_id=\$(printf '%s\n' "\$nm_run" | awk -F': ' '/^[[:space:]]*id:/ { gsub(/"/, "", \$2); print \$2; exit }')
     nm=\$(no-mistakes axi status 2>&1 || true)
+    nm_status_id=\$(printf '%s\n' "\$nm" | awk -F': ' '/^[[:space:]]*id:/ { gsub(/"/, "", \$2); print \$2; exit }')
     nm_status=\$(printf '%s\n' "\$nm" | awk -F': ' '/^[[:space:]]*status:/ { print \$2; exit }')
     nm_outcome=\$(printf '%s\n' "\$nm" | awk -F': ' '/^outcome:/ { print \$2; exit }')
     head=\$(git rev-parse HEAD)
-    if [ "\$nm_status" = "completed" ] \
-      && { [ "\$nm_outcome" = "passed" ] || [ "\$nm_outcome" = "checks-passed" ]; }; then
+    if [ \$nm_ec -eq 0 ] \
+      && [ -n "\$nm_run_id" ] \
+      && [ "\$nm_run_id" = "\$nm_status_id" ] \
+      && { { [ "\$nm_outcome" = "passed" ] && [ "\$nm_status" = "completed" ]; } \
+        || { [ "\$nm_outcome" = "checks-passed" ] && [ "\$nm_status" = "running" ]; }; }; then
       printf 'passed|%s|%s|%s\n' "\$head" "\$(date +%s)" "\$gnhf_run_id" > "\$review_status_file"
       ec=0
     elif [ "\$nm_status" = "failed" ] || [ \$nm_ec -ne 0 ]; then
@@ -316,41 +373,35 @@ if [ \$ec -eq 0 ] && [ "\$ship" != "committed-branch" ]; then
   fi
 fi
 if [ \$ec -eq 0 ] && [ "\$ship" = "green-pr" ]; then
-  notify "fleet ship-ready: $repo/$slug" "independent review and shipping gate passed" --tag white_check_mark --sound Glass --volume normal --repeat 1
+  notify "fleet ship-ready: \$fleet_label" "independent review and shipping gate passed" --tag white_check_mark --sound Glass --volume normal --repeat 1
 elif [ \$ec -eq 0 ] && [ "\$ship" = "reviewed-branch" ]; then
-  notify "fleet reviewed: $repo/$slug" "independent local gate passed; ready for your decision" --tag white_check_mark --sound Glass --volume normal --repeat 1
+  notify "fleet reviewed: \$fleet_label" "independent local gate passed; ready for your decision" --tag white_check_mark --sound Glass --volume normal --repeat 1
 elif [ \$ec -eq 0 ]; then
-  notify "fleet ready: $repo/$slug" "implementation committed; review not requested" --tag white_check_mark --sound Glass --volume normal --repeat 1
+  notify "fleet ready: \$fleet_label" "implementation committed; review not requested" --tag white_check_mark --sound Glass --volume normal --repeat 1
 elif [ \$ec -eq 3 ]; then
-  notify "fleet review needs you: $repo/$slug" "run captain status for the decision" --priority high --tag warning --sound Glass --volume loud --repeat 2
+  notify "fleet review needs you: \$fleet_label" "run captain status for the decision" --priority high --tag warning --sound Glass --volume loud --repeat 2
 else
-  notify "fleet blocked: $repo/$slug" "pipeline exited \$ec" --priority high --tag rotating_light --sound Glass --volume loud --repeat 2
+  notify "fleet blocked: \$fleet_label" "pipeline exited \$ec" --priority high --tag rotating_light --sound Glass --volume loud --repeat 2
 fi
 echo
 read -r -p "[fleet] run ended (exit \$ec) - press enter to close" _
 RUNNER
     chmod +x "$runner"
 
-    window="fleet-$slug"
-    run="bash '$runner'"
+    printf -v runner_q '%q' "$runner"
+    run="bash $runner_q"
 
-    # Reuse an existing window for this slug if one is already open and idle
-    # (pane running fish = runner finished). Kill stale idle windows; open
-    # a fresh one for any window still running gnhf.
+    reject_live_fleet "$window"
+
+    # Reuse an existing window for this slug only when its pane is idle.
     existing="$(tmux list-windows -a -F '#{session_name}:#{window_index} #{window_name} #{pane_current_command}' 2>/dev/null | grep " $window " || true)"
     reused=""
     if [ -n "$existing" ]; then
       while IFS= read -r line; do
         win_id="$(echo "$line" | cut -d' ' -f1)"
-        cmd="$(echo "$line" | awk '{print $NF}')"
-        if [ "$cmd" = "gnhf" ] || [ "$cmd" = "bash" ]; then
-          echo "warning: $window is still running ($cmd) - opening a new window" >&2
-        else
-          # idle (fish prompt) - repurpose it
-          tmux send-keys -t "$win_id" "bash '$runner'" Enter
-          reused="$win_id"
-          break
-        fi
+        tmux send-keys -t "$win_id" "bash $runner_q" Enter
+        reused="$win_id"
+        break
       done <<< "$existing"
     fi
 
@@ -362,6 +413,9 @@ RUNNER
           || tmux new-window -d -t fleet -n "$window" "$run"
       fi
     fi
+
+    rmdir "$dispatch_lock"
+    dispatch_lock=""
 
     echo "dispatched: $window (agent=$agent, ship=$ship, branch=$branch, worktree=$worktree_engine)"
     echo "  brief:    $path"

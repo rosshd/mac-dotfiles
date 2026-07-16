@@ -135,7 +135,6 @@ APPLESCRIPT
     fi
   fi
   if [ "$notification_sent" -eq 0 ] \
-    && [ "${NOTIFY_USE_TERMINAL_NOTIFIER:-0}" = "1" ] \
     && command -v terminal-notifier >/dev/null 2>&1; then
     terminal-notifier -title "$title" -message "${message:-$title}" -group "agent-notify" >/dev/null 2>&1 || true
   fi

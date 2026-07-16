@@ -247,7 +247,7 @@ background process, so understand what it does before relying on it.
 | Tool | Replaces | Install source | Notes |
 | --- | --- | --- | --- |
 | `treehouse` | `wt` | `treehouse update` / `go install github.com/kunchenguid/treehouse@v2.0.0` | Git worktree pool orchestrator; `fleet` leases worktrees from it by default. |
-| `no-mistakes` | `make validate` | `curl -fsSL https://raw.githubusercontent.com/kunchenguid/no-mistakes/main/docs/install.sh \| sh` | Local git proxy that validates changes through an AI pipeline before push. Runs a daemon (`~/.no-mistakes`, socket + sqlite state). |
+| `no-mistakes` | `make validate` | `./setup.sh` pins v1.37.0 and verifies the release archive SHA-256 before extraction. | Local git proxy that validates changes through an AI pipeline before push. Runs a daemon (`~/.no-mistakes`, socket + sqlite state). |
 | `gnhf` | bounded agent loops | `npm install -g gnhf` | Long-running bounded loop runner. |
 | `herdr` | scattered agent panes | `brew install herdr` | Agent-aware terminal multiplexer; use for live multi-agent visibility, remote attach, and phone-sized terminal sessions. |
 | `firstmate` | `crew` | `git clone github.com/kunchenguid/firstmate` | Repo wrapper launched via the `firstmate` script. |
@@ -255,6 +255,8 @@ background process, so understand what it does before relying on it.
 
 `~/.no-mistakes/config.yaml` is linked from `no-mistakes/config.yaml`.
 It pins the Codex, Claude, and OpenCode binary paths so no-mistakes still finds agents when launched from git hooks, daemons, or iPhone SSH commands with a reduced PATH.
+Install no-mistakes by running `./setup.sh` from this repository instead of executing an upstream installer directly.
+The setup path selects the pinned Darwin archive for the current architecture, verifies its repository-reviewed SHA-256, installs the binary, and restarts the daemon.
 
 Validate everything at once with `doctor`.
 

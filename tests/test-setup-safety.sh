@@ -20,10 +20,16 @@ for target in \
   rg -Fq "link_managed_directory $target" "$setup"
 done
 
-rg -Fq 'NO_MISTAKES_REV="2bbbc143bd4520056e97957883a02615657b2a62"' "$setup"
-rg -Fq 'NO_MISTAKES_INSTALL_SHA256="502c518c70ac4ed49ba0e42816db4b1312caad44760fa3619ca4bd41f786678b"' "$setup"
-if rg -Fq 'no-mistakes/main/docs/install.sh' "$setup"; then
-  echo "no-mistakes installer must use the pinned revision" >&2
+rg -Fq 'NO_MISTAKES_VERSION="v1.37.0"' "$setup"
+rg -Fq 'NO_MISTAKES_ARCHIVE_SHA256="8f2ac871c0ca35dae957bf3e20eb7cafcfd5fc7de622c46e5e519081924749a1"' "$setup"
+rg -Fq 'NO_MISTAKES_ARCHIVE_SHA256="d081ac49c7c40473bf51e759639be5ede7adb735407207131bc7eadcb739d656"' "$setup"
+rg -Fq "shasum -a 256 -c -" "$setup"
+if rg -Fq 'releases/latest' "$setup" || rg -Fq 'no-mistakes/main/docs/install.sh' "$setup"; then
+  echo "no-mistakes installation must not resolve mutable upstream state" >&2
+  exit 1
+fi
+if rg -Fq 'no-mistakes/main/docs/install.sh' "$root/docs/TOOLS.md"; then
+  echo "tool documentation must use the verified setup path" >&2
   exit 1
 fi
 if rg -Fq 'herdr integration install "$integration" || true' "$setup"; then

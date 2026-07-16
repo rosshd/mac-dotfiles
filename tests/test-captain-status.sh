@@ -52,6 +52,22 @@ printf 'passed|%s|%s|run\n' "$head" "$now" > "$tmp/.artifacts/fleet/$slug.review
 printf 'reviewed|%s|%s|run\n' "$head" "$now" > "$tmp/.artifacts/fleet/$slug.review-status"
 [[ "$(fleet_run_info "$tmp" "$slug")" == reviewed\|* ]]
 
+no_mistakes_info() {
+  printf 'passed|passed|validated recently||\n'
+}
+printf 'reviewed-branch\n' > "$tmp/.artifacts/fleet/$slug.ship"
+printf 'reviewing|%s|%s|run\n' "$head" "$now" > "$tmp/.artifacts/fleet/$slug.review-status"
+[[ "$(fleet_run_info "$tmp" "$slug")" == reviewing\|*lightweight* ]]
+printf 'failed|%s|%s|run\n' "$head" "$now" > "$tmp/.artifacts/fleet/$slug.review-status"
+[[ "$(fleet_run_info "$tmp" "$slug")" == review-failed\|*lightweight* ]]
+rm "$tmp/.artifacts/fleet/$slug.review-status"
+[[ "$(fleet_run_info "$tmp" "$slug")" == ready\|* ]]
+printf 'green-pr\n' > "$tmp/.artifacts/fleet/$slug.ship"
+[[ "$(fleet_run_info "$tmp" "$slug")" == ship-ready\|* ]]
+
+printf 'reviewed-branch\n' > "$tmp/.artifacts/fleet/$slug.ship"
+printf 'reviewed|%s|%s|run\n' "$head" "$now" > "$tmp/.artifacts/fleet/$slug.review-status"
+
 cat > "$worktree/.gnhf/runs/run/gnhf.log" <<'LOG'
 {"event":"orchestrator:abort","reason":"max iterations reached (8)"}
 {"event":"orchestrator:end","status":"aborted","iterations":8,"commitCount":7}
