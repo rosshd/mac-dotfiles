@@ -389,21 +389,100 @@ latest_gnhf_log() {
   printf '%s\n' "$latest"
 }
 
+gnhf_log_for_run() {
+  local worktree="$1"
+  local run="$2"
+  local log
+
+  [[ "$run" =~ ^[A-Za-z0-9][A-Za-z0-9_-]*$ ]] || return 0
+  log="$worktree/.gnhf/runs/$run/gnhf.log"
+  [ -f "$log" ] && printf '%s\n' "$log"
+}
+
 fleet_run_info() {
   local root="$1"
   local slug="$2"
-  local worktree log end_line abort_line run_line status reason
+  local worktree log end_line abort_line run_line status reason ownership_dir
   local iterations commits pid age mtime state detail
-  local review_file review_line review_state review_head review_run review_nm_run current_run current_head ship_file ship marker_current
+  local review_file review_line review_state review_head review_run review_nm_run current_run current_head ship_file ship marker_current exact_run_requested marker_exact
+
+  review_file="$root/.artifacts/fleet/$slug.review-status"
+  ship_file="$root/.artifacts/fleet/$slug.ship"
+  ownership_dir="$root/.artifacts/fleet/$slug.ownership"
+  ship="$(sed -n '1p' "$ship_file" 2>/dev/null || true)"
+  review_state=""
+  review_head=""
+  review_run=""
+  review_nm_run=""
+  if [ -f "$review_file" ]; then
+    review_line="$(sed -n '1p' "$review_file")"
+    IFS='|' read -r review_state review_head mtime review_run review_nm_run <<< "$review_line"
+  fi
 
   worktree="$(fleet_worktree_for_slug "$root" "$slug")"
   if [ -z "$worktree" ] || [ ! -d "$worktree" ]; then
+    if [ -d "$ownership_dir" ]; then
+      printf 'running|dispatching; worktree not ready\n'
+      return 0
+    fi
+    if [ "$review_state" = "implementation-failed" ]; then
+      printf 'failed|implementation failed before worktree startup\n'
+      return 0
+    fi
     printf 'stale|missing worktree\n'
     return 0
   fi
 
-  log="$(latest_gnhf_log "$worktree")"
+  current_head="$(git -C "$worktree" rev-parse HEAD 2>/dev/null || true)"
+  marker_current=0
+  if [ -n "$review_head" ] && [ "$review_head" = "$current_head" ]; then
+    marker_current=1
+  fi
+  log=""
+  exact_run_requested=0
+  if [ "$marker_current" -eq 1 ] && [ -n "$review_run" ] \
+    && [ "$review_run" != "pending" ] && [ "$review_run" != "unknown" ]; then
+    exact_run_requested=1
+    log="$(gnhf_log_for_run "$worktree" "$review_run")"
+  fi
+  if [ "$exact_run_requested" -eq 0 ]; then
+    log="$(latest_gnhf_log "$worktree")"
+  fi
   if [ -z "$log" ]; then
+    if [ "$exact_run_requested" -eq 1 ]; then
+      printf 'review-failed|exact GNHF log for status marker is missing\n'
+      return 0
+    fi
+    if [ "$marker_current" -eq 1 ]; then
+      case "$review_state" in
+        implementing)
+          if [ -d "$ownership_dir" ]; then
+            printf 'running|implementation starting; no GNHF log yet\n'
+          else
+            printf 'orphaned|implementation stopped before creating a GNHF log\n'
+          fi
+          return 0
+          ;;
+        implementation-failed) printf 'failed|implementation failed before creating a GNHF log\n'; return 0 ;;
+        capped) printf 'capped|implementation hit its iteration cap\n'; return 0 ;;
+        ready) printf 'ready|implementation committed; review not requested\n'; return 0 ;;
+        reviewing) printf 'reviewing|independent review running\n'; return 0 ;;
+        failed) printf 'review-failed|independent review failed\n'; return 0 ;;
+        reviewed) printf 'reviewed|independent local gate passed\n'; return 0 ;;
+        ship-ready)
+          if [ "$ship" = "green-pr" ] && [ -n "$review_nm_run" ]; then
+            printf 'ship-ready|independent gate passed\n'
+          else
+            printf 'review-failed|invalid shipping gate marker\n'
+          fi
+          return 0
+          ;;
+      esac
+    fi
+    if [ -d "$ownership_dir" ]; then
+      printf 'running|runner owns slug; no GNHF log yet\n'
+      return 0
+    fi
     printf 'idle|no GNHF run log\n'
     return 0
   fi
@@ -413,6 +492,10 @@ fleet_run_info() {
 
   if [ -n "$end_line" ]; then
     current_run="$(basename "$(dirname "$log")")"
+    marker_exact=0
+    if [ "$marker_current" -eq 1 ] && [ -n "$review_run" ] && [ "$review_run" = "$current_run" ]; then
+      marker_exact=1
+    fi
     status="$(printf '%s\n' "$end_line" | jq -r '.status // "unknown"' 2>/dev/null)"
     iterations="$(printf '%s\n' "$end_line" | jq -r '.iterations // 0' 2>/dev/null)"
     commits="$(printf '%s\n' "$end_line" | jq -r '.commitCount // 0' 2>/dev/null)"
@@ -432,17 +515,7 @@ fleet_run_info() {
       detail="$commits commits, $iterations iterations${reason:+, $reason}"
     fi
 
-    review_file="$root/.artifacts/fleet/$slug.review-status"
-    ship_file="$root/.artifacts/fleet/$slug.ship"
-    ship="$(sed -n '1p' "$ship_file" 2>/dev/null || true)"
-    current_head="$(git -C "$worktree" rev-parse HEAD 2>/dev/null || true)"
-    marker_current=0
-    if [ -f "$review_file" ]; then
-      review_line="$(sed -n '1p' "$review_file")"
-      IFS='|' read -r review_state review_head mtime review_run review_nm_run <<< "$review_line"
-      if [ -n "$review_head" ] && [ "$review_head" = "$current_head" ] \
-        && [ -n "$review_run" ] && [ "$review_run" = "$current_run" ]; then
-        marker_current=1
+    if [ "$marker_exact" -eq 1 ]; then
         case "$review_state" in
           implementing) state="running"; detail="$detail, implementation running" ;;
           reviewing)
@@ -474,9 +547,8 @@ fleet_run_info() {
             ;;
           *) state="review-failed"; detail="$detail, invalid review status marker" ;;
         esac
-      fi
     fi
-    if [ "$state" = "ready" ] && [ "$ship" != "committed-branch" ] && [ "$marker_current" -eq 0 ]; then
+    if [ "$state" = "ready" ] && [ "$ship" != "committed-branch" ] && [ "$marker_exact" -eq 0 ]; then
       state="review-failed"
       detail="$detail, missing exact review status for this run"
     fi

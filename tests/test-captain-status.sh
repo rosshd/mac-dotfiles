@@ -32,6 +32,9 @@ trap 'rm -rf "$tmp"' EXIT
 worktree="$tmp/worktree"
 slug="review-state"
 mkdir -p "$tmp/.artifacts/fleet" "$worktree/.gnhf/runs/run"
+mkdir "$tmp/.artifacts/fleet/dispatching.ownership"
+[[ "$(fleet_run_info "$tmp" dispatching)" == running\|dispatching* ]]
+rm -rf "$tmp/.artifacts/fleet/dispatching.ownership"
 printf '%s\n' "$worktree" > "$tmp/.artifacts/fleet/$slug.worktree"
 git -C "$worktree" init -q -b fleet/review-state
 git -C "$worktree" config user.name "Captain Test"
@@ -40,6 +43,14 @@ printf 'test\n' > "$worktree/README"
 git -C "$worktree" add README
 git -C "$worktree" commit -q -m "test"
 head="$(git -C "$worktree" rev-parse HEAD)"
+
+mkdir "$tmp/.artifacts/fleet/$slug.ownership"
+printf 'implementing|%s|%s|pending|\n' "$head" "$now" > "$tmp/.artifacts/fleet/$slug.review-status"
+[[ "$(fleet_run_info "$tmp" "$slug")" == running\|*no\ GNHF\ log* ]]
+rm -rf "$tmp/.artifacts/fleet/$slug.ownership"
+printf 'implementation-failed|%s|%s|unknown|\n' "$head" "$now" > "$tmp/.artifacts/fleet/$slug.review-status"
+[[ "$(fleet_run_info "$tmp" "$slug")" == failed\|*before\ creating* ]]
+
 cat > "$worktree/.gnhf/runs/run/gnhf.log" <<'LOG'
 {"event":"orchestrator:abort","reason":"stop condition met"}
 {"event":"orchestrator:end","status":"aborted","iterations":2,"commitCount":2}
@@ -74,9 +85,15 @@ cat > "$worktree/.gnhf/runs/run/gnhf.log" <<'LOG'
 {"event":"orchestrator:abort","reason":"max iterations reached (8)"}
 {"event":"orchestrator:end","status":"aborted","iterations":8,"commitCount":7}
 LOG
+mkdir -p "$worktree/.gnhf/runs/other"
+cat > "$worktree/.gnhf/runs/other/gnhf.log" <<'LOG'
+{"event":"orchestrator:abort","reason":"stop condition met"}
+{"event":"orchestrator:end","status":"aborted","iterations":1,"commitCount":1}
+LOG
+touch -t 202601010101 "$worktree/.gnhf/runs/run/gnhf.log" "$worktree/.gnhf/runs/other/gnhf.log"
 [[ "$(fleet_run_info "$tmp" "$slug")" == reviewed\|* ]]
 
 printf 'reviewed|%s|%s|older-run\n' "$head" "$now" > "$tmp/.artifacts/fleet/$slug.review-status"
-[[ "$(fleet_run_info "$tmp" "$slug")" == capped\|* ]]
+[[ "$(fleet_run_info "$tmp" "$slug")" == review-failed\|*exact* ]]
 
 echo "captain status freshness policy: ok"

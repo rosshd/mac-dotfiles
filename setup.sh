@@ -116,6 +116,8 @@ if [ "$no_mistakes_install" -eq 1 ]; then
   trap - EXIT
 fi
 ln -sfn "$no_mistakes_managed" "$HOME/.local/bin/no-mistakes"
+PATH="$HOME/.local/bin:$PATH"
+export PATH
 hash -r
 no_mistakes_active="$(command -v no-mistakes 2>/dev/null || true)"
 if [ "$no_mistakes_active" != "$no_mistakes_managed" ] \
