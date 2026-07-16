@@ -399,17 +399,33 @@ gnhf_log_for_run() {
   [ -f "$log" ] && printf '%s\n' "$log"
 }
 
-fleet_pid_is_live() {
+fleet_process_identity() {
   local pid="$1"
-  [[ "$pid" =~ ^[0-9]+$ ]] && [ "$pid" -gt 0 ] && kill -0 "$pid" 2>/dev/null
+  local process identity
+
+  [[ "$pid" =~ ^[0-9]+$ ]] && [ "$pid" -gt 0 ] || return 0
+  process="$(ps -p "$pid" -o lstart= 2>/dev/null | sed -n '/[^[:space:]]/p')"
+  [ -n "$process" ] || return 0
+  identity="$(printf '%s' "$process" | shasum -a 256 | awk '{ print $1 }')"
+  [ -n "$identity" ] && printf '%s\n' "$identity"
 }
 
-fleet_ownership_field() {
+fleet_process_identity_matches() {
+  local pid="$1"
+  local expected="$2"
+  local actual
+
+  [ -n "$expected" ] || return 1
+  actual="$(fleet_process_identity "$pid")"
+  [ -n "$actual" ] && [ "$actual" = "$expected" ] && kill -0 "$pid" 2>/dev/null
+}
+
+fleet_ownership_value() {
   local ownership_dir="$1"
   local field="$2"
   awk -v field="$field" '{
     for (i = 1; i <= NF; i++) {
-      if ($i ~ ("^" field "=[0-9]+$")) {
+      if ($i ~ ("^" field "=[^[:space:]]+$")) {
         sub("^" field "=", "", $i)
         print $i
         exit
@@ -421,18 +437,25 @@ fleet_ownership_field() {
 fleet_ownership_is_live() {
   local ownership_dir="$1"
   local log="${2:-}"
-  local runner_pid gnhf_pid phase started now
+  local runner_pid runner_identity gnhf_pid recorded_gnhf_pid gnhf_identity phase started now
 
-  runner_pid="$(fleet_ownership_field "$ownership_dir" pid)"
-  fleet_pid_is_live "$runner_pid" && return 0
+  runner_pid="$(fleet_ownership_value "$ownership_dir" pid)"
+  runner_identity="$(fleet_ownership_value "$ownership_dir" identity)"
+  fleet_process_identity_matches "$runner_pid" "$runner_identity" && return 0
   if [ -n "$log" ] && [ -f "$log" ]; then
     gnhf_pid="$(grep '"event":"run:start"' "$log" | tail -n 1 | jq -r '.pid // empty' 2>/dev/null || true)"
-    fleet_pid_is_live "$gnhf_pid" && return 0
+    recorded_gnhf_pid="$(fleet_ownership_value "$ownership_dir" gnhf_pid)"
+    gnhf_identity="$(fleet_ownership_value "$ownership_dir" gnhf_identity)"
+    if [ -n "$gnhf_pid" ] && [ "$gnhf_pid" = "$recorded_gnhf_pid" ] \
+      && fleet_process_identity_matches "$gnhf_pid" "$gnhf_identity"; then
+      return 0
+    fi
   fi
   phase="$(awk 'NR == 1 { print $1 }' "$ownership_dir/owner" 2>/dev/null)"
-  started="$(fleet_ownership_field "$ownership_dir" started)"
+  started="$(fleet_ownership_value "$ownership_dir" started)"
   now="$(date +%s)"
   if [ "$phase" = "dispatching" ] && [[ "$started" =~ ^[0-9]+$ ]] \
+    && ! kill -0 "$runner_pid" 2>/dev/null \
     && [ "$started" -le "$now" ] \
     && [ "$((now - started))" -lt "${FLEET_OWNERSHIP_HANDOFF_SECONDS:-30}" ]; then
     return 0

@@ -162,7 +162,7 @@ if ! rg -q '^implementing\|[^|]+\|[^|]+\|test\|$' "$repo/.artifacts/fleet/active
 fi
 marker_head="$(cut -d'|' -f2 "$repo/.artifacts/fleet/active-rerun.review-status")"
 [ "$marker_head" != "$(git -C "$active_worktree" rev-parse HEAD)" ]
-if rg -Fq 'shasum' "$repo/.artifacts/fleet/active-rerun.run.sh"; then
+if rg -q 'shasum.*gnhf|gnhf.*shasum' "$repo/.artifacts/fleet/active-rerun.run.sh"; then
   echo "fleet active discovery must not hash GNHF logs" >&2
   exit 1
 fi
@@ -313,6 +313,49 @@ printf '\n' | PATH="$fakebin:$PATH" REVIEW_CALLS="$review_calls" \
 PATH="$fakebin:$PATH" bash "$repo/.artifacts/fleet/first-tmux.run.sh" >/dev/null
 [ ! -d "$repo/.artifacts/fleet/first-tmux.ownership" ]
 
+cat > "$fakebin/ps" <<'SCRIPT'
+#!/usr/bin/env bash
+if [ -n "${PROCESS_IDENTITY_PAUSE_FILE:-}" ] && [ ! -f "$PROCESS_IDENTITY_PAUSE_FILE.release" ]; then
+  : > "$PROCESS_IDENTITY_PAUSE_FILE.started"
+  while [ ! -f "$PROCESS_IDENTITY_PAUSE_FILE.release" ]; do
+    sleep 0.05
+  done
+fi
+exec /bin/ps "$@"
+SCRIPT
+chmod +x "$fakebin/ps"
+identity_pause="$tmp/ownership-identity"
+(
+  cd "$repo"
+  PATH="$fakebin:$PATH" WORKTREE_ROOT="$tmp/worktrees" \
+    PROCESS_IDENTITY_PAUSE_FILE="$identity_pause" \
+    "$root/bin/fleet" start concurrent-owner --worktree-engine git --ship committed-branch \
+    "initialize ownership atomically"
+) >/dev/null &
+first_owner_pid=$!
+for _ in $(seq 1 100); do
+  [ -f "$identity_pause.started" ] && break
+  sleep 0.05
+done
+[ -f "$identity_pause.started" ]
+set +e
+(
+  cd "$repo"
+  PATH="$fakebin:$PATH" WORKTREE_ROOT="$tmp/worktrees" \
+    "$root/bin/fleet" start concurrent-owner --worktree-engine git --ship committed-branch \
+    "reject concurrent ownership initialization"
+) >/dev/null 2>&1
+second_owner_ec=$?
+set -e
+: > "$identity_pause.release"
+wait "$first_owner_pid"
+[ "$second_owner_ec" -ne 0 ]
+[ -s "$repo/.artifacts/fleet/concurrent-owner.ownership/token" ]
+rg -q '^dispatching pid=[0-9]+ identity=[0-9a-f]{64} ' \
+  "$repo/.artifacts/fleet/concurrent-owner.ownership/owner"
+PATH="$fakebin:$PATH" bash "$repo/.artifacts/fleet/concurrent-owner.run.sh" >/dev/null
+[ ! -d "$repo/.artifacts/fleet/concurrent-owner.ownership" ]
+
 (
   cd "$repo"
   PATH="$fakebin:$PATH" WORKTREE_ROOT="$tmp/worktrees" \
@@ -346,6 +389,10 @@ stale_worktree="$tmp/worktrees/repo/fleet-stale-owner"
 mkdir -p "$stale_worktree/.gnhf/runs/live-child"
 sleep 30 &
 live_child_pid=$!
+live_child_start="$(ps -p "$live_child_pid" -o lstart= | sed -n '/[^[:space:]]/p')"
+live_child_identity="$(printf '%s' "$live_child_start" | shasum -a 256 | awk '{ print $1 }')"
+printf 'running pid=999999 identity=missing gnhf_pid=%s gnhf_identity=%s started=0\n' \
+  "$live_child_pid" "$live_child_identity" > "$repo/.artifacts/fleet/stale-owner.ownership/owner"
 printf '{"event":"run:start","runId":"live-child","pid":%s}\n' "$live_child_pid" > \
   "$stale_worktree/.gnhf/runs/live-child/gnhf.log"
 printf 'implementing|unknown|0|live-child|\n' > "$repo/.artifacts/fleet/stale-owner.review-status"
@@ -364,6 +411,9 @@ if [ "$live_child_start_ec" -eq 0 ]; then
   echo "fleet reclaimed ownership from a live exact GNHF child" >&2
   exit 1
 fi
+printf 'running pid=%s identity=reused-pid started=0\n' "$$" > \
+  "$repo/.artifacts/fleet/stale-owner.ownership/owner"
+printf 'implementing|unknown|0|pending|\n' > "$repo/.artifacts/fleet/stale-owner.review-status"
 (
   cd "$repo"
   PATH="$fakebin:$PATH" WORKTREE_ROOT="$tmp/worktrees" \
