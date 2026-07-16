@@ -88,9 +88,9 @@ else
 fi
 
 if [ -f "$HOME/mac-dotfiles/flake.nix" ]; then
-  printf 'ok   nix flake scaffold present\n'
+  printf 'ok   active Nix flake present\n'
 else
-  printf 'fail nix flake scaffold missing\n'
+  printf 'fail active Nix flake missing\n'
   failures=$((failures + 1))
 fi
 
