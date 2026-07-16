@@ -30,6 +30,11 @@ cat > "$fakebin/gnhf" <<'SCRIPT'
 mkdir -p .gnhf/runs/test
 reason="${GNHF_TEST_REASON:-stop condition met}"
 printf '{"event":"run:start","runId":"%s","pid":%s}\n' "${GNHF_LOGGED_RUN_ID:-test}" "$$" > .gnhf/runs/test/gnhf.log
+if [ "${GNHF_COMMIT_DURING_PAUSE:-0}" = "1" ]; then
+  printf 'advanced during GNHF\n' > gnhf-advanced
+  git add gnhf-advanced
+  git commit -q -m "advance during GNHF"
+fi
 if [ -n "${GNHF_PAUSE_FILE:-}" ]; then
   : > "$GNHF_PAUSE_FILE.started"
   while [ ! -f "$GNHF_PAUSE_FILE.release" ]; do
@@ -139,11 +144,12 @@ printf '%s\n' \
   '{"event":"orchestrator:end","status":"aborted","iterations":1,"commitCount":1}' \
   > "$active_worktree/.gnhf/runs/old/gnhf.log"
 pause_file="$tmp/active-rerun"
-PATH="$fakebin:$PATH" GNHF_PAUSE_FILE="$pause_file" \
+PATH="$fakebin:$PATH" GNHF_PAUSE_FILE="$pause_file" GNHF_COMMIT_DURING_PAUSE=1 \
   bash "$repo/.artifacts/fleet/active-rerun.run.sh" >/dev/null &
 active_pid=$!
 for _ in $(seq 1 100); do
-  if rg -q '^implementing\|[^|]+\|[^|]+\|test\|$' "$repo/.artifacts/fleet/active-rerun.review-status" 2>/dev/null; then
+  if rg -q '^implementing\|[^|]+\|[^|]+\|test\|$' "$repo/.artifacts/fleet/active-rerun.review-status" 2>/dev/null \
+    && [ -f "$pause_file.started" ]; then
     break
   fi
   sleep 0.05
@@ -152,6 +158,12 @@ if ! rg -q '^implementing\|[^|]+\|[^|]+\|test\|$' "$repo/.artifacts/fleet/active
   : > "$pause_file.release"
   wait "$active_pid" || true
   echo "fleet did not persist the active GNHF run ID" >&2
+  exit 1
+fi
+marker_head="$(cut -d'|' -f2 "$repo/.artifacts/fleet/active-rerun.review-status")"
+[ "$marker_head" != "$(git -C "$active_worktree" rev-parse HEAD)" ]
+if rg -Fq 'shasum' "$repo/.artifacts/fleet/active-rerun.run.sh"; then
+  echo "fleet active discovery must not hash GNHF logs" >&2
   exit 1
 fi
 active_status="$(CAPTAIN_SOURCE_ONLY=1 bash -c 'source "$1"; fleet_run_info "$2" "$3"' _ "$root/bin/captain" "$repo" active-rerun)"

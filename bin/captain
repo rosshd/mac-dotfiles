@@ -404,7 +404,7 @@ fleet_run_info() {
   local slug="$2"
   local worktree log end_line abort_line run_line status reason ownership_dir
   local iterations commits pid age mtime state detail
-  local review_file review_line review_state review_head review_run review_nm_run current_run current_head ship_file ship marker_current exact_run_requested marker_exact
+  local review_file review_line review_state review_head review_run review_nm_run current_run current_head ship_file ship marker_current exact_run_requested marker_exact active_implementing
 
   review_file="$root/.artifacts/fleet/$slug.review-status"
   ship_file="$root/.artifacts/fleet/$slug.ship"
@@ -438,17 +438,28 @@ fleet_run_info() {
   if [ -n "$review_head" ] && [ "$review_head" = "$current_head" ]; then
     marker_current=1
   fi
-  if [ "$marker_current" -eq 1 ] && [ "$review_state" = "implementing" ] \
-    && [ "$review_run" = "pending" ] && [ -d "$ownership_dir" ]; then
-    printf 'running|implementation running; awaiting exact GNHF run ID\n'
-    return 0
+  active_implementing=0
+  if [ "$review_state" = "implementing" ] && [ -d "$ownership_dir" ]; then
+    active_implementing=1
+    if [ "$review_run" = "pending" ]; then
+      printf 'running|implementation running; awaiting exact GNHF run ID\n'
+      return 0
+    fi
   fi
   log=""
   exact_run_requested=0
-  if [ "$marker_current" -eq 1 ] && [ -n "$review_run" ] \
+  if { [ "$marker_current" -eq 1 ] || [ "$active_implementing" -eq 1 ]; } && [ -n "$review_run" ] \
     && [ "$review_run" != "pending" ] && [ "$review_run" != "unknown" ]; then
     exact_run_requested=1
     log="$(gnhf_log_for_run "$worktree" "$review_run")"
+  fi
+  if [ "$active_implementing" -eq 1 ] && [ "$exact_run_requested" -eq 1 ]; then
+    if [ -n "$log" ]; then
+      printf 'running|implementation running; exact GNHF run %s\n' "$review_run"
+    else
+      printf 'running|implementation running; exact GNHF log is starting\n'
+    fi
+    return 0
   fi
   if [ "$exact_run_requested" -eq 0 ]; then
     log="$(latest_gnhf_log "$worktree")"

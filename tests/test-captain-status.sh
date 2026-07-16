@@ -61,6 +61,15 @@ printf 'implementing|%s|%s|pending|\n' "$head" "$now" > "$tmp/.artifacts/fleet/$
 [[ "$(fleet_run_info "$tmp" "$slug")" == running\|*awaiting\ exact* ]]
 rm -rf "$tmp/.artifacts/fleet/$slug.ownership"
 
+mkdir "$tmp/.artifacts/fleet/$slug.ownership"
+printf 'implementing|%s|%s|run|\n' "$head" "$now" > "$tmp/.artifacts/fleet/$slug.review-status"
+printf 'advanced\n' >> "$worktree/README"
+git -C "$worktree" add README
+git -C "$worktree" commit -q -m "advance active implementation"
+[[ "$(fleet_run_info "$tmp" "$slug")" == running\|*exact\ GNHF\ run* ]]
+rm -rf "$tmp/.artifacts/fleet/$slug.ownership"
+head="$(git -C "$worktree" rev-parse HEAD)"
+
 printf 'reviewing|%s|%s|run\n' "$head" "$now" > "$tmp/.artifacts/fleet/$slug.review-status"
 [[ "$(fleet_run_info "$tmp" "$slug")" == reviewing\|* ]]
 printf 'reviewed|%s|%s|run\n' "$head" "$now" > "$tmp/.artifacts/fleet/$slug.review-status"

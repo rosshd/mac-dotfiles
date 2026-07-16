@@ -346,17 +346,24 @@ fi
 rm -f "\$review_status_file"
 head=\$(git rev-parse HEAD 2>/dev/null || true)
 printf 'implementing|%s|%s|pending|\n' "\$head" "\$(date +%s)" > "\$review_status_file"
-before_logs=\$(find .gnhf/runs -type f -name gnhf.log -exec shasum -a 256 {} \; 2>/dev/null | sort || true)
+before_logs=\$(find .gnhf/runs -type f -name gnhf.log -print 2>/dev/null | sort || true)
 gnhf --agent "\$agent" --current-branch --max-iterations "\$max_iter" \\
   --stop-when "\$stop_cond" "\$(cat "\$prompt_file")" &
 gnhf_pid=\$!
+latest_gnhf_log=""
 while kill -0 "\$gnhf_pid" 2>/dev/null; do
-  active_logs=\$(find .gnhf/runs -type f -name gnhf.log -exec shasum -a 256 {} \; 2>/dev/null | sort || true)
-  active_changed=\$(comm -13 <(printf '%s\n' "\$before_logs" | sed '/^\$/d') <(printf '%s\n' "\$active_logs" | sed '/^\$/d') | sed 's/^[^ ]*  //')
-  active_count=\$(printf '%s\n' "\$active_changed" | sed '/^\$/d' | wc -l | tr -d ' ')
-  if [ "\$active_count" -eq 1 ]; then
-    active_run_id=\$(basename "\$(dirname "\$active_changed")")
-    logged_run_id=\$(grep '"event":"run:start"' "\$active_changed" | tail -n 1 | jq -r '.runId // empty' 2>/dev/null || true)
+  if [ -z "\$latest_gnhf_log" ]; then
+    current_logs=\$(find .gnhf/runs -type f -name gnhf.log -print 2>/dev/null | sort || true)
+    new_logs=\$(comm -13 <(printf '%s\n' "\$before_logs" | sed '/^\$/d') <(printf '%s\n' "\$current_logs" | sed '/^\$/d'))
+    new_count=\$(printf '%s\n' "\$new_logs" | sed '/^\$/d' | wc -l | tr -d ' ')
+    if [ "\$new_count" -eq 1 ]; then
+      latest_gnhf_log="\$new_logs"
+    elif [ "\$new_count" -gt 1 ]; then
+      break
+    fi
+  else
+    active_run_id=\$(basename "\$(dirname "\$latest_gnhf_log")")
+    logged_run_id=\$(grep '"event":"run:start"' "\$latest_gnhf_log" | tail -n 1 | jq -r '.runId // empty' 2>/dev/null || true)
     if [ -n "\$logged_run_id" ] && [ "\$logged_run_id" = "\$active_run_id" ]; then
       printf 'implementing|%s|%s|%s|\n' "\$head" "\$(date +%s)" "\$active_run_id" > "\$review_status_file"
       break
@@ -367,13 +374,16 @@ done
 wait "\$gnhf_pid"
 ec=\$?
 gnhf_pid=""
-after_logs=\$(find .gnhf/runs -type f -name gnhf.log -exec shasum -a 256 {} \; 2>/dev/null | sort || true)
-changed_logs=\$(comm -13 <(printf '%s\n' "\$before_logs" | sed '/^\$/d') <(printf '%s\n' "\$after_logs" | sed '/^\$/d') | sed 's/^[^ ]*  //')
-changed_count=\$(printf '%s\n' "\$changed_logs" | sed '/^\$/d' | wc -l | tr -d ' ')
-latest_gnhf_log=""
+if [ -z "\$latest_gnhf_log" ]; then
+  after_logs=\$(find .gnhf/runs -type f -name gnhf.log -print 2>/dev/null | sort || true)
+  new_logs=\$(comm -13 <(printf '%s\n' "\$before_logs" | sed '/^\$/d') <(printf '%s\n' "\$after_logs" | sed '/^\$/d'))
+  new_count=\$(printf '%s\n' "\$new_logs" | sed '/^\$/d' | wc -l | tr -d ' ')
+  if [ "\$new_count" -eq 1 ]; then
+    latest_gnhf_log="\$new_logs"
+  fi
+fi
 gnhf_run_id="unknown"
-if [ "\$changed_count" -eq 1 ]; then
-  latest_gnhf_log="\$changed_logs"
+if [ -n "\$latest_gnhf_log" ]; then
   gnhf_run_id=\$(basename "\$(dirname "\$latest_gnhf_log")")
   logged_run_id=\$(grep '"event":"run:start"' "\$latest_gnhf_log" | tail -n 1 | jq -r '.runId // empty' 2>/dev/null || true)
   [ "\$logged_run_id" = "\$gnhf_run_id" ] || ec=2
