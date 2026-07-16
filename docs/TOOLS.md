@@ -118,15 +118,15 @@ Keep Glass/ntfy notifications in `notify`; Herdr uses in-app toasts and no sound
 
 Wired into `fish/config.fish`:
 
-- **fzf** — fuzzy finder. `Ctrl-T` (files), `Alt-C` (cd into dir).
-- **atuin** — sqlite-backed shell history; owns `Ctrl-R` (loaded after fzf so it wins the bind). Run `atuin import auto` once to pull in old history.
-- **direnv** — per-directory env loading for project `.envrc` files (pyenv/uv).
-- **zoxide** — smart `cd` by frecency.
+- **fzf** - fuzzy finder. `Ctrl-T` (files), `Alt-C` (cd into dir).
+- **atuin** - sqlite-backed shell history; owns `Ctrl-R` (loaded after fzf so it wins the bind). Run `atuin import auto` once to pull in old history.
+- **direnv** - per-directory env loading for project `.envrc` files (pyenv/uv).
+- **zoxide** - smart `cd` by frecency.
 
 ### tmux persistence
 
 `tpm` manages `tmux-resurrect` + `tmux-continuum` (see `.tmux.conf`).
-Sessions auto-save every 15 min and restore when a new tmux server starts.
+Sessions auto-save and restore when a new tmux server starts.
 WezTerm itself is not a login item, so reboot still starts with a clean desktop until you intentionally open the terminal.
 Use `prefix + Ctrl-r` when you want to manually restore a different previous workspace.
 `prefix + I` reinstalls plugins if needed.
@@ -233,7 +233,7 @@ These live in:
 | `voice-vocab` | Print transcription vocabulary prompt. |
 | `firstmate` | Cd into the firstmate repo and launch its agent. |
 | `doctor` | Validate the toolchain (binaries, configs, versions). |
-| `rebuild-mac` | Check or apply the Brewfile and future Nix rebuild path. |
+| `rebuild-mac` | Check or apply the Brewfile and active nix-darwin rebuild path. |
 | `clean-reboot` | Reapply no-restore defaults, flush preferences, and reboot with `shutdown -r now`. |
 
 See [Coding Templates](CODING_TEMPLATES.md) for which tool owns each part of the coding workflow and why.
@@ -251,7 +251,7 @@ background process, so understand what it does before relying on it.
 | `gnhf` | bounded agent loops | `npm install -g gnhf` | Long-running bounded loop runner. |
 | `herdr` | scattered agent panes | `brew install herdr` | Agent-aware terminal multiplexer; use for live multi-agent visibility, remote attach, and phone-sized terminal sessions. |
 | `firstmate` | `crew` | `git clone github.com/kunchenguid/firstmate` | Repo wrapper launched via the `firstmate` script. |
-| `lavish-axi` | `plan-artifact` | `npm install -g lavish-axi` | Installs agent hooks + the `lavish` skill via `lavish-axi setup hooks` / `npx skills install lavish`. |
+| `lavish-axi` | `plan-artifact` | `npm install -g lavish-axi` | Installs agent hooks via `lavish-axi setup hooks`; the repo vendors the shared `lavish` skill. |
 
 `~/.no-mistakes/config.yaml` is linked from `no-mistakes/config.yaml`.
 It pins the Codex, Claude, and OpenCode binary paths so no-mistakes still finds agents when launched from git hooks, daemons, or iPhone SSH commands with a reduced PATH.
@@ -284,6 +284,6 @@ Canonical upstreams for every tool in this workflow.
 
 **OpenSuperWhisper** (dictation; pairs with the `voice-vocab` script and
 `~/.config/voice/vocabulary.md`) installs via the Homebrew cask `opensuperwhisper`.
-**AXI** is a framework, not a binary: `setup.sh` installs the `kunchenguid/axi`
-skill via `npx skills add`, and its per-domain helpers run on demand (e.g.
-`npx -y gh-axi`). `lavish-axi` is the installed npm distribution of lavish + AXI.
+**AXI** is a framework, not a binary.
+The repo vendors its shared skill under `agents/skills/axi`, and per-domain helpers run on demand (for example, `npx -y gh-axi`).
+`lavish-axi` is the installed npm distribution of lavish + AXI.

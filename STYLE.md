@@ -1,11 +1,12 @@
 # Style
 
-This setup is intentionally quieter than the previous desktop customization. The main surface is WezTerm running tmux, with Neovim as the editor and agent CLIs launched from terminal panes.
+This setup is intentionally quieter than the previous desktop customization.
+The main surface is WezTerm running tmux, with Neovim as the editor and agent CLIs launched from terminal panes.
 
 ## Visual Direction
 
-- Terminal: dark, readable, low-glare, with restrained Tokyo Night colors.
-- Editor: Neovim uses Tokyo Night and a compact statusline.
+- Theme: Firefox, WezTerm, tmux, Neovim, Starship, and Herdr share a dark, low-glare rose palette.
+- Editor: Neovim uses the repo's custom theme and a compact statusline.
 - Layout: native macOS windows, Mission Control, Raycast, and Rectangle instead of a custom top bar or tiling manager.
 - Typography: JetBrains Mono Nerd Font for terminal/editor glyph support.
 - Motion: minimal. Startup should be fast and predictable.
@@ -29,7 +30,8 @@ Primary config:
 - `nvim/init.lua`
 - `nvim/lua/ross/options.lua`
 - `nvim/lua/ross/keymaps.lua`
-- `nvim/lua/ross/plugins/`
+- `nvim/lua/ross/lazy.lua`
+- `nvim/lua/ross/theme.lua`
 
 ## macOS
 

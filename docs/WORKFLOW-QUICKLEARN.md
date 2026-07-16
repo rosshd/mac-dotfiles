@@ -16,8 +16,6 @@ The three modes of work:
 - **Fleet lane** - you write a brief, agent runs unattended through an independent local review by default
 - **Cloud lane** - scheduled agents run while you sleep (routines, PR babysitter)
 
-The shift: previously 100% interactive. Target: interactive is the minority.
-
 ---
 
 ## The outer loop (always)
@@ -26,7 +24,7 @@ The shift: previously 100% interactive. Target: interactive is the minority.
 intake -> brief -> pick lane -> lane runs -> notify -> review -> merge or redirect -> compound
 ```
 
-Every fleet or cloud run ends at a gate.
+Every lane runs to its selected review or shipping target.
 You never watch the run - you get notified when it needs you.
 
 ---
@@ -60,7 +58,7 @@ fleet done <worktree-path>    # clean up a finished worktree
 ```
 
 After a rate-limit abort or machine sleep, `fleet start <slug>` resumes from where gnhf stopped.
-Fleet reuses idle tmux windows; only opens a new window if the existing one is still running.
+Fleet reuses an idle tmux window and rejects a duplicate start while that slug still has a live runner.
 
 ---
 
@@ -127,7 +125,7 @@ Fleet runs bounded implementation first.
 The default `reviewed-branch` then runs exactly one bounded, lightweight, read-only Codex review and never starts no-mistakes.
 The explicit `green-pr` lane starts the full no-mistakes push, PR, and CI gate, while `committed-branch` skips independent review.
 The `green-pr` lane resolves findings unattended and exits as `ship-ready` or `failed`; the reviewed lane exits as `reviewed` or `failed`.
-Every terminal lane releases its durable slug owner and closes instead of parking at a gate.
+Every terminal lane releases its durable slug owner and returns control instead of parking at a gate.
 Run no-mistakes manually only for interactive-lane work.
 
 ---

@@ -130,7 +130,6 @@ agent codex          # or agent claude
 
 - Use `ce-brainstorm` or `ce-plan` to converge.
 - Once converged, write a brief and dispatch to the fleet lane.
-- Today this is the default; the target is to make it the minority.
 
 ### Fleet lane (default for well-briefed work)
 

@@ -41,6 +41,8 @@ sudo /nix/var/nix/profiles/default/bin/nix run nix-darwin -- switch --flake ~/ma
 rebuild-mac nix
 ```
 
+The installed `~/.local/bin/rebuild-mac` symlink resolves back to this repo before selecting the flake, so the normal command works outside the repo directory.
+
 Why this exists:
 
 - It provides reproducible macOS settings and user configuration.
