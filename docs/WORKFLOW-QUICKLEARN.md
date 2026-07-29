@@ -109,7 +109,7 @@ Config: `~/.config/notify/notify.conf` (NTFY_SERVER, NTFY_TOPIC).
 | PR babysitter | `/loop 15m /babysit-prs` (per session) | fixes red CI, surfaces review comments |
 
 Manage routines at https://claude.ai/code/routines.
-Prompt sources: `~/mac-dotfiles/agents/routines/`.
+Prompt sources: `~/agents/prompts/routines/`.
 
 ---
 
@@ -217,10 +217,11 @@ Do not run two agents on the same implementation without separate worktrees.
 |---|---|
 | Canonical workflow doc | `~/mac-dotfiles/docs/WORKFLOW.md` |
 | This quick-learn file | `~/mac-dotfiles/docs/WORKFLOW-QUICKLEARN.md` |
-| Agent instructions | `~/mac-dotfiles/agents/AGENTS.md` |
-| Brief template | `~/mac-dotfiles/agents/brief-template.md` |
-| Shared skills | `~/mac-dotfiles/agents/skills/` |
-| Routine prompts | `~/mac-dotfiles/agents/routines/` |
+| Agent workspace | `~/agents/` |
+| Agent instructions | `~/agents/AGENTS.md` |
+| Brief template | `~/agents/prompts/templates/fleet-brief.md` |
+| Shared skills | `~/agents/skills/` |
+| Routine prompts | `~/agents/prompts/routines/` |
 | gh-dash config | `~/mac-dotfiles/gh-dash/config.yml` |
 | notify config | `~/.config/notify/notify.conf` |
 | Fleet worktrees | `~/Developer/worktrees/<repo>/fleet-<slug>` |

@@ -171,7 +171,7 @@ Recurring maintenance and PR babysitting that runs while you sleep.
 | mac-dotfiles doc-drift check | 8am ET Mondays | rosshd/mac-dotfiles |
 
 Manage at https://claude.ai/code/routines.
-Prompt sources: `agents/routines/`.
+Prompt sources: `~/agents/prompts/routines/`.
 
 **PR babysitter** (per-session loop, fixes red CI and surfaces review comments):
 

@@ -1,4 +1,4 @@
-{ pkgs, username, homeDirectory, ... }:
+{ config, pkgs, username, homeDirectory, ... }:
 
 {
   home.username = username;
@@ -45,7 +45,7 @@
   home.file.".local/bin/voice-vocab".source = ../bin/voice-vocab;
   home.file.".local/bin/wt".source = ../bin/wt;
   home.file.".codex/AGENTS.md".source = ../agents/AGENTS.md;
-  home.file.".codex/hooks.json".source = ../agents/codex-hooks.json;
+  home.file.".codex/hooks.json".source = ../agents/config/codex-hooks.json;
   home.file.".codex/skills" = {
     source = ../agents/skills;
     recursive = true;
@@ -65,6 +65,8 @@
   };
   home.file.".copilot/copilot-instructions.md".source = ../agents/AGENTS.md;
   home.file.".gemini/GEMINI.md".source = ../agents/AGENTS.md;
+  home.file."agents".source =
+    config.lib.file.mkOutOfStoreSymlink "${homeDirectory}/mac-dotfiles/agents";
   home.file."STYLE.md".source = ../STYLE.md;
   home.file."VOICE.md".source = ../agents/VOICE.md;
 

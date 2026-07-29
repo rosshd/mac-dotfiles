@@ -161,11 +161,12 @@ for script in ship agent wt crew captain plan-artifact voice-vocab doctor firstm
 done
 
 ln -sfn "$DOTFILES/agents/AGENTS.md" "$HOME/.codex/AGENTS.md"
-ln -sfn "$DOTFILES/agents/codex-hooks.json" "$HOME/.codex/hooks.json"
+ln -sfn "$DOTFILES/agents/config/codex-hooks.json" "$HOME/.codex/hooks.json"
 ln -sfn "$DOTFILES/agents/AGENTS.md" "$HOME/.claude/CLAUDE.md"
 ln -sfn "$DOTFILES/agents/AGENTS.md" "$HOME/.config/opencode/AGENTS.md"
 ln -sfn "$DOTFILES/agents/AGENTS.md" "$HOME/.copilot/copilot-instructions.md"
 ln -sfn "$DOTFILES/agents/AGENTS.md" "$HOME/.gemini/GEMINI.md"
+ln -sfn "$DOTFILES/agents" "$HOME/agents"
 # Opinions/voice files that AGENTS.md defers to, kept lean for token efficiency.
 ln -sfn "$DOTFILES/STYLE.md" "$HOME/STYLE.md"
 ln -sfn "$DOTFILES/agents/VOICE.md" "$HOME/VOICE.md"

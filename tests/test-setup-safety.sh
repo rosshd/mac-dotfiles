@@ -19,6 +19,7 @@ for target in \
   '"$DOTFILES/agents/skills" "$HOME/.config/opencode/skills"'; do
   rg -Fq "link_managed_directory $target" "$setup"
 done
+rg -Fq 'ln -sfn "$DOTFILES/agents" "$HOME/agents"' "$setup"
 
 rg -Fq 'NO_MISTAKES_VERSION="v1.37.0"' "$setup"
 rg -Fq 'no_mistakes_managed="$HOME/.no-mistakes/bin/no-mistakes"' "$setup"

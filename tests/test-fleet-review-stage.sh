@@ -442,7 +442,7 @@ rg -Fq 'exactly one bounded, lightweight, read-only Codex review' \
   "$root/docs/WORKFLOW.md" "$root/docs/WORKFLOW-QUICKLEARN.md"
 if rg -Fq 'starts no-mistakes automatically for `reviewed-branch`' \
   "$root/docs/WORKFLOW.md" "$root/docs/WORKFLOW-QUICKLEARN.md" \
-  "$root/agents/brief-template.md"; then
+  "$root/agents/prompts/templates/fleet-brief.md"; then
   echo "reviewed-branch documentation must not delegate review to no-mistakes" >&2
   exit 1
 fi

@@ -18,7 +18,7 @@ done
 if rg -Fq 'the change is committed on a feature branch' \
   "$root/bin/fleet" \
   "$root/bin/captain" \
-  "$root/agents/brief-template.md"; then
+  "$root/agents/prompts/templates/fleet-brief.md"; then
   echo "fleet stop conditions must not wait for GNHF's automatic commit" >&2
   exit 1
 fi

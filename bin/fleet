@@ -302,7 +302,7 @@ case "$cmd" in
     path="$(brief_path "$slug")"
     mkdir -p "$(dirname "$path")"
     if [ ! -f "$path" ]; then
-      sed "s/<slug>/$slug/" "$HOME/mac-dotfiles/agents/brief-template.md" > "$path"
+      sed "s/<slug>/$slug/" "$HOME/agents/prompts/templates/fleet-brief.md" > "$path"
     fi
     "${EDITOR:-nvim}" "$path"
     echo "$path"

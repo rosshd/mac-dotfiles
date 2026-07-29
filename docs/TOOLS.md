@@ -166,10 +166,11 @@ oc
 Agent CLIs share one canonical global guidance file:
 
 ```text
-~/mac-dotfiles/agents/AGENTS.md
+~/agents/AGENTS.md
 ```
 
-`setup.sh` links that file into the supported global instruction path for Codex, Claude, OpenCode, Copilot CLI, and Gemini CLI.
+`~/agents` is an editable link to the version-controlled `~/mac-dotfiles/agents` source.
+`setup.sh` links its guidance into the supported global instruction path for Codex, Claude, OpenCode, Copilot CLI, and Gemini CLI.
 Project `AGENTS.md` files remain the source of project-specific rules.
 
 ## Mac Tools

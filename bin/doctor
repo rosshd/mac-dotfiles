@@ -141,6 +141,7 @@ check_default com.apple.loginwindow LoginwindowLaunchesRelaunchApps 0
 
 printf '\n== agent instructions ==\n'
 agent_rules="$HOME/mac-dotfiles/agents/AGENTS.md"
+check_link "$HOME/agents" "$HOME/mac-dotfiles/agents"
 check_link "$HOME/.codex/AGENTS.md" "$agent_rules"
 check_link "$HOME/.claude/CLAUDE.md" "$agent_rules"
 check_link "$HOME/.config/opencode/AGENTS.md" "$agent_rules"
