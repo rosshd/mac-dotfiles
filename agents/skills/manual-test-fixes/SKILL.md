@@ -39,10 +39,12 @@ Read [references/issue-packets.md](references/issue-packets.md) when normalizing
 3. Declare owned files, shared files, dependencies, conflicts, and integration order for every package.
 4. Delegate implementation only when the user explicitly authorized subagents or parallel agent work.
 5. Obey the repository's worktree and concurrency limits.
-6. Use read-only agents for reproduction or research when implementation worktrees are at capacity.
-7. Give each worker exact issue IDs, user-visible behavior, reproduction evidence, technical constraints, scope, acceptance criteria, verification commands, stop conditions, and handoff requirements.
-8. Tell workers not to merge, push, broaden scope, or edit an undeclared shared surface.
-9. Keep one coordinator responsible for the ledger, integration order, and closure state.
+6. Put every implementation package on a non-main branch in an isolated worktree, including coordinator-executed sequential work.
+7. Reserve the clean main checkout for serial integration after a package is marked `GO`.
+8. Use read-only agents for reproduction or research when implementation worktrees are at capacity.
+9. Give each worker exact issue IDs, user-visible behavior, reproduction evidence, technical constraints, scope, acceptance criteria, verification commands, stop conditions, and handoff requirements.
+10. Tell workers not to merge, push, broaden scope, or edit an undeclared shared surface.
+11. Keep one coordinator responsible for the ledger, integration order, and closure state.
 
 Never assign one agent per raw bullet without first checking duplication, dependencies, and ownership overlap.
 
