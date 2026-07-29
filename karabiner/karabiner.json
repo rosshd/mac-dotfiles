@@ -1,8 +1,6 @@
 {
   "global": {
-    "check_for_updates_on_startup": true,
-    "show_in_menu_bar": false,
-    "show_profile_name_in_menu_bar": false
+    "show_in_menu_bar": false
   },
   "profiles": [
     {
@@ -15,7 +13,87 @@
         },
         "rules": [
           {
-            "description": "Caps Lock → Hyper (Ctrl+Opt+Cmd) when held, Escape when tapped",
+            "description": "Logitech K350 special keys",
+            "manipulators": [
+              {
+                "type": "basic",
+                "from": { "consumer_key_code": "al_calculator" },
+                "to": [{ "shell_command": "open -a Calculator" }]
+              },
+              {
+                "type": "basic",
+                "from": {
+                  "consumer_key_code": "al_consumer_control_configuration",
+                  "modifiers": { "optional": ["any"] }
+                },
+                "parameters": { "basic.to_if_held_down_threshold_milliseconds": 400 },
+                "to": [{ "shell_command": "/Users/ross/.local/bin/spotify-popup" }],
+                "to_if_held_down": [{ "shell_command": "/Users/ross/.local/bin/focus-app Firefox" }]
+              },
+              {
+                "type": "basic",
+                "from": { "consumer_key_code": "al_image_browser" },
+                "to": [
+                  {
+                    "key_code": "4",
+                    "modifiers": ["left_command", "left_shift"]
+                  }
+                ]
+              },
+              {
+                "type": "basic",
+                "from": { "consumer_key_code": "ac_zoom_in" },
+                "to": [
+                  {
+                    "key_code": "equal_sign",
+                    "modifiers": ["left_command"]
+                  }
+                ]
+              },
+              {
+                "type": "basic",
+                "from": { "consumer_key_code": "ac_zoom_out" },
+                "to": [
+                  {
+                    "key_code": "hyphen",
+                    "modifiers": ["left_command"]
+                  }
+                ]
+              },
+              {
+                "type": "basic",
+                "from": { "consumer_key_code": "al_select_task_or_application" },
+                "to": [
+                  {
+                    "key_code": "up_arrow",
+                    "modifiers": ["left_control"]
+                  }
+                ]
+              },
+              {
+                "type": "basic",
+                "from": { "consumer_key_code": "stop" },
+                "to": [{ "shell_command": "/opt/homebrew/bin/spotify_player playback play-pause" }]
+              },
+              {
+                "type": "basic",
+                "from": { "consumer_key_code": "volume_increment" },
+                "to": [{ "shell_command": "/opt/homebrew/bin/spotify_player playback volume --offset 5" }]
+              },
+              {
+                "type": "basic",
+                "from": { "consumer_key_code": "volume_decrement" },
+                "to": [{ "shell_command": "/opt/homebrew/bin/spotify_player playback volume --offset -5" }]
+              },
+              {
+                "type": "basic",
+                "from": { "consumer_key_code": "mute" },
+                "to": [{ "shell_command": "/Users/ross/.local/bin/spotify-mute" }]
+              }
+            ]
+          },
+          {
+            "description": "Caps Lock: Hyper (Ctrl+Opt+Cmd) when held, Escape when tapped",
             "manipulators": [
               {
                 "type": "basic",
@@ -29,17 +107,50 @@
                     "modifiers": ["left_option", "left_command"]
                   }
                 ],
-                "to_if_alone": [
-                  { "key_code": "escape" }
-                ]
+                "to_if_alone": [{ "key_code": "escape" }]
               }
             ]
           }
         ]
       },
-      "simple_modifications": [],
-      "fn_function_keys": [],
-      "virtual_hid_keyboard": { "keyboard_type_v2": "ansi" }
+      "devices": [
+        {
+          "identifiers": {
+            "is_keyboard": true,
+            "product_id": 41756,
+            "vendor_id": 1241
+          },
+          "ignore": true
+        },
+        {
+          "identifiers": {
+            "is_pointing_device": true,
+            "product_id": 41756,
+            "vendor_id": 1241
+          },
+          "ignore_vendor_events": true
+        },
+        {
+          "identifiers": {
+            "is_keyboard": true,
+            "product_id": 50475,
+            "vendor_id": 1133
+          },
+          "ignore_vendor_events": true,
+          "treat_as_built_in_keyboard": true
+        },
+        {
+          "identifiers": {
+            "is_pointing_device": true,
+            "product_id": 50475,
+            "vendor_id": 1133
+          },
+          "ignore": false
+        }
+      ],
+      "virtual_hid_keyboard": {
+        "keyboard_type_v2": "ansi"
+      }
     }
   ]
 }

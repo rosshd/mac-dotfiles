@@ -1,0 +1,708 @@
+#!/usr/bin/env bash
+# fleet: captain's dispatch for autonomous agent runs.
+# Wraps gnhf bounded runs in worktrees with a brief, a stop condition,
+# and a notify on completion. Successor to `crew` for unattended work.
+set -euo pipefail
+
+FLEET_AGENT_DEFAULT="codex"
+FLEET_WORKTREE_ENGINE="${FLEET_WORKTREE_ENGINE:-treehouse}"
+STOP_COMMIT_GUIDANCE="Set should_fully_stop=true when the scoped outcome and required verification are complete after this iteration's work. GNHF commits successful iteration changes automatically after your response, so do not wait for the commit to exist and do not commit manually."
+STOP_DEFAULT="the scoped outcome is complete and the project green gate passes. $STOP_COMMIT_GUIDANCE The fleet runner starts its independent review stage after GNHF exits, so do not run review or shipping automation inside this implementation loop."
+STOP_COMMITTED_BRANCH="the scoped outcome is complete and the project green gate passes. $STOP_COMMIT_GUIDANCE"
+
+usage() {
+  cat <<'USAGE'
+usage:
+  fleet start <slug> [options] [objective...]
+  fleet brief <slug>
+  fleet status
+  fleet done <worktree-path>
+
+start options:
+  --agent <codex|claude>           harness for this run (default: codex)
+  --issue <n>                      seed the brief from a GitHub issue
+  --max-iterations <n>             gnhf iteration cap (default: 12)
+  --ship <reviewed-branch|green-pr|committed-branch>
+                                   how far the run goes alone (default: reviewed-branch)
+  --worktree-engine <treehouse|git>
+                                   worktree provider (default: treehouse)
+
+commands:
+  start   write/load the brief, then run gnhf in a fleet worktree branched
+          from the repo's default branch, inside a detached tmux window;
+          notify on done or blocked
+  brief   create a brief from the template and open it in $EDITOR
+  status  show fleet tmux windows and worktrees across projects
+  done    remove a finished worktree (delegates to wt)
+
+Briefs live under .artifacts/fleet/<slug>.md in the repo.
+USAGE
+}
+
+repo_root() { git rev-parse --show-toplevel; }
+
+brief_path() { echo "$(repo_root)/.artifacts/fleet/$1.md"; }
+
+validate_slug() {
+  local slug="$1"
+  if [[ ! "$slug" =~ ^[a-z0-9][a-z0-9-]*$ ]] || [ "${#slug}" -gt 42 ]; then
+    echo "invalid fleet slug '$slug': use 1-42 lowercase letters, numbers, and hyphens" >&2
+    exit 2
+  fi
+}
+
+live_fleet_window() {
+  local window="$1"
+  local panes
+  panes="$(tmux list-panes -a -F '#{session_name}:#{window_index}.#{pane_index} #{window_name} #{pane_current_command}' 2>/dev/null || true)"
+  printf '%s\n' "$panes" |
+    awk -v window="$window" '$2 == window && $3 != "fish" && $3 != "zsh" { print; exit }'
+}
+
+reject_live_fleet() {
+  local window="$1"
+  local live target command
+  live="$(live_fleet_window "$window")"
+  [ -z "$live" ] && return 0
+  target="${live%% *}"
+  command="${live##* }"
+  echo "fleet slug '${window#fleet-}' already has a live runner at $target ($command)" >&2
+  echo "Inspect it with: tmux select-window -t '$target'" >&2
+  echo "Stop it if appropriate with: tmux kill-window -t '$target'" >&2
+  echo "Retry fleet start only after the existing runner has stopped." >&2
+  exit 2
+}
+
+# Fleet runs must branch from the default branch, never from whatever the
+# main checkout happens to be on (gnhf --worktree branches from HEAD).
+base_ref() {
+  local ref
+  if ref="$(git symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null)"; then
+    echo "$ref"
+  elif git show-ref --verify --quiet refs/heads/main; then
+    echo "main"
+  elif git show-ref --verify --quiet refs/heads/master; then
+    echo "master"
+  else
+    git branch --show-current
+  fi
+}
+
+treehouse_path_file() {
+  echo "$(dirname "$(brief_path "$1")")/$1.worktree"
+}
+
+process_identity() {
+  local pid="$1"
+  local process identity
+
+  [[ "$pid" =~ ^[0-9]+$ ]] && [ "$pid" -gt 0 ] || return 0
+  process="$(ps -p "$pid" -o lstart= 2>/dev/null | sed -n '/[^[:space:]]/p')"
+  [ -n "$process" ] || return 0
+  identity="$(printf '%s' "$process" | shasum -a 256 | awk '{ print $1 }')"
+  [ -n "$identity" ] && printf '%s\n' "$identity"
+}
+
+process_identity_matches() {
+  local pid="$1"
+  local expected="$2"
+  local actual
+
+  [ -n "$expected" ] || return 1
+  actual="$(process_identity "$pid")"
+  [ -n "$actual" ] && [ "$actual" = "$expected" ] && kill -0 "$pid" 2>/dev/null
+}
+
+ownership_value() {
+  local ownership_dir="$1"
+  local field="$2"
+  awk -v field="$field" '{
+    for (i = 1; i <= NF; i++) {
+      if ($i ~ ("^" field "=[^[:space:]]+$")) {
+        sub("^" field "=", "", $i)
+        print $i
+        exit
+      }
+    }
+  }' "$ownership_dir/owner" 2>/dev/null
+}
+
+existing_worktree_for_slug() {
+  local root="$1"
+  local slug="$2"
+  local path_file="$root/.artifacts/fleet/$slug.worktree"
+  local worktree=""
+
+  if [ -f "$path_file" ]; then
+    worktree="$(sed -n '1p' "$path_file")"
+    if [ -n "$worktree" ] && [ -d "$worktree" ]; then
+      printf '%s\n' "$worktree"
+      return 0
+    fi
+  fi
+
+  git -C "$root" worktree list --porcelain 2>/dev/null |
+    awk -v branch="refs/heads/fleet/$slug" '
+      $1 == "worktree" { path = $2 }
+      $1 == "branch" && $2 == branch { print path; exit }
+    '
+}
+
+ownership_gnhf_log_pid() {
+  local root="$1"
+  local slug="$2"
+  local review_file="$root/.artifacts/fleet/$slug.review-status"
+  local worktree run log
+
+  run="$(awk -F'|' 'NR == 1 && $1 == "implementing" { print $4 }' "$review_file" 2>/dev/null)"
+  [[ "$run" =~ ^[A-Za-z0-9][A-Za-z0-9_-]*$ ]] || return 0
+  worktree="$(existing_worktree_for_slug "$root" "$slug")"
+  [ -n "$worktree" ] || return 0
+  log="$worktree/.gnhf/runs/$run/gnhf.log"
+  [ -f "$log" ] || return 0
+  grep '"event":"run:start"' "$log" | tail -n 1 | jq -r '.pid // empty' 2>/dev/null || true
+}
+
+ownership_is_live() {
+  local root="$1"
+  local slug="$2"
+  local ownership_dir="$3"
+  local runner_pid runner_identity gnhf_pid gnhf_identity recorded_gnhf_pid phase started now
+
+  runner_pid="$(ownership_value "$ownership_dir" pid)"
+  runner_identity="$(ownership_value "$ownership_dir" identity)"
+  process_identity_matches "$runner_pid" "$runner_identity" && return 0
+  gnhf_pid="$(ownership_gnhf_log_pid "$root" "$slug")"
+  recorded_gnhf_pid="$(ownership_value "$ownership_dir" gnhf_pid)"
+  gnhf_identity="$(ownership_value "$ownership_dir" gnhf_identity)"
+  if [ -n "$gnhf_pid" ] && [ "$gnhf_pid" = "$recorded_gnhf_pid" ] \
+    && process_identity_matches "$gnhf_pid" "$gnhf_identity"; then
+    return 0
+  fi
+  phase="$(awk 'NR == 1 { print $1 }' "$ownership_dir/owner" 2>/dev/null)"
+  started="$(ownership_value "$ownership_dir" started)"
+  now="$(date +%s)"
+  if [ "$phase" = "dispatching" ] && [[ "$started" =~ ^[0-9]+$ ]] \
+    && ! kill -0 "$runner_pid" 2>/dev/null \
+    && [ "$started" -le "$now" ] \
+    && [ "$((now - started))" -lt "${FLEET_OWNERSHIP_HANDOFF_SECONDS:-30}" ]; then
+    return 0
+  fi
+  return 1
+}
+
+acquire_ownership() {
+  local root="$1"
+  local slug="$2"
+  local ownership_dir="$3"
+  local ownership_token="$4"
+  local window="$5"
+  local acquisition_lock="$ownership_dir.acquire"
+  local identity
+
+  exec 9>"$acquisition_lock"
+  lockf -s -t 0 9 || { exec 9>&-; return 1; }
+  if mkdir "$ownership_dir" 2>/dev/null; then
+    :
+  elif ! ownership_is_live "$root" "$slug" "$ownership_dir"; then
+    rm -rf "$ownership_dir"
+    mkdir "$ownership_dir"
+  else
+    exec 9>&-
+    return 1
+  fi
+  identity="$(process_identity $$)"
+  if [ -z "$identity" ]; then
+    rm -rf "$ownership_dir"
+    exec 9>&-
+    return 1
+  fi
+  printf '%s\n' "$ownership_token" > "$ownership_dir/token"
+  printf 'dispatching pid=%s identity=%s window=%s started=%s\n' \
+    "$$" "$identity" "$window" "$(date +%s)" > "$ownership_dir/owner"
+  exec 9>&-
+}
+
+prepare_git_worktree() {
+  local repo="$1"
+  local slug="$2"
+  local branch="$3"
+  local wt_root="${WORKTREE_ROOT:-$HOME/Developer/worktrees}"
+  local wt_path="$wt_root/$repo/fleet-$slug"
+  if [ -d "$wt_path" ]; then
+    current="$(git -C "$wt_path" branch --show-current)"
+    if [ "$current" != "$branch" ]; then
+      echo "Worktree $wt_path exists but is on '$current', expected '$branch'" >&2
+      exit 2
+    fi
+    echo "$wt_path"
+    return 0
+  fi
+
+  base="$(base_ref)"
+  git fetch --quiet origin 2>/dev/null || true
+  mkdir -p "$(dirname "$wt_path")"
+  git worktree add -b "$branch" "$wt_path" "$base" >&2
+  echo "$wt_path"
+}
+
+prepare_treehouse_worktree() {
+  local repo="$1"
+  local slug="$2"
+  local branch="$3"
+  local path_file wt_path base
+  path_file="$(treehouse_path_file "$slug")"
+  if [ -f "$path_file" ]; then
+    wt_path="$(cat "$path_file")"
+    if git -C "$wt_path" rev-parse --show-toplevel >/dev/null 2>&1; then
+      current="$(git -C "$wt_path" branch --show-current)"
+      if [ "$current" != "$branch" ]; then
+        if git -C "$wt_path" show-ref --verify --quiet "refs/heads/$branch"; then
+          git -C "$wt_path" switch "$branch"
+        else
+          base="$(base_ref)"
+          git -C "$wt_path" switch -c "$branch" "$base"
+        fi
+      fi
+      echo "$wt_path"
+      return 0
+    fi
+  fi
+
+  if ! command -v treehouse >/dev/null 2>&1; then
+    prepare_git_worktree "$repo" "$slug" "$branch"
+    return 0
+  fi
+
+  base="$(base_ref)"
+  git fetch --quiet origin 2>/dev/null || true
+  wt_path="$(treehouse get --lease --lease-holder "fleet:$repo/$slug")"
+  if [ -z "$wt_path" ] || [ ! -d "$wt_path" ]; then
+    echo "treehouse did not return a worktree path" >&2
+    exit 1
+  fi
+  git -C "$wt_path" fetch --quiet origin 2>/dev/null || true
+  if git -C "$wt_path" show-ref --verify --quiet "refs/heads/$branch"; then
+    git -C "$wt_path" switch "$branch"
+  else
+    git -C "$wt_path" switch -c "$branch" "$base"
+  fi
+  echo "$wt_path" > "$path_file"
+  echo "$wt_path"
+}
+
+cmd="${1:-help}"
+shift || true
+
+case "$cmd" in
+  brief)
+    slug="${1:-}"
+    [ -z "$slug" ] && { usage >&2; exit 2; }
+    validate_slug "$slug"
+    path="$(brief_path "$slug")"
+    mkdir -p "$(dirname "$path")"
+    if [ ! -f "$path" ]; then
+      sed "s/<slug>/$slug/" "$HOME/agents/prompts/templates/fleet-brief.md" > "$path"
+    fi
+    "${EDITOR:-nvim}" "$path"
+    echo "$path"
+    ;;
+
+  start)
+    slug="${1:-}"
+    [ -z "$slug" ] && { usage >&2; exit 2; }
+    validate_slug "$slug"
+    shift
+    agent="$FLEET_AGENT_DEFAULT"
+    issue=""
+    max_iter="12"
+    ship="reviewed-branch"
+    worktree_engine="$FLEET_WORKTREE_ENGINE"
+    objective=()
+    while [ $# -gt 0 ]; do
+      case "$1" in
+        --agent) agent="${2:?}"; shift 2 ;;
+        --issue) issue="${2:?}"; shift 2 ;;
+        --max-iterations) max_iter="${2:?}"; shift 2 ;;
+        --ship) ship="${2:?}"; shift 2 ;;
+        --worktree-engine) worktree_engine="${2:?}"; shift 2 ;;
+        *) objective+=("$1"); shift ;;
+      esac
+    done
+
+    root="$(repo_root)"
+    cd "$root"
+    repo="$(basename "$root")"
+    window="fleet-$slug"
+    reject_live_fleet "$window"
+    path="$(brief_path "$slug")"
+    mkdir -p "$(dirname "$path")"
+    ownership_dir="$(dirname "$path")/$slug.ownership"
+    ownership_token="$$-$(date +%s)-$RANDOM"
+    if ! acquire_ownership "$root" "$slug" "$ownership_dir" "$ownership_token" "$window"; then
+      owner="$(cat "$ownership_dir/owner" 2>/dev/null || echo unknown)"
+      echo "fleet slug '$slug' already has an active owner: $owner" >&2
+      echo "Inspect it with: captain status" >&2
+      echo "Stop the matching tmux runner if appropriate, then retry." >&2
+      echo "Remove $ownership_dir only after confirming no runner owns it." >&2
+      exit 2
+    fi
+    trap '[ -z "${ownership_dir:-}" ] || rm -rf "$ownership_dir"' EXIT
+
+    if [ ! -f "$path" ]; then
+      if [ -n "$issue" ]; then
+        {
+          echo "# Fleet Brief: $slug"
+          echo
+          gh issue view "$issue" --json title,body --template '## Objective
+
+{{.title}}
+
+{{.body}}
+'
+          echo
+          echo "## Stop condition"
+          echo
+          echo "$STOP_DEFAULT"
+        } > "$path"
+      elif [ ${#objective[@]} -gt 0 ]; then
+        {
+          echo "# Fleet Brief: $slug"
+          echo
+          echo "## Objective"
+          echo
+          echo "${objective[*]}"
+          echo
+          echo "## Stop condition"
+          echo
+          echo "$STOP_DEFAULT"
+        } > "$path"
+      else
+        echo "No brief at $path - write one first with: fleet brief $slug" >&2
+        exit 2
+      fi
+    fi
+
+    case "$ship" in
+      reviewed-branch|green-pr) stop_cond="$STOP_DEFAULT" ;;
+      committed-branch) stop_cond="$STOP_COMMITTED_BRANCH" ;;
+      *) echo "unknown ship target: $ship" >&2; exit 2 ;;
+    esac
+    printf '%s\n' "$ship" > "$(dirname "$path")/$slug.ship"
+
+    prompt_file="$(dirname "$path")/$slug.prompt"
+    {
+      echo "Follow the brief below exactly. Respect its scope, verification, and escalation rules. If you hit an escalation item, stop and report instead of guessing."
+      if [ "$ship" != "committed-branch" ]; then
+        echo "Complete implementation and local verification only. The fleet runner starts the independent review stage after GNHF commits your final successful iteration."
+      fi
+      echo
+      cat "$path"
+    } > "$prompt_file"
+
+    intent="$(awk '
+      $0 == "## Ship" { skip = 1; next }
+      skip && /^## / { skip = 0 }
+      !skip { print }
+    ' "$path")"
+    intent="${intent:-Fleet $slug}"
+
+    branch="fleet/$slug"
+    case "$worktree_engine" in
+      treehouse) wt_path="$(prepare_treehouse_worktree "$repo" "$slug" "$branch")" ;;
+      git) wt_path="$(prepare_git_worktree "$repo" "$slug" "$branch")" ;;
+      *) echo "unknown worktree engine: $worktree_engine" >&2; exit 2 ;;
+    esac
+
+    # tmux runs window commands under the user's default-shell (fish), so
+    # dispatch through a generated bash runner instead of an inline string.
+    runner="$(dirname "$path")/$slug.run.sh"
+    review_status_file="$(dirname "$path")/$slug.review-status"
+    review_base="$(base_ref)"
+    fleet_label="$repo/$slug"
+    printf -v wt_path_q '%q' "$wt_path"
+    printf -v agent_q '%q' "$agent"
+    printf -v max_iter_q '%q' "$max_iter"
+    printf -v stop_cond_q '%q' "$stop_cond"
+    printf -v prompt_file_q '%q' "$prompt_file"
+    printf -v fleet_label_q '%q' "$fleet_label"
+    printf -v ship_q '%q' "$ship"
+    printf -v intent_q '%q' "$intent"
+    printf -v review_status_file_q '%q' "$review_status_file"
+    printf -v review_base_q '%q' "$review_base"
+    printf -v ownership_dir_q '%q' "$ownership_dir"
+    printf -v ownership_token_q '%q' "$ownership_token"
+    cat > "$runner" <<RUNNER
+#!/usr/bin/env bash
+set -uo pipefail
+agent=$agent_q
+max_iter=$max_iter_q
+stop_cond=$stop_cond_q
+prompt_file=$prompt_file_q
+fleet_label=$fleet_label_q
+ship=$ship_q
+intent=$intent_q
+review_status_file=$review_status_file_q
+review_base=$review_base_q
+ownership_dir=$ownership_dir_q
+ownership_token=$ownership_token_q
+acquisition_lock="\$ownership_dir.acquire"
+gnhf_pid=""
+runner_identity=""
+gnhf_identity=""
+process_identity() {
+  local pid="\$1"
+  local process=""
+  local identity=""
+  if [[ "\$pid" =~ ^[0-9]+$ ]] && [ "\$pid" -gt 0 ]; then
+    process=\$(ps -p "\$pid" -o lstart= 2>/dev/null | sed -n '/[^[:space:]]/p')
+    if [ -n "\$process" ]; then
+      identity=\$(printf '%s' "\$process" | shasum -a 256 | awk '{ print \$1 }')
+    fi
+  fi
+  [ -n "\$identity" ] && printf '%s\n' "\$identity"
+}
+write_owner() {
+  local owner_tmp="\$ownership_dir/owner.\$\$"
+  printf 'running pid=%s identity=%s gnhf_pid=%s gnhf_identity=%s label=%s started=%s\n' \
+    "\$\$" "\$runner_identity" "\${gnhf_pid:-0}" "\${gnhf_identity:-unknown}" \
+    "\$fleet_label" "\$(date +%s)" > "\$owner_tmp"
+  mv "\$owner_tmp" "\$ownership_dir/owner"
+}
+cleanup_ownership() {
+  if [ "\$(cat "\$ownership_dir/token" 2>/dev/null || true)" = "\$ownership_token" ]; then
+    rm -rf "\$ownership_dir"
+  fi
+}
+stop_runner() {
+  code="\$1"
+  if [ -n "\$gnhf_pid" ]; then
+    kill "\$gnhf_pid" 2>/dev/null || true
+    wait "\$gnhf_pid" 2>/dev/null || true
+  fi
+  exit "\$code"
+}
+trap cleanup_ownership EXIT
+trap 'stop_runner 130' INT
+trap 'stop_runner 143' TERM HUP
+exec 9>"\$acquisition_lock"
+if ! lockf -s -t 5 9; then
+  echo "[fleet] could not acquire ownership handoff lock" >&2
+  exit 1
+fi
+if [ "\$(cat "\$ownership_dir/token" 2>/dev/null || true)" != "\$ownership_token" ]; then
+  exec 9>&-
+  echo "[fleet] ownership lost before runner start" >&2
+  exit 1
+fi
+runner_identity=\$(process_identity \$\$)
+if [ -z "\$runner_identity" ]; then
+  exec 9>&-
+  echo "[fleet] could not prove runner process identity" >&2
+  exit 1
+fi
+write_owner
+exec 9>&-
+if ! cd $wt_path_q; then
+  printf 'implementation-failed||%s|unknown|\n' "\$(date +%s)" > "\$review_status_file"
+  exit 1
+fi
+rm -f "\$review_status_file"
+head=\$(git rev-parse HEAD 2>/dev/null || true)
+printf 'implementing|%s|%s|pending|\n' "\$head" "\$(date +%s)" > "\$review_status_file"
+before_logs=\$(find .gnhf/runs -type f -name gnhf.log -print 2>/dev/null | sort || true)
+gnhf --agent "\$agent" --current-branch --max-iterations "\$max_iter" \\
+  --stop-when "\$stop_cond" "\$(cat "\$prompt_file")" &
+gnhf_pid=\$!
+gnhf_identity=\$(process_identity "\$gnhf_pid")
+write_owner
+latest_gnhf_log=""
+while kill -0 "\$gnhf_pid" 2>/dev/null; do
+  if [ -z "\$latest_gnhf_log" ]; then
+    current_logs=\$(find .gnhf/runs -type f -name gnhf.log -print 2>/dev/null | sort || true)
+    new_logs=\$(comm -13 <(printf '%s\n' "\$before_logs" | sed '/^\$/d') <(printf '%s\n' "\$current_logs" | sed '/^\$/d'))
+    new_count=\$(printf '%s\n' "\$new_logs" | sed '/^\$/d' | wc -l | tr -d ' ')
+    if [ "\$new_count" -eq 1 ]; then
+      latest_gnhf_log="\$new_logs"
+    elif [ "\$new_count" -gt 1 ]; then
+      break
+    fi
+  else
+    active_run_id=\$(basename "\$(dirname "\$latest_gnhf_log")")
+    logged_run_id=\$(grep '"event":"run:start"' "\$latest_gnhf_log" | tail -n 1 | jq -r '.runId // empty' 2>/dev/null || true)
+    if [ -n "\$logged_run_id" ] && [ "\$logged_run_id" = "\$active_run_id" ]; then
+      printf 'implementing|%s|%s|%s|\n' "\$head" "\$(date +%s)" "\$active_run_id" > "\$review_status_file"
+      break
+    fi
+  fi
+  sleep 0.1
+done
+wait "\$gnhf_pid"
+ec=\$?
+gnhf_pid=""
+if [ -z "\$latest_gnhf_log" ]; then
+  after_logs=\$(find .gnhf/runs -type f -name gnhf.log -print 2>/dev/null | sort || true)
+  new_logs=\$(comm -13 <(printf '%s\n' "\$before_logs" | sed '/^\$/d') <(printf '%s\n' "\$after_logs" | sed '/^\$/d'))
+  new_count=\$(printf '%s\n' "\$new_logs" | sed '/^\$/d' | wc -l | tr -d ' ')
+  if [ "\$new_count" -eq 1 ]; then
+    latest_gnhf_log="\$new_logs"
+  fi
+fi
+gnhf_run_id="unknown"
+if [ -n "\$latest_gnhf_log" ]; then
+  gnhf_run_id=\$(basename "\$(dirname "\$latest_gnhf_log")")
+  logged_run_id=\$(grep '"event":"run:start"' "\$latest_gnhf_log" | tail -n 1 | jq -r '.runId // empty' 2>/dev/null || true)
+  [ "\$logged_run_id" = "\$gnhf_run_id" ] || ec=2
+else
+  ec=2
+fi
+gnhf_reason=""
+if [ -n "\$latest_gnhf_log" ]; then
+  gnhf_reason=\$(grep '"event":"orchestrator:abort"' "\$latest_gnhf_log" | tail -n 1 | jq -r '.reason // empty' 2>/dev/null || true)
+fi
+if [ \$ec -eq 0 ] && [ "\$gnhf_reason" != "stop condition met" ]; then
+  ec=2
+fi
+head=\$(git rev-parse HEAD 2>/dev/null || true)
+if [ \$ec -eq 0 ] && [ "\$ship" = "committed-branch" ]; then
+  printf 'ready|%s|%s|%s|\n' "\$head" "\$(date +%s)" "\$gnhf_run_id" > "\$review_status_file"
+elif [ \$ec -eq 0 ]; then
+  head=\$(git rev-parse HEAD)
+  printf 'reviewing|%s|%s|%s|\n' "\$head" "\$(date +%s)" "\$gnhf_run_id" > "\$review_status_file"
+  if [ "\$ship" = "reviewed-branch" ]; then
+    review_head="\$head"
+    review_log="\${review_status_file%.review-status}.review.log"
+    review_result="\${review_status_file%.review-status}.review-result"
+    notify "fleet review: \$fleet_label" "implementation complete; lightweight review started" --tag mag --sound Glass --volume normal --repeat 1
+    if codex exec --ephemeral -s read-only -o "\$review_result" "Perform a lightweight independent review of git diff \$review_base...HEAD. Focus on actionable correctness, regression, security, and test-confidence problems introduced by the diff. Do not edit files. End the final response with exactly FLEET_REVIEW: PASS when there are no actionable P0-P2 findings, otherwise end with exactly FLEET_REVIEW: FAIL." > "\$review_log" 2>&1 </dev/null; then
+      review_ec=0
+    else
+      review_ec=\$?
+    fi
+    cat "\$review_log"
+    current_head=\$(git rev-parse HEAD)
+    review_verdict=\$(awk 'NF { line = \$0 } END { print line }' "\$review_result" 2>/dev/null || true)
+    if [ \$review_ec -eq 0 ] \
+      && [ "\$review_verdict" = "FLEET_REVIEW: PASS" ] \
+      && [ "\$current_head" = "\$review_head" ] \
+      && [ -z "\$(git status --porcelain)" ]; then
+      printf 'reviewed|%s|%s|%s|\n' "\$review_head" "\$(date +%s)" "\$gnhf_run_id" > "\$review_status_file"
+      ec=0
+    else
+      printf 'failed|%s|%s|%s|\n' "\$current_head" "\$(date +%s)" "\$gnhf_run_id" > "\$review_status_file"
+      ec=1
+    fi
+  else
+    notify "fleet review: \$fleet_label" "implementation complete; no-mistakes shipping gate started" --tag mag --sound Glass --volume normal --repeat 1
+    nm_run=\$(no-mistakes axi run --yes --intent "\$intent")
+    nm_ec=\$?
+    printf '%s\n' "\$nm_run"
+    nm_run_id=\$(printf '%s\n' "\$nm_run" | awk -F': ' '/^[[:space:]]*id:/ { gsub(/"/, "", \$2); print \$2; exit }')
+    nm=\$(no-mistakes axi status 2>&1 || true)
+    nm_status_id=\$(printf '%s\n' "\$nm" | awk -F': ' '/^[[:space:]]*id:/ { gsub(/"/, "", \$2); print \$2; exit }')
+    nm_status=\$(printf '%s\n' "\$nm" | awk -F': ' '/^[[:space:]]*status:/ { print \$2; exit }')
+    nm_outcome=\$(printf '%s\n' "\$nm" | awk -F': ' '/^outcome:/ { print \$2; exit }')
+    head=\$(git rev-parse HEAD)
+    if [ \$nm_ec -eq 0 ] \
+      && [ -n "\$nm_run_id" ] \
+      && [ "\$nm_run_id" = "\$nm_status_id" ] \
+      && { { [ "\$nm_outcome" = "passed" ] && [ "\$nm_status" = "completed" ]; } \
+        || { [ "\$nm_outcome" = "checks-passed" ] && [ "\$nm_status" = "running" ]; }; }; then
+      printf 'ship-ready|%s|%s|%s|%s\n' "\$head" "\$(date +%s)" "\$gnhf_run_id" "\$nm_run_id" > "\$review_status_file"
+      ec=0
+    else
+      printf 'failed|%s|%s|%s|%s\n' "\$head" "\$(date +%s)" "\$gnhf_run_id" "\$nm_run_id" > "\$review_status_file"
+      ec=\${nm_ec:-1}
+      [ \$ec -eq 0 ] && ec=1
+    fi
+  fi
+else
+  if [[ "\$gnhf_reason" == max\ iterations* ]]; then
+    terminal_state=capped
+  else
+    terminal_state=implementation-failed
+  fi
+  printf '%s|%s|%s|%s|\n' "\$terminal_state" "\$head" "\$(date +%s)" "\$gnhf_run_id" > "\$review_status_file"
+fi
+if [ \$ec -eq 0 ] && [ "\$ship" = "green-pr" ]; then
+  notify "fleet ship-ready: \$fleet_label" "independent review and shipping gate passed" --tag white_check_mark --sound Glass --volume normal --repeat 1
+elif [ \$ec -eq 0 ] && [ "\$ship" = "reviewed-branch" ]; then
+  notify "fleet reviewed: \$fleet_label" "independent local gate passed; ready for your decision" --tag white_check_mark --sound Glass --volume normal --repeat 1
+elif [ \$ec -eq 0 ]; then
+  notify "fleet ready: \$fleet_label" "implementation committed; review not requested" --tag white_check_mark --sound Glass --volume normal --repeat 1
+else
+  notify "fleet blocked: \$fleet_label" "pipeline exited \$ec" --priority high --tag rotating_light --sound Glass --volume loud --repeat 2
+fi
+exit "\$ec"
+RUNNER
+    chmod +x "$runner"
+
+    printf -v runner_q '%q' "$runner"
+    run="bash $runner_q"
+
+    reject_live_fleet "$window"
+
+    # Reuse an existing window for this slug only when its pane is idle.
+    existing="$(tmux list-panes -a -F '#{session_name}:#{window_index}.#{pane_index} #{window_name} #{pane_current_command}' 2>/dev/null | awk -v window="$window" '$2 == window && ($3 == "fish" || $3 == "zsh") { print }' || true)"
+    reused=""
+    if [ -n "$existing" ]; then
+      while IFS= read -r line; do
+        win_id="$(echo "$line" | cut -d' ' -f1)"
+        tmux send-keys -t "$win_id" "bash $runner_q" Enter
+        reused="$win_id"
+        break
+      done <<< "$existing"
+    fi
+
+    if [ -z "$reused" ]; then
+      if [ -n "${TMUX:-}" ]; then
+        tmux new-window -d -n "$window" "$run"
+      else
+        tmux new-session -d -s fleet -n "$window" "$run" 2>/dev/null \
+          || tmux new-window -d -t fleet -n "$window" "$run"
+      fi
+    fi
+
+    ownership_dir=""
+
+    echo "dispatched: $window (agent=$agent, ship=$ship, branch=$branch, worktree=$worktree_engine)"
+    echo "  brief:    $path"
+    echo "  worktree: $wt_path"
+    ;;
+
+  status)
+    echo "fleet tmux windows:"
+    tmux list-windows -a -F '#S:#I #W' 2>/dev/null | grep ' fleet-' || echo "  none"
+    echo
+    echo "treehouse:"
+    treehouse status 2>&1 | sed 's/^/  /' || echo "  unavailable"
+    echo
+    echo "worktrees:"
+    found=0
+    for repo in "$HOME"/Developer/projects/*/; do
+      [ -d "$repo/.git" ] || continue
+      wts="$(git -C "$repo" worktree list 2>/dev/null | tail -n +2 || true)"
+      if [ -n "$wts" ]; then
+        found=1
+        echo "  $(basename "$repo"):"
+        echo "$wts" | sed 's/^/    /'
+      fi
+    done
+    [ "$found" -eq 0 ] && echo "  none"
+    exit 0
+    ;;
+
+  done)
+    path="${1:-}"
+    [ -z "$path" ] && { usage >&2; exit 2; }
+    if command -v treehouse >/dev/null 2>&1 && [[ "$path" == "$HOME/.treehouse/"* ]]; then
+      treehouse return "$path"
+    else
+      wt done "$path"
+    fi
+    ;;
+
+  *)
+    usage
+    ;;
+esac

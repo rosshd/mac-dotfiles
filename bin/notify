@@ -1,0 +1,158 @@
+#!/usr/bin/env bash
+# notify: single notification fan-out for agent events.
+# Sends a macOS banner (terminal-notifier, osascript fallback) and an
+# ntfy push (curl) so agent done/blocked/gate events reach Ross anywhere.
+set -uo pipefail
+
+conf="${XDG_CONFIG_HOME:-$HOME/.config}/notify/notify.conf"
+NTFY_SERVER="https://ntfy.sh"
+NTFY_TOPIC=""
+# shellcheck disable=SC1090
+[ -f "$conf" ] && . "$conf"
+
+usage() {
+  cat <<'USAGE'
+usage: notify [options] <title> [message]
+       notify preview [sound] [volume] [repeat]
+
+options:
+  --priority <low|default|high>  ntfy priority (default: default)
+  --local-only                   skip the ntfy push
+  --push-only                    skip the macOS banner
+  --tag <tag>                    ntfy tag/emoji shortcode (default: robot)
+  --sound <name|path|none>       macOS alert sound or audio file (default: Glass)
+  --volume <quiet|normal|loud|urgent|0.0-2.0>
+                                   sound volume (default: normal)
+  --repeat <n>                   play the sound n times, sequentially (default: 1)
+  --output <device>              temporarily route sound through this output device
+
+config (~/.config/notify/notify.conf):
+  NTFY_SERVER=https://ntfy.sh
+  NTFY_TOPIC=<private topic>
+  NOTIFY_SOUND=Glass
+  NOTIFY_VOLUME=normal
+  NOTIFY_REPEAT=1
+  NOTIFY_OUTPUT="MacBook Pro Speakers"
+
+notify always exits 0 so it never fails the calling pipeline.
+USAGE
+}
+
+if [ "${1:-}" = "preview" ]; then
+  shift
+  exec "$0" --local-only --sound "${1:-Glass}" --volume "${2:-loud}" --repeat "${3:-2}" \
+    "Notify preview" "${1:-Glass} ${2:-loud} repeat ${3:-2}"
+fi
+
+priority="default"
+tag="robot"
+sound="${NOTIFY_SOUND:-Glass}"
+volume="${NOTIFY_VOLUME:-normal}"
+repeat="${NOTIFY_REPEAT:-1}"
+output_device="${NOTIFY_OUTPUT:-}"
+local_only=0
+push_only=0
+args=()
+
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --priority) priority="${2:-default}"; shift 2 ;;
+    --tag) tag="${2:-robot}"; shift 2 ;;
+    --sound) sound="${2:-Glass}"; shift 2 ;;
+    --volume) volume="${2:-normal}"; shift 2 ;;
+    --repeat) repeat="${2:-1}"; shift 2 ;;
+    --output) output_device="${2:-}"; shift 2 ;;
+    --local-only) local_only=1; shift ;;
+    --push-only) push_only=1; shift ;;
+    -h|--help) usage; exit 0 ;;
+    *) args+=("$1"); shift ;;
+  esac
+done
+
+title="${args[0]:-}"
+message="${args[1]:-}"
+if [ -z "$title" ]; then usage >&2; exit 0; fi
+
+sound_file() {
+  [ "$sound" = "none" ] && return 1
+  if [ -f "$sound" ]; then
+    echo "$sound"
+    return 0
+  fi
+  if [ -f "/System/Library/Sounds/$sound.aiff" ]; then
+    echo "/System/Library/Sounds/$sound.aiff"
+    return 0
+  fi
+  return 1
+}
+
+volume_value() {
+  case "$volume" in
+    quiet) echo "0.35" ;;
+    normal) echo "0.65" ;;
+    loud) echo "0.95" ;;
+    urgent) echo "1.25" ;;
+    *) echo "$volume" ;;
+  esac
+}
+
+play_sound() {
+  command -v afplay >/dev/null 2>&1 || return 0
+  local file vol count
+  file="$(sound_file)" || return 0
+  vol="$(volume_value)"
+  count="$repeat"
+  case "$count" in
+    ''|*[!0-9]*) count=1 ;;
+  esac
+  [ "$count" -lt 1 ] && count=1
+  [ "$count" -gt 5 ] && count=5
+  local original_output=""
+  if [ -n "$output_device" ] && command -v SwitchAudioSource >/dev/null 2>&1; then
+    original_output="$(SwitchAudioSource -c 2>/dev/null || true)"
+    SwitchAudioSource -s "$output_device" >/dev/null 2>&1 || true
+  fi
+  i=1
+  while [ "$i" -le "$count" ]; do
+    afplay -v "$vol" "$file" >/dev/null 2>&1 || true
+    [ "$i" -lt "$count" ] && sleep 0.45
+    i=$((i + 1))
+  done
+  if [ -n "$original_output" ] && command -v SwitchAudioSource >/dev/null 2>&1; then
+    SwitchAudioSource -s "$original_output" >/dev/null 2>&1 || true
+  fi
+}
+
+if [ "$push_only" -eq 0 ]; then
+  notification_sent=0
+  if command -v osascript >/dev/null 2>&1; then
+    if osascript - "$title" "${message:-$title}" >/dev/null 2>&1 <<'APPLESCRIPT'; then
+on run argv
+  display notification (item 2 of argv) with title (item 1 of argv)
+end run
+APPLESCRIPT
+      notification_sent=1
+    fi
+  fi
+  if [ "$notification_sent" -eq 0 ] \
+    && command -v terminal-notifier >/dev/null 2>&1; then
+    terminal-notifier -title "$title" -message "${message:-$title}" -group "agent-notify" >/dev/null 2>&1 || true
+  fi
+  play_sound || true
+fi
+
+if [ "$local_only" -eq 0 ] && [ -n "$NTFY_TOPIC" ]; then
+  ntfy_priority="$priority"
+  [ "$priority" = "urgent" ] && ntfy_priority="5"
+  [ "$priority" = "high" ] && ntfy_priority="4"
+  [ "$priority" = "default" ] && ntfy_priority="3"
+  [ "$priority" = "low" ] && ntfy_priority="2"
+  curl -fsS --max-time 5 \
+    -H "Title: $title" \
+    -H "Priority: $ntfy_priority" \
+    -H "Tags: $tag" \
+    -d "${message:-$title}" \
+    "$NTFY_SERVER/$NTFY_TOPIC" >/dev/null 2>&1 || true
+fi
+
+exit 0

@@ -1,0 +1,95 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+cmd="${1:-help}"
+shift || true
+
+usage() {
+  cat <<'USAGE'
+usage:
+  crew start <slug> [codex|claude|opencode] [prompt...]
+  crew status
+  crew done <worktree-path>
+  crew brief <slug> <objective...>
+
+commands:
+  start   create a git worktree and open an agent in a tmux window
+  status  show tmux crew windows and git worktrees
+  done    remove a clean worktree
+  brief   write a bounded long-running task brief under .artifacts/crew
+USAGE
+}
+
+repo_root() { git rev-parse --show-toplevel; }
+
+case "$cmd" in
+  start)
+    slug="${1:-}"; shift || true
+    harness="${1:-codex}"; shift || true
+    if [ -z "$slug" ]; then usage >&2; exit 2; fi
+    prompt="$*"
+    root="$(repo_root)"
+    cd "$root"
+    wt_path="$(wt new "$slug" HEAD | tail -1)"
+    mkdir -p "$wt_path/.crew"
+    if [ -n "$prompt" ]; then
+      printf '%s\n' "$prompt" > "$wt_path/.crew/prompt.md"
+    fi
+    window="crew-$slug"
+    launch="cd '$wt_path'; echo 'worktree: $wt_path'; test -f .crew/prompt.md && { echo; echo 'prompt:'; cat .crew/prompt.md; echo; }; exec agent '$harness'"
+    if [ -n "${TMUX:-}" ]; then
+      tmux new-window -n "$window" "$launch"
+    else
+      tmux new-session -d -s crew -n "$window" "$launch"
+      echo "Started detached tmux session: crew"
+      echo "Attach with: tmux attach -t crew"
+    fi
+    echo "$wt_path"
+    ;;
+  status)
+    echo "tmux crew windows:"
+    tmux list-windows -a -F '#S:#I #W' 2>/dev/null | grep ' crew-' || true
+    echo
+    echo "git worktrees:"
+    git worktree list
+    ;;
+  done)
+    path="${1:-}"
+    if [ -z "$path" ]; then usage >&2; exit 2; fi
+    wt done "$path"
+    ;;
+  brief)
+    slug="${1:-}"; shift || true
+    objective="$*"
+    if [ -z "$slug" ] || [ -z "$objective" ]; then usage >&2; exit 2; fi
+    out=".artifacts/crew/$slug.md"
+    mkdir -p "$(dirname "$out")"
+    cat > "$out" <<BRIEF
+# Crew Brief: $slug
+
+## Objective
+
+$objective
+
+## Bounds
+
+- Stop after one focused implementation unless explicitly resumed.
+- Stop before destructive commands, credential changes, paid service changes, or ambiguous product decisions.
+- Prefer the repo validation lane before reporting done.
+
+## Validation
+
+- Run: make validate
+- Add a smoke or end-to-end check when behavior changes.
+- Record exact commands and results.
+
+## Review Bar
+
+- Mechanical issues can be fixed directly.
+- Product or UX tradeoffs must be escalated.
+- Final report must include changed files, validation evidence, and remaining risk.
+BRIEF
+    echo "$out"
+    ;;
+  help|*) usage ;;
+esac

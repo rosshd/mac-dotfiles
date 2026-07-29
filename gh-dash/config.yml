@@ -1,0 +1,23 @@
+# gh-dash: terminal dashboard for GitHub PRs and issues (gh extension).
+# Scoped to Ross's active repos; run with `gh dash`.
+prSections:
+  - title: My PRs
+    filters: is:open author:@me archived:false
+  - title: Fleet
+    filters: is:open author:@me head:fleet/
+  - title: Needs review
+    filters: is:open review-requested:@me archived:false
+issuesSections:
+  - title: openlearn
+    filters: is:open repo:rosshd/openlearn
+  - title: dotfiles
+    filters: is:open repo:rosshd/mac-dotfiles
+defaults:
+  view: prs
+  prsLimit: 20
+  issuesLimit: 20
+  preview:
+    open: true
+    width: 60
+pager:
+  diff: delta

@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+script="$HOME/agents/skills/networking/scripts/mcp_server.py"
+if [ ! -f "$script" ]; then
+  echo "networking MCP script not found at $script" >&2
+  exit 1
+fi
+
+exec uv run --script "$script"
