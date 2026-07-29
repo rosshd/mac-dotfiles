@@ -97,6 +97,8 @@ Use <isolated state, fixtures, provider mode, terminal or browser conditions>.
 Run <exact steps>.
 Observe <evidence>.
 Reproduce or explain the failure before editing.
+Create or use the assigned non-main branch and isolated worktree before editing.
+Never implement or commit a package directly on main.
 
 Scope:
 Owned behavior and files: <paths or subsystem>.
