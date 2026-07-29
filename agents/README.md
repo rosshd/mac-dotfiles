@@ -9,6 +9,7 @@ It is exposed at `~/agents` and linked into each supported agent's discovery pat
 - `VOICE.md` describes Ross's writing voice.
 - `config/` contains tool-specific integration configuration.
 - `domains/` contains reusable policies for non-code workspaces.
+- `integrations/` contains thin entry points for desktop tools.
 - `prompts/routines/` contains scheduled and recurring prompts.
 - `prompts/templates/` contains prompts and briefs created on demand.
 - `projects/` indexes project-specific agent context without removing it from its repository.
@@ -26,3 +27,4 @@ Tool-specific discovery files should link here instead of becoming independent c
 Edit files through `~/agents` or `~/mac-dotfiles/agents`.
 They resolve to the same version-controlled source.
 Run `doctor` after changing discovery links or integrations.
+Run `agent-doctor` for agent discovery, skill drift, networking, MCP, and repository health.

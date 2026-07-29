@@ -173,6 +173,22 @@ Agent CLIs share one canonical global guidance file:
 `setup.sh` links its guidance into the supported global instruction path for Codex, Claude, OpenCode, Copilot CLI, and Gemini CLI.
 Project `AGENTS.md` files remain the source of project-specific rules.
 
+### Private networking
+
+`networking` captures dictated notes, imports bounded Apple Calendar context into a private inbox, searches profiles, and launches Codex to file pending notes with the global networking skill.
+`people` is its Fish alias.
+
+```bash
+networking capture --source dictated -- "Met Ada at..."
+networking calendar --days-back 1 --days-forward 14
+networking process
+networking due
+```
+
+Raycast's `Capture Networking Note` command sends dictated or pasted text to the same inbox.
+`networking-mcp` exposes read-only profile, relationship, interaction, and follow-up retrieval.
+`agent-doctor` checks agent discovery paths, divergent skill copies, networking integration, MCP registration, PATH duplication, cache budget, and dirty repositories.
+
 ## Mac Tools
 
 ### Raycast

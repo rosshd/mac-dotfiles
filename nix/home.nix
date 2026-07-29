@@ -25,6 +25,7 @@
   home.file.".config/herdr/config.toml".source = ../herdr/config.toml;
   home.file.".no-mistakes/config.yaml".source = ../no-mistakes/config.yaml;
   home.file.".local/bin/agent".source = ../bin/agent;
+  home.file.".local/bin/agent-doctor".source = ../bin/agent-doctor;
   home.file.".local/bin/captain" = {
     source = ../bin/captain;
     force = true;
@@ -38,6 +39,8 @@
     force = true;
   };
   home.file.".local/bin/notify".source = ../bin/notify;
+  home.file.".local/bin/networking".source = ../bin/networking;
+  home.file.".local/bin/networking-mcp".source = ../bin/networking-mcp;
   home.file.".local/bin/plan-artifact".source = ../bin/plan-artifact;
   home.file.".local/bin/rebuild-mac".source = ../bin/rebuild-mac;
   home.file.".local/bin/ship".source = ../bin/ship;
@@ -65,6 +68,10 @@
   };
   home.file.".copilot/copilot-instructions.md".source = ../agents/AGENTS.md;
   home.file.".gemini/GEMINI.md".source = ../agents/AGENTS.md;
+  home.file."Library/Application Support/Raycast/scripts/networking-capture.sh".source =
+    ../agents/integrations/raycast/networking-capture.sh;
+  home.file."Library/Application Support/Raycast/scripts/networking-calendar.sh".source =
+    ../agents/integrations/raycast/networking-calendar.sh;
   home.file."agents".source =
     config.lib.file.mkOutOfStoreSymlink "${homeDirectory}/mac-dotfiles/agents";
   home.file."STYLE.md".source = ../STYLE.md;

@@ -1,6 +1,7 @@
 # Networking Workspace Instructions
 
 This workspace is a private, local-first record of people, organizations, interactions, relationships, and follow-ups.
+Use the global `networking` skill for capture, filing, Calendar ingestion, and retrieval workflows.
 
 ## Data Rules
 
@@ -27,4 +28,5 @@ This workspace is a private, local-first record of people, organizations, intera
 - Link profiles with relative Markdown links.
 - Update `last_contact` after recording an interaction.
 - Update `last_verified` when confirming a relationship.
-- Leave raw imports in `inbox/` until their facts have been reviewed.
+- Leave raw imports in `inbox/` until their facts have been reviewed and filed.
+- Archive processed raw notes with `networking archive`; never delete them directly.

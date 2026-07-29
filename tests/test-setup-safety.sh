@@ -20,6 +20,9 @@ for target in \
   rg -Fq "link_managed_directory $target" "$setup"
 done
 rg -Fq 'ln -sfn "$DOTFILES/agents" "$HOME/agents"' "$setup"
+rg -Fq '"$DOTFILES/agents/integrations/raycast/networking-capture.sh"' "$setup"
+rg -Fq '"$HOME/Library/Application Support/Raycast/scripts/networking-capture.sh"' "$setup"
+rg -Fq '"$HOME/Library/Application Support/Raycast/scripts/networking-calendar.sh"' "$setup"
 
 rg -Fq 'NO_MISTAKES_VERSION="v1.37.0"' "$setup"
 rg -Fq 'no_mistakes_managed="$HOME/.no-mistakes/bin/no-mistakes"' "$setup"

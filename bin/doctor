@@ -70,7 +70,7 @@ tmux_doctor() {
 }
 
 printf '== commands ==\n'
-for cmd in wezterm fish tmux nvim git gh delta lazygit codex claude opencode herdr treehouse gnhf no-mistakes lavish-axi firstmate ship agent wt crew captain fleet plan-artifact voice-vocab notify rebuild-mac terminal-notifier; do
+for cmd in wezterm fish tmux nvim git gh delta lazygit codex claude opencode herdr treehouse gnhf no-mistakes lavish-axi firstmate ship agent agent-doctor networking wt crew captain fleet plan-artifact voice-vocab notify rebuild-mac terminal-notifier; do
   check_cmd "$cmd"
 done
 

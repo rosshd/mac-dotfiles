@@ -155,10 +155,15 @@ ln -sfn "$DOTFILES/no-mistakes/config.yaml" "$HOME/.no-mistakes/config.yaml"
 mkdir -p "$HOME/.config/gh-dash"
 ln -sfn "$DOTFILES/gh-dash/config.yml" "$HOME/.config/gh-dash/config.yml"
 
-for script in ship agent wt crew captain plan-artifact voice-vocab doctor firstmate notify fleet tmux-resurrect-clean clean-reboot rebuild-mac; do
+for script in ship agent agent-doctor wt crew captain plan-artifact voice-vocab doctor firstmate notify networking networking-mcp fleet tmux-resurrect-clean clean-reboot rebuild-mac; do
   ln -sfn "$DOTFILES/bin/$script" "$HOME/.local/bin/$script"
   chmod +x "$DOTFILES/bin/$script"
 done
+mkdir -p "$HOME/Library/Application Support/Raycast/scripts"
+ln -sfn "$DOTFILES/agents/integrations/raycast/networking-capture.sh" \
+  "$HOME/Library/Application Support/Raycast/scripts/networking-capture.sh"
+ln -sfn "$DOTFILES/agents/integrations/raycast/networking-calendar.sh" \
+  "$HOME/Library/Application Support/Raycast/scripts/networking-calendar.sh"
 
 ln -sfn "$DOTFILES/agents/AGENTS.md" "$HOME/.codex/AGENTS.md"
 ln -sfn "$DOTFILES/agents/config/codex-hooks.json" "$HOME/.codex/hooks.json"
