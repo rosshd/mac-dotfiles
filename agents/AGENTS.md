@@ -16,6 +16,7 @@ These are common instructions for Ross's agents across all scenarios.
 - For bug fixes, first reproduce or understand the user-visible failure as closely as practical before patching.
 - For code changes, preserve existing behavior unless the task explicitly asks to change it. Keep changes scoped, and avoid unrelated refactors and dependency churn.
 - Use strong verification: run the relevant tests, lint, typecheck, smoke flow, or end-to-end check, and report what actually ran.
+- Run `make check` from the repository root as the canonical pre-push gate.
 - When end-to-end testing a UI or TUI, be picky about what you see. If something looks off or broken, even if it is not directly related to the task, flag it and try to fix it along the way.
   Apply that same standard to lint errors, test failures, and test flakiness: if you see one, still get it fixed.
 - Keep global memory short. Put project-specific context in the project and conditional workflows in skills.

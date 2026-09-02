@@ -50,3 +50,13 @@ The package list lives in `Brewfile`.
 Use `rebuild-mac check` to detect package drift and `rebuild-mac brew` to reapply it.
 The Lix-backed nix-darwin and Home Manager configuration is active and owns the reproducible system and user configuration.
 Use `rebuild-mac nix` to build and activate it.
+
+## Validation
+
+Run the canonical local gate from the repository root before pushing:
+
+```bash
+make check
+```
+
+The gate runs the shell contract tests, networking unit tests, and Workflow Core catalog audit.
