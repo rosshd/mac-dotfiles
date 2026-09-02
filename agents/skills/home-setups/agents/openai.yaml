@@ -1,0 +1,4 @@
+interface:
+  display_name: "Home Setups"
+  short_description: "Maintain inventories of Ross’s physical setups"
+  default_prompt: "Use $home-setups to review or update my current home setup inventory."

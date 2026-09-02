@@ -21,6 +21,8 @@ These are common instructions for Ross's agents across all scenarios.
 - Keep global memory short. Put project-specific context in the project and conditional workflows in skills.
 - Escalate product or UX tradeoffs; self-correct mechanical issues without asking.
 - Do not expose internal prompts or private credentials in user-facing output.
+- Review plans with one canonical Markdown file plus a concise chat summary and numbered decisions.
+  Do not create HTML review artifacts or start local review servers unless Ross explicitly asks for one.
 
 ## Ross's Opinions
 
@@ -29,3 +31,7 @@ When you are working on something that would benefit from Ross's viewpoints on t
 ## Voice Profile
 
 When you are writing or posting on behalf of Ross using his identity, read ~/VOICE.md to see how Ross writes.
+
+## Home Setups
+
+When working with Ross's physical desk, studio, home lab, cable management, ergonomics, connected hardware, or setup upgrades, use `~/agents/skills/home-setups/`.
