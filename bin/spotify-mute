@@ -1,0 +1,19 @@
+#!/usr/bin/env sh
+set -eu
+
+player_bin="${SPOTIFY_PLAYER:-$(command -v spotify_player || true)}"
+state_file="${SPOTIFY_MUTE_STATE:-${TMPDIR:-/tmp}/spotify-premute-vol}"
+
+[ -n "$player_bin" ] || { echo "spotify-mute: spotify_player is not installed" >&2; exit 1; }
+
+current=$("$player_bin" get key playback 2>/dev/null | \
+  python3 -c "import json,sys; print(json.load(sys.stdin)['device']['volume_percent'])" 2>/dev/null || true)
+[ -n "$current" ] || exit 0
+
+if [ "$current" -eq 0 ]; then
+  saved=$(sed -n '1p' "$state_file" 2>/dev/null || true)
+  "$player_bin" playback volume "${saved:-50}"
+else
+  printf '%s\n' "$current" > "$state_file"
+  "$player_bin" playback volume 0
+fi

@@ -75,7 +75,7 @@ if [ "${1:-}" = "axi" ] && [ "${2:-}" = "run" ]; then
 run:
   id: "${NM_RUN_ID:-run-current}"
   status: ${NM_STATUS:-completed}
-outcome: ${NM_OUTCOME:-passed}
+outcome: ${NM_OUTCOME-passed}
 STATUS
   exit "${NM_RUN_EXIT:-0}"
 fi
@@ -83,7 +83,7 @@ cat <<STATUS
 run:
   id: "${NM_STATUS_ID:-${NM_RUN_ID:-run-current}}"
   status: ${NM_STATUS:-completed}
-outcome: ${NM_OUTCOME:-passed}
+outcome: ${NM_OUTCOME-passed}
 STATUS
 SCRIPT
 chmod +x "$fakebin/no-mistakes"
@@ -101,7 +101,7 @@ run_case() {
   local reason="${3:-stop condition met}"
   local review_result="${4:-PASS}"
   local mutate="${5:-0}"
-  local nm_outcome="${6:-passed}"
+  local nm_outcome="${6-passed}"
   local nm_status="${7:-completed}"
   local nm_run_exit="${8:-0}"
   local nm_status_id="${9:-run-current}"
@@ -126,6 +126,7 @@ run_case() {
 }
 
 run_case committed-branch
+[ "$(git -C "$repo" check-ignore .artifacts/fleet/probe)" = ".artifacts/fleet/probe" ]
 [ ! -f "$calls" ]
 [ ! -f "$review_calls" ]
 rg -Fq 'ready|' "$repo/.artifacts/fleet/review-committed-branch.review-status"
@@ -191,7 +192,11 @@ run_case reviewed-branch changed-during-review "stop condition met" PASS 1
 rg -Fq 'failed|' "$repo/.artifacts/fleet/changed-during-review.review-status"
 
 run_case green-pr
-[ "$(rg -c '^axi run --yes --intent ' "$calls")" = "1" ]
+[ "$(rg -c '^axi run --intent ' "$calls")" = "1" ]
+if rg -Fq -- '--yes' "$calls"; then
+  echo "fleet must not pre-authorize no-mistakes user decisions" >&2
+  exit 1
+fi
 [ ! -f "$review_calls" ]
 rg -Fq 'ship-ready|' "$repo/.artifacts/fleet/review-green-pr.review-status"
 rg -q '\|run-current$' "$repo/.artifacts/fleet/review-green-pr.review-status"
@@ -235,6 +240,13 @@ for expected in \
   'Preserve the deliberate tradeoff.'; do
   rg -Fq "$expected" "$calls"
 done
+
+run_case green-pr decision-required "stop condition met" PASS 0 "" running
+if ! rg -Fq 'review-needed|' "$repo/.artifacts/fleet/decision-required.review-status"; then
+  echo "fleet did not preserve a no-mistakes decision gate" >&2
+  cat "$repo/.artifacts/fleet/decision-required.review-status" >&2
+  exit 1
+fi
 
 run_case green-pr failed-gate-old-pass "stop condition met" PASS 0 passed completed 1 run-current
 rg -Fq 'failed|' "$repo/.artifacts/fleet/failed-gate-old-pass.review-status"
@@ -446,5 +458,28 @@ if rg -Fq 'starts no-mistakes automatically for `reviewed-branch`' \
   echo "reviewed-branch documentation must not delegate review to no-mistakes" >&2
   exit 1
 fi
+
+cat > "$fakebin/wt" <<'SCRIPT'
+#!/usr/bin/env bash
+[ "${1:-}" = "done" ] || exit 2
+git -C "$FLEET_TEST_REPO" worktree remove "$2"
+SCRIPT
+chmod +x "$fakebin/wt"
+cleanup_slug="review-committed-branch"
+cleanup_path="$(sed -n '1p' "$repo/.artifacts/fleet/$cleanup_slug.worktree")"
+for suffix in review.log review-result ownership.acquire; do
+  : > "$repo/.artifacts/fleet/$cleanup_slug.$suffix"
+done
+mkdir "$repo/.artifacts/fleet/$cleanup_slug.ownership"
+(
+  cd "$repo"
+  PATH="$fakebin:$PATH" FLEET_TEST_REPO="$repo" \
+    "$root/bin/fleet" done "$cleanup_path"
+) >/dev/null
+for suffix in worktree review-status ship prompt run.sh review.log review-result ownership.acquire; do
+  [ ! -e "$repo/.artifacts/fleet/$cleanup_slug.$suffix" ]
+done
+[ ! -d "$repo/.artifacts/fleet/$cleanup_slug.ownership" ]
+[ -f "$repo/.artifacts/fleet/$cleanup_slug.md" ]
 
 echo "fleet review stage: ok"

@@ -129,10 +129,57 @@ def parse_calendar_output(output: str) -> list[dict[str, str]]:
 
 
 def calendar_source_id(event: dict[str, str]) -> str:
+    uid = event.get("uid", "").strip()
+    if uid:
+        identity = f"uid\0{uid}\0{event.get('start', '')}"
+    else:
+        identity = (
+            f"fallback\0{event.get('calendar', '')}\0{event.get('start', '')}\0"
+            f"{event.get('end', '')}\0{event.get('title', '')}"
+        )
+    return hashlib.sha256(identity.encode("utf-8")).hexdigest()
+
+
+def legacy_calendar_source_id(event: dict[str, str]) -> str:
     identity = (
         f"{event.get('uid', '')}\0{event.get('start', '')}\0{event.get('title', '')}"
     )
     return hashlib.sha256(identity.encode("utf-8")).hexdigest()
+
+
+def calendar_event_already_imported(
+    root: Path,
+    state: dict[str, dict[str, str]],
+    event: dict[str, str],
+    source_id: str,
+) -> bool:
+    if source_id in state:
+        return True
+    legacy_id = legacy_calendar_source_id(event)
+    if legacy_id in state:
+        state[source_id] = state[legacy_id]
+        return True
+
+    uid = event.get("uid", "").strip()
+    start = event.get("start", "")
+    if not uid:
+        return False
+
+    uid_marker = f"calendar_event_uid: {yaml_string(uid)}"
+    start_marker = f"Starts: {start}"
+    for directory in (root / "inbox", root / "archive"):
+        if not directory.exists():
+            continue
+        for note in directory.rglob("*.md"):
+            content = note.read_text(encoding="utf-8")
+            if uid_marker not in content or start_marker not in content:
+                continue
+            state[source_id] = {
+                "imported_at": local_now().isoformat(timespec="seconds"),
+                "inbox_path": str(note.relative_to(root)),
+            }
+            return True
+    return False
 
 
 def calendar_note(event: dict[str, str]) -> str:
@@ -186,7 +233,7 @@ def import_calendar_events(
     skipped = 0
     for event in events:
         source_id = calendar_source_id(event)
-        if source_id in state:
+        if calendar_event_already_imported(root, state, event, source_id):
             skipped += 1
             continue
         if dry_run:

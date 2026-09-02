@@ -151,7 +151,8 @@ The default `--ship reviewed-branch` then runs exactly one bounded, lightweight,
 It records `reviewed` or `failed`, releases the slug owner, and exits without parking the tmux pane.
 `--ship committed-branch` stops after implementation and is reported as ready for review without running an independent review.
 `--ship green-pr` instead starts the full no-mistakes push, PR, and CI gate.
-That lane resolves findings unattended, records `ship-ready` or `failed` for the exact no-mistakes run, releases the slug owner, and exits.
+That lane never pre-authorizes user decisions.
+It records `review-needed` when no-mistakes reaches a gate, or `ship-ready` and `failed` for terminal outcomes from the exact run.
 Only one runner may own a slug at a time, including the dispatch-to-runner handoff.
 `fleet start` on an existing slug resumes the run from where gnhf left off.
 
@@ -343,9 +344,9 @@ no-mistakes axi logs --step review --full
 ```
 
 The fleet lane starts no-mistakes automatically after a successful GNHF implementation only for `--ship green-pr`.
-It runs the gate once with unattended finding resolution and closes with `ship-ready` or `failed` instead of parking at an approval gate.
+It runs the gate once and closes with `review-needed` at a decision gate, or `ship-ready` and `failed` for terminal outcomes.
 The default `--ship reviewed-branch` runs one bounded, lightweight, read-only Codex review instead, while `--ship committed-branch` skips independent review.
-Use `no-mistakes axi respond` only for manually started interactive runs.
+Use `no-mistakes axi respond` after reviewing a Fleet or manually started interactive gate.
 
 ## Reproducible laptop foundation
 

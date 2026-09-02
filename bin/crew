@@ -25,8 +25,11 @@ repo_root() { git rev-parse --show-toplevel; }
 case "$cmd" in
   start)
     slug="${1:-}"; shift || true
-    harness="${1:-codex}"; shift || true
     if [ -z "$slug" ]; then usage >&2; exit 2; fi
+    harness="codex"
+    case "${1:-}" in
+      codex|claude|opencode) harness="$1"; shift ;;
+    esac
     prompt="$*"
     root="$(repo_root)"
     cd "$root"

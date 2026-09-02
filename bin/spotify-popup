@@ -1,0 +1,15 @@
+#!/usr/bin/env sh
+set -eu
+
+tmux_bin="${TMUX_BIN:-$(command -v tmux || true)}"
+player_bin="${SPOTIFY_PLAYER:-$(command -v spotify_player || true)}"
+
+[ -n "$tmux_bin" ] || { echo "spotify-popup: tmux is not installed" >&2; exit 1; }
+[ -n "$player_bin" ] || { echo "spotify-popup: spotify_player is not installed" >&2; exit 1; }
+
+if "$tmux_bin" list-clients -t music 2>/dev/null | grep -q .; then
+  "$tmux_bin" detach-client -s music
+else
+  "$tmux_bin" display-popup -d "$HOME" -xC -yC -w 80% -h 70% \
+    "$tmux_bin new-session -A -s music $player_bin"
+fi

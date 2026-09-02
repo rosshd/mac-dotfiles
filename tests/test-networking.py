@@ -58,7 +58,7 @@ class NetworkingTests(unittest.TestCase):
 
         created, skipped = networking.import_calendar_events(self.root, [event])
         second_created, second_skipped = networking.import_calendar_events(
-            self.root, [event]
+            self.root, [{**event, "title": "Renamed coffee with Ada"}]
         )
 
         self.assertEqual(len(created), 1)
@@ -66,6 +66,57 @@ class NetworkingTests(unittest.TestCase):
         self.assertEqual(second_created, [])
         self.assertEqual(second_skipped, 1)
         self.assertIn("not proof", created[0].read_text(encoding="utf-8"))
+
+    def test_calendar_import_without_uid_uses_stable_fallback_fields(self):
+        event = {
+            "uid": "",
+            "calendar": "Work",
+            "title": "Coffee with Ada",
+            "start": "2026-07-29T10:00:00",
+            "end": "2026-07-29T11:00:00",
+        }
+
+        first = networking.calendar_source_id(event)
+        renamed = networking.calendar_source_id({**event, "title": "Coffee with Grace"})
+
+        self.assertNotEqual(first, renamed)
+
+    def test_calendar_import_migrates_legacy_uid_after_title_change(self):
+        event = {
+            "uid": "legacy-event",
+            "calendar": "Work",
+            "title": "Coffee with Ada",
+            "start": "2026-07-29T10:00:00",
+            "end": "2026-07-29T11:00:00",
+        }
+        legacy_id = networking.legacy_calendar_source_id(event)
+        note = networking.write_inbox_note(
+            self.root,
+            networking.calendar_note(event),
+            "apple-calendar",
+            legacy_id,
+            {"calendar_event_uid": event["uid"]},
+        )
+        networking.save_calendar_state(
+            self.root,
+            {
+                legacy_id: {
+                    "imported_at": "2026-07-29T10:00:00",
+                    "inbox_path": str(note.relative_to(self.root)),
+                }
+            },
+        )
+
+        created, skipped = networking.import_calendar_events(
+            self.root, [{**event, "title": "Renamed coffee with Ada"}]
+        )
+
+        self.assertEqual(created, [])
+        self.assertEqual(skipped, 1)
+        self.assertIn(
+            networking.calendar_source_id(event),
+            networking.load_calendar_state(self.root),
+        )
 
     def test_relationship_rejects_duplicate(self):
         args = argparse.Namespace(

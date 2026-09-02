@@ -1,7 +1,8 @@
 # Suppress greeting
 set -U fish_greeting ''
 
-# Homebrew + local bin are provided by Home Manager's sessionPath.
+# Keep standalone setup usable; Home Manager also declares these paths.
+fish_add_path --global --move $HOME/.local/bin /opt/homebrew/bin /opt/homebrew/sbin
 
 # Nix/Lix + nix-darwin profile
 if test -e /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.fish

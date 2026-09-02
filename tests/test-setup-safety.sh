@@ -4,20 +4,40 @@ set -euo pipefail
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 setup="$root/setup.sh"
 
-required_dirs_line="$(rg -n -F 'mkdir -p "$HOME/.local/bin" "$HOME/Developer/tools"' "$setup" | cut -d: -f1)"
+required_dirs_line="$(rg -n -F '"$HOME/Developer/tools" \' "$setup" | cut -d: -f1)"
 treehouse_line="$(rg -n -F 'ln -sfn "$(go env GOPATH)/bin/treehouse"' "$setup" | cut -d: -f1)"
 [ "$required_dirs_line" -lt "$treehouse_line" ]
+for directory in \
+  '"$HOME/Developer/projects" \' \
+  '"$HOME/Developer/sandbox" \' \
+  '"$HOME/School"'; do
+  rg -Fq "$directory" "$setup"
+done
+for target in .codex .claude .config/opencode; do
+  rg -Fq "home.file.\"$target/skills/axi\"" "$root/nix/home.nix"
+done
+if rg -Fq 'home.file.".codex/skills" =' "$root/nix/home.nix"; then
+  echo "Home Manager must not replace the whole Codex skill root" >&2
+  exit 1
+fi
 
 if rg -Fq '"$HOME/.config/nvim" \' "$setup"; then
   echo "setup must not pre-create the managed Neovim link target" >&2
   exit 1
 fi
 for target in \
-  '"$DOTFILES/nvim" "$HOME/.config/nvim"' \
+  '"$DOTFILES/nvim" "$HOME/.config/nvim"'; do
+  rg -Fq "link_managed_directory $target" "$setup"
+done
+for target in \
   '"$DOTFILES/agents/skills" "$HOME/.codex/skills"' \
   '"$DOTFILES/agents/skills" "$HOME/.claude/skills"' \
   '"$DOTFILES/agents/skills" "$HOME/.config/opencode/skills"'; do
-  rg -Fq "link_managed_directory $target" "$setup"
+  rg -Fq "publish_managed_skills $target" "$setup"
+  if rg -Fq "link_managed_directory $target" "$setup"; then
+    echo "setup must publish managed skills without replacing the whole skill root" >&2
+    exit 1
+  fi
 done
 rg -Fq 'ln -sfn "$DOTFILES/agents" "$HOME/agents"' "$setup"
 rg -Fq '"$DOTFILES/agents/integrations/raycast/networking-capture.sh"' "$setup"
@@ -60,5 +80,18 @@ chmod +x "$setup_tmp/.no-mistakes/bin/no-mistakes"
 sed -n '/^NO_MISTAKES_VERSION=/,/^# ---/p' "$setup" | sed '$d' | \
   HOME="$setup_tmp" PATH="/usr/bin:/bin" bash
 [ "$(readlink "$setup_tmp/.local/bin/no-mistakes")" = "$setup_tmp/.no-mistakes/bin/no-mistakes" ]
+
+skill_source="$setup_tmp/dotfiles-skills"
+skill_root="$setup_tmp/.codex/skills"
+mkdir -p "$skill_source/managed" "$skill_root/.system" "$skill_root/personal"
+mv "$skill_root" "$skill_root.pre-dotfiles.20260901000000"
+ln -s "$skill_source" "$skill_root"
+source <(sed -n '/^link_managed_directory()/,/^# treehouse:/p' "$setup" | sed '$d')
+publish_managed_skills "$skill_source" "$skill_root"
+[ -d "$skill_source/managed" ]
+[ ! -L "$skill_source/managed" ]
+[ -d "$skill_root/.system" ]
+[ -d "$skill_root/personal" ]
+[ "$(readlink "$skill_root/managed")" = "$skill_source/managed" ]
 
 echo "setup safety contract: ok"

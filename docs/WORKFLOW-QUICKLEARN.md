@@ -124,7 +124,8 @@ Prompt sources: `~/agents/prompts/routines/`.
 Fleet runs bounded implementation first.
 The default `reviewed-branch` then runs exactly one bounded, lightweight, read-only Codex review and never starts no-mistakes.
 The explicit `green-pr` lane starts the full no-mistakes push, PR, and CI gate, while `committed-branch` skips independent review.
-The `green-pr` lane resolves findings unattended and exits as `ship-ready` or `failed`; the reviewed lane exits as `reviewed` or `failed`.
+The `green-pr` lane pauses as `review-needed` at decision gates and exits as `ship-ready` or `failed` only on terminal outcomes.
+The reviewed lane exits as `reviewed` or `failed`.
 Every terminal lane releases its durable slug owner and returns control instead of parking at a gate.
 Run no-mistakes manually only for interactive-lane work.
 

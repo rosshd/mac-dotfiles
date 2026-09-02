@@ -43,6 +43,27 @@ repo_root() { git rev-parse --show-toplevel; }
 
 brief_path() { echo "$(repo_root)/.artifacts/fleet/$1.md"; }
 
+ensure_fleet_state_ignored() {
+  local root="$1"
+  local exclude
+
+  if git -C "$root" check-ignore -q .artifacts/fleet/.fleet-ignore-probe; then
+    return 0
+  fi
+
+  exclude="$(git -C "$root" rev-parse --path-format=absolute --git-path info/exclude)"
+  mkdir -p "$(dirname "$exclude")"
+  touch "$exclude"
+  if ! grep -Fqx '/.artifacts/' "$exclude"; then
+    printf '/.artifacts/\n' >> "$exclude"
+  fi
+
+  if ! git -C "$root" check-ignore -q .artifacts/fleet/.fleet-ignore-probe; then
+    echo "fleet could not exclude local state under .artifacts/" >&2
+    exit 1
+  fi
+}
+
 validate_slug() {
   local slug="$1"
   if [[ ! "$slug" =~ ^[a-z0-9][a-z0-9-]*$ ]] || [ "${#slug}" -gt 42 ]; then
@@ -88,7 +109,7 @@ base_ref() {
   fi
 }
 
-treehouse_path_file() {
+fleet_worktree_path_file() {
   echo "$(dirname "$(brief_path "$1")")/$1.worktree"
 }
 
@@ -251,7 +272,7 @@ prepare_treehouse_worktree() {
   local slug="$2"
   local branch="$3"
   local path_file wt_path base
-  path_file="$(treehouse_path_file "$slug")"
+  path_file="$(fleet_worktree_path_file "$slug")"
   if [ -f "$path_file" ]; then
     wt_path="$(cat "$path_file")"
     if git -C "$wt_path" rev-parse --show-toplevel >/dev/null 2>&1; then
@@ -299,6 +320,8 @@ case "$cmd" in
     slug="${1:-}"
     [ -z "$slug" ] && { usage >&2; exit 2; }
     validate_slug "$slug"
+    root="$(repo_root)"
+    ensure_fleet_state_ignored "$root"
     path="$(brief_path "$slug")"
     mkdir -p "$(dirname "$path")"
     if [ ! -f "$path" ]; then
@@ -332,6 +355,7 @@ case "$cmd" in
 
     root="$(repo_root)"
     cd "$root"
+    ensure_fleet_state_ignored "$root"
     repo="$(basename "$root")"
     window="fleet-$slug"
     reject_live_fleet "$window"
@@ -413,6 +437,7 @@ case "$cmd" in
       git) wt_path="$(prepare_git_worktree "$repo" "$slug" "$branch")" ;;
       *) echo "unknown worktree engine: $worktree_engine" >&2; exit 2 ;;
     esac
+    printf '%s\n' "$wt_path" > "$(fleet_worktree_path_file "$slug")"
 
     # tmux runs window commands under the user's default-shell (fish), so
     # dispatch through a generated bash runner instead of an inline string.
@@ -594,7 +619,7 @@ elif [ \$ec -eq 0 ]; then
     fi
   else
     notify "fleet review: \$fleet_label" "implementation complete; no-mistakes shipping gate started" --tag mag --sound Glass --volume normal --repeat 1
-    nm_run=\$(no-mistakes axi run --yes --intent "\$intent")
+    nm_run=\$(no-mistakes axi run --intent "\$intent")
     nm_ec=\$?
     printf '%s\n' "\$nm_run"
     nm_run_id=\$(printf '%s\n' "\$nm_run" | awk -F': ' '/^[[:space:]]*id:/ { gsub(/"/, "", \$2); print \$2; exit }')
@@ -610,6 +635,13 @@ elif [ \$ec -eq 0 ]; then
         || { [ "\$nm_outcome" = "checks-passed" ] && [ "\$nm_status" = "running" ]; }; }; then
       printf 'ship-ready|%s|%s|%s|%s\n' "\$head" "\$(date +%s)" "\$gnhf_run_id" "\$nm_run_id" > "\$review_status_file"
       ec=0
+    elif [ \$nm_ec -eq 0 ] \
+      && [ -n "\$nm_run_id" ] \
+      && [ "\$nm_run_id" = "\$nm_status_id" ] \
+      && [ "\$nm_status" = "running" ] \
+      && [ -z "\$nm_outcome" ]; then
+      printf 'review-needed|%s|%s|%s|%s\n' "\$head" "\$(date +%s)" "\$gnhf_run_id" "\$nm_run_id" > "\$review_status_file"
+      ec=0
     else
       printf 'failed|%s|%s|%s|%s\n' "\$head" "\$(date +%s)" "\$gnhf_run_id" "\$nm_run_id" > "\$review_status_file"
       ec=\${nm_ec:-1}
@@ -624,7 +656,9 @@ else
   fi
   printf '%s|%s|%s|%s|\n' "\$terminal_state" "\$head" "\$(date +%s)" "\$gnhf_run_id" > "\$review_status_file"
 fi
-if [ \$ec -eq 0 ] && [ "\$ship" = "green-pr" ]; then
+if [ \$ec -eq 0 ] && grep -Fq 'review-needed|' "\$review_status_file"; then
+  notify "fleet decision needed: \$fleet_label" "no-mistakes is waiting for your review" --priority high --tag raised_hand --sound Glass --volume normal --repeat 1
+elif [ \$ec -eq 0 ] && [ "\$ship" = "green-pr" ]; then
   notify "fleet ship-ready: \$fleet_label" "independent review and shipping gate passed" --tag white_check_mark --sound Glass --volume normal --repeat 1
 elif [ \$ec -eq 0 ] && [ "\$ship" = "reviewed-branch" ]; then
   notify "fleet reviewed: \$fleet_label" "independent local gate passed; ready for your decision" --tag white_check_mark --sound Glass --volume normal --repeat 1
@@ -695,11 +729,28 @@ RUNNER
   done)
     path="${1:-}"
     [ -z "$path" ] && { usage >&2; exit 2; }
+    root="$(repo_root)"
     if command -v treehouse >/dev/null 2>&1 && [[ "$path" == "$HOME/.treehouse/"* ]]; then
       treehouse return "$path"
     else
       wt done "$path"
     fi
+    for path_file in "$root"/.artifacts/fleet/*.worktree; do
+      [ -f "$path_file" ] || continue
+      [ "$(sed -n '1p' "$path_file")" = "$path" ] || continue
+      slug="$(basename "$path_file" .worktree)"
+      rm -f \
+        "$root/.artifacts/fleet/$slug.worktree" \
+        "$root/.artifacts/fleet/$slug.review-status" \
+        "$root/.artifacts/fleet/$slug.ship" \
+        "$root/.artifacts/fleet/$slug.prompt" \
+        "$root/.artifacts/fleet/$slug.run.sh" \
+        "$root/.artifacts/fleet/$slug.review.log" \
+        "$root/.artifacts/fleet/$slug.review-result" \
+        "$root/.artifacts/fleet/$slug.ownership.acquire"
+      rm -rf "$root/.artifacts/fleet/$slug.ownership"
+      break
+    done
     ;;
 
   *)

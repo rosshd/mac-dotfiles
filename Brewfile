@@ -30,6 +30,8 @@ brew "atuin"
 brew "direnv"
 brew "terminal-notifier"
 brew "opencode"
+brew "spotify_player"
+brew "switchaudio-osx"
 
 cask "wezterm"
 cask "raycast"

@@ -1,0 +1,40 @@
+#!/usr/bin/osascript -l JavaScript
+
+function run(argv) {
+  if (argv.length !== 1 || !argv[0]) {
+    throw new Error("usage: focus-app <application-name>");
+  }
+
+  ObjC.import("AppKit");
+  const appName = argv[0];
+  const systemEvents = Application("System Events");
+  const processes = systemEvents.processes.whose({ name: appName });
+  const isRunning = processes.length > 0 && processes[0].exists();
+
+  if (isRunning && processes[0].frontmost()) {
+    processes[0].visible = false;
+    return;
+  }
+
+  Application(appName).activate();
+  if (!isRunning) return;
+
+  const mouse = $.NSEvent.mouseLocation;
+  const screens = $.NSScreen.screens;
+  const primaryHeight = screens.objectAtIndex(0).frame.size.height;
+  for (let index = 0; index < screens.count; index += 1) {
+    const screen = screens.objectAtIndex(index);
+    const frame = screen.frame;
+    const inX = mouse.x >= frame.origin.x && mouse.x < frame.origin.x + frame.size.width;
+    const inY = mouse.y >= frame.origin.y && mouse.y < frame.origin.y + frame.size.height;
+    if (!inX || !inY) continue;
+
+    const process = processes[0];
+    if (process.windows.length > 0) {
+      const visibleFrame = screen.visibleFrame;
+      const targetY = primaryHeight - visibleFrame.origin.y - visibleFrame.size.height;
+      process.windows[0].position = [visibleFrame.origin.x, targetY];
+    }
+    break;
+  }
+}

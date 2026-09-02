@@ -52,6 +52,8 @@
     brews = [
       "herdr"
       "opencode"
+      "spotify_player"
+      "switchaudio-osx"
       "terminal-notifier"
     ];
 

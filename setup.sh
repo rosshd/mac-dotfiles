@@ -19,7 +19,12 @@ brew bundle --file "$DOTFILES/Brewfile"
 #   firstmate -> crew.
 echo "Installing agent orchestration stack..."
 
-mkdir -p "$HOME/.local/bin" "$HOME/Developer/tools"
+mkdir -p \
+  "$HOME/.local/bin" \
+  "$HOME/Developer/tools" \
+  "$HOME/Developer/projects" \
+  "$HOME/Developer/sandbox" \
+  "$HOME/School"
 
 link_managed_directory() {
   local source="$1"
@@ -35,6 +40,37 @@ link_managed_directory() {
   mv "$target" "$backup"
   echo "  moved existing $target to $backup"
   ln -s "$source" "$target"
+}
+
+publish_managed_skills() {
+  local source_root="$1"
+  local target_root="$2"
+  local source_resolved target_resolved backup restore skill
+
+  source_resolved="$(cd "$source_root" && pwd -P)"
+  if [ -L "$target_root" ]; then
+    target_resolved="$(realpath "$target_root" 2>/dev/null || true)"
+    if [ "$target_resolved" = "$source_resolved" ]; then
+      restore=""
+      for backup in "$target_root".pre-dotfiles.*; do
+        [ -d "$backup" ] || continue
+        restore="$backup"
+      done
+      rm "$target_root"
+      if [ -n "$restore" ]; then
+        mv "$restore" "$target_root"
+        echo "  restored existing skill root from $restore"
+      else
+        mkdir -p "$target_root"
+      fi
+    fi
+  fi
+
+  mkdir -p "$target_root"
+  for skill in "$source_root"/*; do
+    [ -d "$skill" ] || continue
+    link_managed_directory "$skill" "$target_root/$(basename "$skill")"
+  done
 }
 
 # treehouse: Git worktree orchestrator (Go module -> ~/go/bin).
@@ -152,7 +188,7 @@ ln -sfn "$DOTFILES/no-mistakes/config.yaml" "$HOME/.no-mistakes/config.yaml"
 mkdir -p "$HOME/.config/gh-dash"
 ln -sfn "$DOTFILES/gh-dash/config.yml" "$HOME/.config/gh-dash/config.yml"
 
-for script in ship agent agent-doctor wt crew captain plan-artifact voice-vocab doctor firstmate notify networking networking-mcp fleet tmux-resurrect-clean clean-reboot rebuild-mac; do
+for script in ship agent agent-doctor wt crew captain plan-artifact voice-vocab doctor firstmate notify networking networking-mcp fleet tmux-resurrect-clean clean-reboot rebuild-mac spotify-popup focus-app spotify-mute; do
   ln -sfn "$DOTFILES/bin/$script" "$HOME/.local/bin/$script"
   chmod +x "$DOTFILES/bin/$script"
 done
@@ -172,9 +208,9 @@ ln -sfn "$DOTFILES/agents" "$HOME/agents"
 # Opinions/voice files that AGENTS.md defers to, kept lean for token efficiency.
 ln -sfn "$DOTFILES/STYLE.md" "$HOME/STYLE.md"
 ln -sfn "$DOTFILES/agents/VOICE.md" "$HOME/VOICE.md"
-link_managed_directory "$DOTFILES/agents/skills" "$HOME/.codex/skills"
-link_managed_directory "$DOTFILES/agents/skills" "$HOME/.claude/skills"
-link_managed_directory "$DOTFILES/agents/skills" "$HOME/.config/opencode/skills"
+publish_managed_skills "$DOTFILES/agents/skills" "$HOME/.codex/skills"
+publish_managed_skills "$DOTFILES/agents/skills" "$HOME/.claude/skills"
+publish_managed_skills "$DOTFILES/agents/skills" "$HOME/.config/opencode/skills"
 
 # tmux session persistence: tpm + resurrect/continuum (.tmux.conf lists the plugins).
 if [ ! -d "$HOME/.tmux/plugins/tpm" ]; then

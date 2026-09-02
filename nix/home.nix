@@ -1,5 +1,12 @@
 { config, pkgs, username, homeDirectory, ... }:
 
+let
+  managedSkill = source: {
+    inherit source;
+    recursive = true;
+    force = true;
+  };
+in
 {
   home.username = username;
   home.homeDirectory = homeDirectory;
@@ -44,28 +51,40 @@
   home.file.".local/bin/plan-artifact".source = ../bin/plan-artifact;
   home.file.".local/bin/rebuild-mac".source = ../bin/rebuild-mac;
   home.file.".local/bin/ship".source = ../bin/ship;
+  home.file.".local/bin/spotify-popup".source = ../bin/spotify-popup;
+  home.file.".local/bin/focus-app".source = ../bin/focus-app;
+  home.file.".local/bin/spotify-mute".source = ../bin/spotify-mute;
   home.file.".local/bin/tmux-resurrect-clean".source = ../bin/tmux-resurrect-clean;
   home.file.".local/bin/voice-vocab".source = ../bin/voice-vocab;
   home.file.".local/bin/wt".source = ../bin/wt;
   home.file.".codex/AGENTS.md".source = ../agents/AGENTS.md;
   home.file.".codex/hooks.json".source = ../agents/config/codex-hooks.json;
-  home.file.".codex/skills" = {
-    source = ../agents/skills;
-    recursive = true;
-    force = true;
-  };
+  home.file.".codex/skills/axi" = managedSkill ../agents/skills/axi;
+  home.file.".codex/skills/babysit-prs" = managedSkill ../agents/skills/babysit-prs;
+  home.file.".codex/skills/home-setups" = managedSkill ../agents/skills/home-setups;
+  home.file.".codex/skills/manual-test-fixes" = managedSkill ../agents/skills/manual-test-fixes;
+  home.file.".codex/skills/networking" = managedSkill ../agents/skills/networking;
+  home.file.".codex/skills/no-mistakes" = managedSkill ../agents/skills/no-mistakes;
+  home.file.".codex/skills/repo-validation" = managedSkill ../agents/skills/repo-validation;
+  home.file.".codex/skills/visual-planning-artifact" = managedSkill ../agents/skills/visual-planning-artifact;
   home.file.".claude/CLAUDE.md".source = ../agents/AGENTS.md;
-  home.file.".claude/skills" = {
-    source = ../agents/skills;
-    recursive = true;
-    force = true;
-  };
+  home.file.".claude/skills/axi" = managedSkill ../agents/skills/axi;
+  home.file.".claude/skills/babysit-prs" = managedSkill ../agents/skills/babysit-prs;
+  home.file.".claude/skills/home-setups" = managedSkill ../agents/skills/home-setups;
+  home.file.".claude/skills/manual-test-fixes" = managedSkill ../agents/skills/manual-test-fixes;
+  home.file.".claude/skills/networking" = managedSkill ../agents/skills/networking;
+  home.file.".claude/skills/no-mistakes" = managedSkill ../agents/skills/no-mistakes;
+  home.file.".claude/skills/repo-validation" = managedSkill ../agents/skills/repo-validation;
+  home.file.".claude/skills/visual-planning-artifact" = managedSkill ../agents/skills/visual-planning-artifact;
   home.file.".config/opencode/AGENTS.md".source = ../agents/AGENTS.md;
-  home.file.".config/opencode/skills" = {
-    source = ../agents/skills;
-    recursive = true;
-    force = true;
-  };
+  home.file.".config/opencode/skills/axi" = managedSkill ../agents/skills/axi;
+  home.file.".config/opencode/skills/babysit-prs" = managedSkill ../agents/skills/babysit-prs;
+  home.file.".config/opencode/skills/home-setups" = managedSkill ../agents/skills/home-setups;
+  home.file.".config/opencode/skills/manual-test-fixes" = managedSkill ../agents/skills/manual-test-fixes;
+  home.file.".config/opencode/skills/networking" = managedSkill ../agents/skills/networking;
+  home.file.".config/opencode/skills/no-mistakes" = managedSkill ../agents/skills/no-mistakes;
+  home.file.".config/opencode/skills/repo-validation" = managedSkill ../agents/skills/repo-validation;
+  home.file.".config/opencode/skills/visual-planning-artifact" = managedSkill ../agents/skills/visual-planning-artifact;
   home.file.".copilot/copilot-instructions.md".source = ../agents/AGENTS.md;
   home.file.".gemini/GEMINI.md".source = ../agents/AGENTS.md;
   home.file."Library/Application Support/Raycast/scripts/networking-capture.sh".source =

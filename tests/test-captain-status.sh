@@ -132,6 +132,13 @@ printf 'ship-ready|%s|%s|run|nm-exact\n' "$head" "$now" > "$tmp/.artifacts/fleet
 [[ "$(fleet_run_info "$tmp" "$slug")" == ship-ready\|* ]]
 printf 'ship-ready|%s|%s|run|\n' "$head" "$now" > "$tmp/.artifacts/fleet/$slug.review-status"
 [[ "$(fleet_run_info "$tmp" "$slug")" == review-failed\|*invalid* ]]
+printf 'review-needed|%s|%s|run|nm-exact\n' "$head" "$now" > "$tmp/.artifacts/fleet/$slug.review-status"
+[[ "$(fleet_run_info "$tmp" "$slug")" == review-needed\|*decision* ]]
+fleet_no_mistakes_run_state() {
+  printf 'ship-ready\n'
+}
+[[ "$(fleet_run_info "$tmp" "$slug")" == ship-ready\|* ]]
+rg -Fq "ship-ready|$head|" "$tmp/.artifacts/fleet/$slug.review-status"
 
 printf 'reviewed-branch\n' > "$tmp/.artifacts/fleet/$slug.ship"
 printf 'reviewed|%s|%s|run\n' "$head" "$now" > "$tmp/.artifacts/fleet/$slug.review-status"
@@ -150,5 +157,9 @@ touch -t 202601010101 "$worktree/.gnhf/runs/run/gnhf.log" "$worktree/.gnhf/runs/
 
 printf 'reviewed|%s|%s|older-run\n' "$head" "$now" > "$tmp/.artifacts/fleet/$slug.review-status"
 [[ "$(fleet_run_info "$tmp" "$slug")" == review-failed\|*exact* ]]
+
+phone_slug="$(dispatch_slug "$(printf 'very-long-task %.0s' {1..20})")"
+[ "${#phone_slug}" -le 42 ]
+[[ "$phone_slug" =~ ^[a-z0-9][a-z0-9-]*$ ]]
 
 echo "captain status freshness policy: ok"
