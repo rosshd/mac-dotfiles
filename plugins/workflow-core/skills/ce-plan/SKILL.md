@@ -32,6 +32,8 @@ State that each work item should run in a fresh task and that implementation sho
 
 Use one canonical Markdown file in the repository's configured planning location, otherwise `plans/`.
 
+When the user explicitly asks to create or update a GitHub issue, read [`factory-contract.md`](../../references/factory-contract.md), put the plan in that issue contract, and do not create a duplicate Markdown plan unless separately requested.
+
 Keep repository file references relative inside the plan and use absolute clickable paths only in chat.
 
 Do not create HTML, visual artifacts, tracker issues, prototypes, code, commits, or PRs unless explicitly requested.

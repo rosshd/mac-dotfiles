@@ -1,0 +1,4 @@
+interface:
+  display_name: "Factory Bootstrap"
+  short_description: "Adopt a repository into the factory contract"
+  default_prompt: "Use $factory-bootstrap to audit and bootstrap this repository for the personal software factory."

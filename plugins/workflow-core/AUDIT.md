@@ -17,6 +17,7 @@ Supporting references are loaded only when the selected task needs them.
 - Substantial repository-backed discovery can preserve exact vocabulary in `CONTEXT.md` and hard-to-reverse decisions in ADRs.
 - Plans that exceed one focused task use dependency-aware vertical work items, one fresh task per item.
 - Code review keeps engineering quality and spec fidelity as separate judgments.
+- GitHub issues remain the durable task briefs, and dispatch proposes at most two independent Ready issues before asking for task-creation authorization.
 
 ## Skills
 
@@ -38,6 +39,8 @@ Supporting references are loaded only when the selected task needs them.
 | `ce-resolve-pr-feedback` | Implicit for existing PR feedback | Compound Engineering lineage | Fixes only accepted feedback and never merges. |
 | `ce-babysit-pr` | Implicit for ongoing PR monitoring | Compound Engineering lineage | Plain status labels and no merge authority. |
 | `ce-pov` | Implicit for adoption verdicts | Compound Engineering lineage | Solo, grounded recommendation unless an oracle is requested. |
+| `factory-bootstrap` | Implicit for repository adoption | Local | Adds only the minimum repository-owned factory contract. |
+| `factory-dispatch` | Implicit for Ready-work selection | Local | Proposes at most two issues and creates owner tasks only after explicit authorization. |
 
 ## Trigger ownership
 
@@ -57,6 +60,8 @@ Supporting references are loaded only when the selected task needs them.
 | Validated push or PR | `ce-commit-push-pr` |
 | PR feedback | `ce-resolve-pr-feedback` |
 | PR monitoring | `ce-babysit-pr` |
+| Repository bootstrap or adoption | `factory-bootstrap` |
+| Propose or dispatch Ready work | `factory-dispatch` |
 
 ## Upstream sources
 

@@ -18,6 +18,8 @@ Clarify what to build without implementing it.
 6. Update durable project context only for vocabulary and decisions that cross the reference's write threshold.
 7. Produce a concise requirements summary with settled decisions, open questions, and readiness for planning.
 
+When the user explicitly asks to create a GitHub issue, read [`factory-contract.md`](../../references/factory-contract.md), use its issue contract, and keep the issue as the only durable task brief.
+
 Create one canonical requirements artifact only when the work is substantial or the user asks to save it.
 
 `CONTEXT.md` and ADRs are project memory, not duplicate requirements artifacts.

@@ -21,6 +21,8 @@ EXPECTED = {
     "ce-resolve-pr-feedback",
     "ce-simplify-code",
     "ce-work",
+    "factory-bootstrap",
+    "factory-dispatch",
     "security-best-practices",
     "typescript-best-practices",
     "unslop",
@@ -66,7 +68,8 @@ def implicit_policy(skill_dir: Path) -> bool:
 
 
 def main() -> int:
-    root = Path(__file__).resolve().parents[1] / "skills"
+    plugin_root = Path(__file__).resolve().parents[1]
+    root = plugin_root / "skills"
     rows: list[tuple[str, bool, int]] = []
     names: set[str] = set()
     failures: list[str] = []
@@ -106,6 +109,23 @@ def main() -> int:
     unslop = (root / "unslop" / "SKILL.md").read_text()
     if "description: Cut AI tells from any writing. Must always apply." not in unslop:
         failures.append("unslop: broad trigger changed")
+
+    factory_contract = plugin_root / "references" / "factory-contract.md"
+    if not factory_contract.exists():
+        failures.append("missing references/factory-contract.md")
+    else:
+        contract = factory_contract.read_text()
+        required_contract_terms = {
+            "Acceptance checks",
+            "status:ready",
+            "Permissions",
+            "Dependencies",
+            "dispatch.authorized",
+            "task.created",
+        }
+        for term in sorted(required_contract_terms):
+            if term not in contract:
+                failures.append(f"factory contract missing: {term}")
 
     searchable = "\n".join(
         path.read_text()
