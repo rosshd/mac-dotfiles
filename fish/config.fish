@@ -1,8 +1,7 @@
 # Suppress greeting
 set -U fish_greeting ''
 
-# Homebrew + local bin (local first so wrappers take priority)
-set -gx PATH $HOME/.local/bin /opt/homebrew/bin /opt/homebrew/sbin $PATH
+# Homebrew + local bin are provided by Home Manager's sessionPath.
 
 # Nix/Lix + nix-darwin profile
 if test -e /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.fish
@@ -11,7 +10,7 @@ end
 
 # pyenv
 set -gx PYENV_ROOT $HOME/.pyenv
-set -gx PATH $PYENV_ROOT/bin $PYENV_ROOT/shims $PATH
+fish_add_path --global --move $PYENV_ROOT/bin $PYENV_ROOT/shims
 
 # SSH agent
 if not set -q SSH_AUTH_SOCK
