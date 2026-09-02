@@ -1,0 +1,6 @@
+interface:
+  display_name: "Babysit PR"
+  short_description: "Monitor a GitHub PR until it is ready or blocked"
+  default_prompt: "Use $ce-babysit-pr to monitor this PR and keep it moving without merging it."
+policy:
+  allow_implicit_invocation: true

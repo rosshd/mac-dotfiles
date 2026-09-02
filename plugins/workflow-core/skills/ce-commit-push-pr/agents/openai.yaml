@@ -1,0 +1,6 @@
+interface:
+  display_name: "Commit, push, and PR"
+  short_description: "Ship scoped changes to a GitHub PR"
+  default_prompt: "Use $ce-commit-push-pr to commit this task, push it, and open or update its PR."
+policy:
+  allow_implicit_invocation: true

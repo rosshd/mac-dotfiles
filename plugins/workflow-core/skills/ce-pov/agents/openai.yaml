@@ -1,0 +1,6 @@
+interface:
+  display_name: "Point of view"
+  short_description: "Give a grounded adoption or approach verdict"
+  default_prompt: "Use $ce-pov to give a decisive, project-grounded recommendation on this choice."
+policy:
+  allow_implicit_invocation: true

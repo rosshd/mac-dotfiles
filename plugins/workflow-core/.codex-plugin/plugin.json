@@ -1,0 +1,27 @@
+{
+  "name": "workflow-core",
+  "version": "1.0.0+codex.20260902201024",
+  "description": "A compact, permission-aware engineering workflow and writing-quality skill set for Ross.",
+  "author": {
+    "name": "Ross Dawson"
+  },
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Workflow Core",
+    "shortDescription": "Focused planning, coding, review, and writing workflows.",
+    "longDescription": "A manually auditable engineering workflow with durable project context, fresh-task work slicing, separate quality and spec review, strict permission boundaries, and an always-on prose quality pass.",
+    "developerName": "Ross Dawson",
+    "category": "Developer Tools",
+    "capabilities": [
+      "Planning",
+      "Code",
+      "Review",
+      "Writing"
+    ],
+    "defaultPrompt": [
+      "Plan a multi-step implementation without changing code.",
+      "Implement and locally verify this concrete change.",
+      "Review this change for defects and regression risk."
+    ]
+  }
+}

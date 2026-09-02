@@ -1,0 +1,6 @@
+interface:
+  display_name: "TypeScript best practices"
+  short_description: "Model safe TypeScript within repository conventions"
+  default_prompt: "Use $typescript-best-practices to improve this TypeScript change without broadening its scope."
+policy:
+  allow_implicit_invocation: true
