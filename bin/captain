@@ -1035,7 +1035,7 @@ BRIEF
 }
 
 tools() {
-  for cmd in codex claude opencode herdr treehouse gnhf no-mistakes lavish-axi firstmate fleet notify voice-vocab rebuild-mac gh tmux nvim; do
+  for cmd in codex claude opencode herdr treehouse gnhf no-mistakes firstmate fleet notify voice-vocab rebuild-mac gh tmux nvim; do
     if command -v "$cmd" >/dev/null 2>&1; then
       printf 'ok   %-16s %s\n' "$cmd" "$(command -v "$cmd")"
     else

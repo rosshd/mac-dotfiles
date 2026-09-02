@@ -16,7 +16,7 @@ brew bundle --file "$DOTFILES/Brewfile"
 # --- Agent orchestration stack -------------------------------------------------
 # These replace the local helper scripts noted in docs/TOOLS.md:
 #   treehouse -> wt, no-mistakes -> make validate, gnhf -> bounded loops,
-#   firstmate -> crew, lavish -> plan-artifact.
+#   firstmate -> crew.
 echo "Installing agent orchestration stack..."
 
 mkdir -p "$HOME/.local/bin" "$HOME/Developer/tools"
@@ -41,11 +41,8 @@ link_managed_directory() {
 go install github.com/kunchenguid/treehouse@v2.0.0
 ln -sfn "$(go env GOPATH)/bin/treehouse" "$HOME/.local/bin/treehouse"
 
-# gnhf + lavish-axi: published npm packages, installed globally.
-npm install -g gnhf@0.1.41 lavish-axi@0.1.31
-
-# lavish-axi: install agent hooks (Claude Code, Codex, OpenCode).
-lavish-axi setup hooks
+# gnhf: published npm package, installed globally.
+npm install -g gnhf@0.1.41
 
 # Herdr: terminal-native agent multiplexer and agent state surface.
 integration_failures=()
@@ -63,7 +60,7 @@ fi
 # gh-dash: terminal dashboard for GitHub PRs and issues.
 gh extension install dlvhdr/gh-dash 2>/dev/null || gh extension upgrade dlvhdr/gh-dash
 
-# Agent skills (lavish, axi, no-mistakes, ...) are vendored under agents/skills/
+# Agent skills (axi, no-mistakes, ...) are vendored under agents/skills/
 # and published to all three agents by the symlinks below -- no fetch needed here.
 # To refresh or add one, run from the repo root, then move it out of the
 # CLI's default .agents/skills/ into agents/skills/:

@@ -12,7 +12,7 @@ Codex, Codex CLI, Claude Code, OpenCode, Copilot, GitHub Copilot, agent harness,
 
 ## Workflow
 
-AGENTS.md, CLAUDE.md, skill, skill creator, visual planning artifact, repo validation, worktree, git worktree, Treehouse, No Mistakes, GoodNightHaveFun, GNHF, Lavish, AXI, pull request, PR, smoke test, end-to-end test, pytest, unittest.
+AGENTS.md, CLAUDE.md, skill, skill creator, Markdown plan, plan review, repo validation, worktree, git worktree, Treehouse, No Mistakes, GoodNightHaveFun, GNHF, AXI, pull request, PR, smoke test, end-to-end test, pytest, unittest.
 
 ## Repos and paths
 

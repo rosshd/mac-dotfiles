@@ -70,7 +70,7 @@ tmux_doctor() {
 }
 
 printf '== commands ==\n'
-for cmd in wezterm fish tmux nvim git gh delta lazygit codex claude opencode herdr treehouse gnhf no-mistakes lavish-axi firstmate ship agent agent-doctor networking wt crew captain fleet plan-artifact voice-vocab notify rebuild-mac terminal-notifier; do
+for cmd in wezterm fish tmux nvim git gh delta lazygit codex claude opencode herdr treehouse gnhf no-mistakes firstmate ship agent agent-doctor networking wt crew captain fleet plan-artifact voice-vocab notify rebuild-mac terminal-notifier; do
   check_cmd "$cmd"
 done
 
@@ -152,7 +152,6 @@ printf '\n== versions ==\n'
 (treehouse --version || true) 2>&1 | sed 's/^/treehouse /'
 (gnhf --version || true) 2>&1 | sed 's/^/gnhf      /'
 (no-mistakes --version || true) 2>&1 | sed 's/^/mistakes  /'
-(lavish-axi --version || true) 2>&1 | sed 's/^/lavish    /'
 
 printf '\n== background ==\n'
 if pgrep -ifl 'AeroSpace|SketchyBar|iTerm|cmatrix|pipes\.sh' >/tmp/doctor-legacy.out 2>/dev/null; then

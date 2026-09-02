@@ -15,7 +15,7 @@ Pick the narrowest template that matches the job.
 | Isolated implementation | `fleet` + Treehouse | Leases a separate worktree so the main checkout stays clean. |
 | Long bounded loop | `gnhf` through `fleet` | Keeps the agent running until the brief reaches done or blocked. |
 | Review and ship gate | `no-mistakes` | Handles validation, review, push, PR, and CI gate behavior. |
-| Planning surface | `lavish-axi` / `plan-artifact` | Turns complex choices into reviewable local HTML instead of long chat. |
+| Planning surface | Markdown plan + concise chat review | Keeps one canonical artifact and presents only the decisions that need attention. |
 | Status and notification | `captain` + `notify` | Surfaces done, blocked, and gate events without progress noise. |
 | GitHub triage | `gh dash` | Shows PRs and issues without leaving the terminal. |
 
@@ -145,26 +145,26 @@ Stop condition:
 The worktree has one owner, one stop condition, and no untracked user data.
 ```
 
-## Template: Planning Artifact
+## Template: Plan Review
 
-Use when the decision is visual, comparative, or likely to need feedback.
+Use when a plan needs approval or focused feedback.
 
 ```text
 Goal:
-Create a reviewable decision surface for <problem>.
+Create and review a canonical Markdown plan for <problem>.
 
 Tools:
-- `plan-artifact` for simple local HTML plans.
-- `lavish-axi` when comments, annotations, or a feedback loop are useful.
-- Codex for repo-grounded options and tradeoffs.
+- Codex for repo-grounded options, tradeoffs, and implementation details.
+- Markdown for the canonical plan.
+- Chat for a short summary and numbered decisions.
 
 Steps:
 1. State the decision and the options.
-2. Map tradeoffs, risks, and recommended next action.
-3. Keep implementation details out unless they change the decision.
-4. Open the artifact for review.
-5. Convert the chosen direction into a fleet brief or interactive task.
+2. Save the complete plan in the repository's planning directory.
+3. Summarize the outcome, important risks, and unresolved decisions in chat.
+4. Present decisions as a short numbered list with one recommended option each.
+5. Update the same Markdown file after feedback, then convert the approved direction into a fleet brief or interactive task.
 
 Stop condition:
-The artifact makes the decision obvious enough to approve, reject, or redirect.
+The plan is ready to implement and the user can approve, reject, or redirect it without opening another tool.
 ```

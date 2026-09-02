@@ -11,7 +11,7 @@ The workflow is terminal-centric and macOS-native:
 - tmux owns task-specific panes, windows, agent side sessions, and the captain status surface on demand.
 - Neovim is the primary editor and file navigation surface.
 - Codex, Claude Code, and OpenCode are available from the same terminal workflow.
-- An agent orchestration stack (`treehouse`, `no-mistakes`, `gnhf`, `firstmate`, `lavish-axi`) layers on top; see [Tools](docs/TOOLS.md).
+- An agent orchestration stack (`treehouse`, `no-mistakes`, `gnhf`, `firstmate`) layers on top; see [Tools](docs/TOOLS.md).
 - Herdr is available as the terminal-native agent multiplexer for long-lived multi-agent sessions.
 - The `captain` command is the main control surface for dispatch, status, voice entry, and station notifications.
 - Raycast remains the global launcher.

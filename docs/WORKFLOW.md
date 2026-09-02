@@ -71,7 +71,7 @@ gh dash       # PR and issue board across repos
 Session windows:
 
 - `home` - project navigation, Git status, quick commands
-- `notes` - plans, lavish artifacts, review surfaces
+- `notes` - plans, review notes, and handoffs
 
 Open extra tmux windows only when the task needs them:
 
@@ -429,16 +429,11 @@ Installed globally in Codex. Restart Codex after upgrading.
 Do not use `ce-commit-push-pr` when shipping through no-mistakes.
 Do not use `ce-work`, `ce-worktree`, or `/lfg` unless you explicitly want CE to own a hands-off execution lane.
 
-## Lavish artifacts
+## Plan reviews
 
-Use Lavish when a plan, comparison, architecture map, or review report benefits from visual review.
-
-```bash
-lavish-axi path/to/artifact.html
-```
-
-Keep artifacts in an ignored project directory (`.lavish/`).
-Use the product's design language when the artifact represents a specific app.
+Keep one canonical Markdown plan in the repository.
+Review it through a concise chat summary and a numbered list of unresolved decisions.
+Update that same file after feedback instead of creating a second review artifact or local review server.
 
 ## Isolation
 

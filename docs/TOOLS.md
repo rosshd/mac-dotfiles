@@ -268,7 +268,6 @@ background process, so understand what it does before relying on it.
 | `gnhf` | bounded agent loops | `npm install -g gnhf` | Long-running bounded loop runner. |
 | `herdr` | scattered agent panes | `brew install herdr` | Agent-aware terminal multiplexer; use for live multi-agent visibility, remote attach, and phone-sized terminal sessions. |
 | `firstmate` | `crew` | `git clone github.com/kunchenguid/firstmate` | Repo wrapper launched via the `firstmate` script. |
-| `lavish-axi` | `plan-artifact` | `npm install -g lavish-axi` | Installs agent hooks via `lavish-axi setup hooks`; the repo vendors the shared `lavish` skill. |
 
 `~/.no-mistakes/config.yaml` is linked from `no-mistakes/config.yaml`.
 It pins the Codex, Claude, and OpenCode binary paths so no-mistakes still finds agents when launched from git hooks, daemons, or iPhone SSH commands with a reduced PATH.
@@ -289,7 +288,6 @@ Canonical upstreams for every tool in this workflow.
 | npx skills CLI | https://github.com/vercel-labs/skills |
 | OpenSuperWhisper | https://github.com/starmel/OpenSuperWhisper |
 | AXI | https://axi.md |
-| lavish | https://github.com/kunchenguid/lavish |
 | Herdr | https://herdr.dev |
 | no-mistakes | https://github.com/kunchenguid/no-mistakes |
 | gnhf | https://github.com/kunchenguid/gnhf |
@@ -303,4 +301,3 @@ Canonical upstreams for every tool in this workflow.
 `~/.config/voice/vocabulary.md`) installs via the Homebrew cask `opensuperwhisper`.
 **AXI** is a framework, not a binary.
 The repo vendors its shared skill under `agents/skills/axi`, and per-domain helpers run on demand (for example, `npx -y gh-axi`).
-`lavish-axi` is the installed npm distribution of lavish + AXI.

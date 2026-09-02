@@ -6,7 +6,7 @@
   configs, tool versions, and warns on legacy background processes.
 - Installed the external orchestration stack and wired it into `setup.sh`:
   `treehouse`, `no-mistakes` (verified pinned release archive), `gnhf`, `firstmate`,
-  `lavish-axi`, `opensuperwhisper`. See [Tools](TOOLS.md) for what each replaces.
+  `opensuperwhisper`. See [Tools](TOOLS.md) for what each replaces.
 - Made the repo the single source of truth: all configs and agent files are symlinked into place.
   Codex, Claude, OpenCode, Copilot CLI, and Gemini CLI global instruction paths point at the same `agents/AGENTS.md`.
 - Shell efficiency: fzf keybindings, atuin history, direnv, and tmux session
