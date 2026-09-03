@@ -112,4 +112,19 @@ PY
 rg -Fq 'factory-issue.md' "$root/docs/WORKFLOW.md"
 [ -f "$root/agents/prompts/templates/factory-issue.md" ]
 
+workflow="$root/.github/workflows/ci.yml"
+[ -f "$workflow" ]
+for required_line in \
+  'name: Repository gate' \
+  '  pull_request:' \
+  '  push:' \
+  '      - main' \
+  '    name: Repository gate' \
+  '    runs-on: macos-latest' \
+  '      - uses: actions/checkout@v4' \
+  '        run: make check'; do
+  rg -Fxq "$required_line" "$workflow"
+done
+[ "$(rg -c '^[[:space:]]+run: make check$' "$workflow")" -eq 1 ]
+
 echo "factory cutover contract: ok"
