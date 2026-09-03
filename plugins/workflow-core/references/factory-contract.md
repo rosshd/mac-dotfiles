@@ -92,9 +92,15 @@ The handback wakes the dispatcher to consume the result, reconcile `status:activ
 If cross-task messaging is unavailable, the dispatcher stays active and waits for the owner with the available bounded task-wait mechanism.
 The user is not the completion transport.
 
+A locally completed handback replaces `status:active` with `status:verify` while review, shipping, CI, or release verification remains.
+A blocked handback replaces `status:active` with `status:blocked`.
+Add `needs-human` only when that blocked state needs Ross's decision or action.
+A high-risk pull request awaiting Ross uses `status:verify` plus `needs-human`.
+After every release check passes, close the issue instead of leaving an ownerless active status.
+
 ## Batch settlement
 
-The dispatcher records the active owner set for each authorized dispatch.
+The dispatcher initializes the batch before creating its first task and records each owner immediately after task creation, before label reconciliation or another task creation.
 Each terminal handback settles exactly one owner.
 While owners remain, the dispatcher records the result and returns to sleep without asking the user to relay progress.
 When the last owner settles, the dispatcher aggregates the results and continues every already-authorized path.

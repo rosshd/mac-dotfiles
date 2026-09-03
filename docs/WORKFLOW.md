@@ -15,7 +15,7 @@ intake
   -> commit the scoped change
   -> review the exact tested head once
   -> push without force and open a linked pull request
-  -> require exact-head CI and risk-gated merge authorization
+  -> require exact-head CI and the authorized risk boundary
   -> verify the release or installed state
   -> close the issue only after verification
   -> inspect Ready issues and propose bounded next work
@@ -129,14 +129,15 @@ Use a closing keyword only when merge itself completes the issue and no installe
 
 A merge requires:
 
-- Explicit merge authorization in the issue or current request.
+- Merge authorization in the issue, current request, or Ross's standing low- and medium-risk factory policy.
 - Risk that remains within the authorized low or medium boundary.
 - A passing canonical gate for the exact head.
 - One bounded independent review with no unresolved finding.
 - Required CI passing for the exact pull-request head.
 - A documented rollback path.
 
-High-risk work stops for Ross before merge or external mutation.
+High-risk work may be pushed and opened as a reviewed pull request when issue permissions allow it.
+It stops for Ross before merge or production activation with one exact verification packet and direct approval question.
 Do not weaken required checks to make a pull request mergeable.
 
 ## Release verification
@@ -190,7 +191,8 @@ Create another Codex task only after Ross authorizes that dispatch.
 
 If a focused test fails, keep the loop local until the cause is understood.
 If the repository gate fails, fix the failure or report a real blocker before review.
-If review finds a defect, stop shipping and resolve the finding.
+If review finds an in-scope defect that preserves permissions and risk, apply one repair cycle, rerun the full gate, and run one targeted rereview.
+Stop for findings that change scope, need new authority, raise risk, or survive the targeted rereview.
 If CI fails on the exact head, inspect the failing job and reproduce it locally when practical.
 If risk expands beyond the issue's permission, stop before the higher-risk action.
 If release verification fails, preserve rollback state and keep the issue open.

@@ -66,7 +66,8 @@ Use `References #<issue>` while post-merge verification remains.
 
 ## Merge and release
 
-Merge only with explicit authorization, required CI, a clean review, and risk within the issue boundary.
+Merge low- and medium-risk work under issue, current-request, or standing factory authorization only after required CI and a clean exact-head review.
+High-risk work may reach a reviewed pull request, then stops for Ross before merge or production activation.
 Verify the installed or deployed system after merge.
 Keep the issue open until its release checks pass.
 
@@ -89,7 +90,8 @@ GitHub and the Codex app show durable task state.
 
 ## Stop conditions
 
-Stop before an action that exceeds permissions or raises risk to high.
+Stop before an action that exceeds permissions.
+For high-risk work, stop before merge or production activation and ask one exact approval question.
 Stop shipping when the gate, review, or exact-head CI fails.
 Stop issue closure when release verification is incomplete.
 Ask Ross before product tradeoffs, destructive changes, secrets, purchases, or production actions outside the issue.

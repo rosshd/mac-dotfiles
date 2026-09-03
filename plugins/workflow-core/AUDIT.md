@@ -20,7 +20,7 @@ Supporting references are loaded only when the selected task needs them.
 - Plans that exceed one focused task use dependency-aware vertical work items, one fresh task per item.
 - Code review keeps engineering quality and spec fidelity as separate judgments.
 - GitHub issues remain the durable task briefs, and dispatch proposes at most two independent Ready issues before asking for task-creation authorization.
-- Dispatched owner tasks send one terminal handback to the dispatcher, which settles the full batch before continuing or asking one exact permission question.
+- Dispatched owner tasks send one terminal handback to the dispatcher, which records owners before issue mutation, reconciles terminal labels, and settles the full batch before continuing or asking one exact permission question.
 
 ## Skills
 
