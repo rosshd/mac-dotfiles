@@ -138,6 +138,7 @@ for required in \
   'needs-human' \
   'standing authorization' \
   'one automatic repair' \
+  'After Ross approves, remove `needs-human` and resume only the exact reviewed path covered by that approval' \
   'The user is not the completion transport'; do
   rg -Fq "$required" "$factory_contract"
 done
