@@ -89,6 +89,7 @@ skill_source="$setup_tmp/dotfiles-skills"
 skill_root="$setup_tmp/.codex/skills"
 mkdir -p "$skill_source/managed" "$skill_source/no-mistakes" "$skill_root/.system" "$skill_root/personal"
 mv "$skill_root" "$skill_root.pre-dotfiles.20260901000000"
+ln -s "$skill_source/no-mistakes" "$skill_root.pre-dotfiles.20260901000000/no-mistakes"
 ln -s "$skill_source" "$skill_root"
 source <(sed -n '/^link_managed_directory()/,/^# treehouse:/p' "$setup" | sed '$d')
 publish_managed_skills "$skill_source" "$skill_root"
@@ -98,5 +99,11 @@ publish_managed_skills "$skill_source" "$skill_root"
 [ -d "$skill_root/personal" ]
 [ "$(readlink "$skill_root/managed")" = "$skill_source/managed" ]
 [ ! -e "$skill_root/no-mistakes" ]
+
+unmanaged_skill_root="$setup_tmp/unmanaged-skills"
+mkdir -p "$unmanaged_skill_root/no-mistakes"
+publish_managed_skills "$skill_source" "$unmanaged_skill_root"
+[ -d "$unmanaged_skill_root/no-mistakes" ]
+[ ! -L "$unmanaged_skill_root/no-mistakes" ]
 
 echo "setup safety contract: ok"

@@ -45,7 +45,7 @@ link_managed_directory() {
 publish_managed_skills() {
   local source_root="$1"
   local target_root="$2"
-  local source_resolved target_resolved backup restore skill
+  local source_resolved target_resolved backup restore skill retired_source retired_target
 
   source_resolved="$(cd "$source_root" && pwd -P)"
   if [ -L "$target_root" ]; then
@@ -67,6 +67,15 @@ publish_managed_skills() {
   fi
 
   mkdir -p "$target_root"
+  retired_source="$source_root/no-mistakes"
+  retired_target="$target_root/no-mistakes"
+  if [ -L "$retired_target" ]; then
+    target_resolved="$(realpath "$retired_target" 2>/dev/null || true)"
+    if [ -d "$retired_source" ] \
+      && [ "$target_resolved" = "$(cd "$retired_source" && pwd -P)" ]; then
+      rm "$retired_target"
+    fi
+  fi
   for skill in "$source_root"/*; do
     [ -d "$skill" ] || continue
     [ "$(basename "$skill")" = "no-mistakes" ] && continue
