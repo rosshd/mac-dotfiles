@@ -79,6 +79,8 @@ remove_managed_link "$tmp/.codex/skills/no-mistakes" "$root/agents/skills/no-mis
 
 rg -Fq 'remove_managed_link "$HOME/.local/bin/no-mistakes" "$HOME/.no-mistakes/bin/no-mistakes"' "$setup"
 rg -Fq 'remove_managed_link "$skill_root/no-mistakes" "$DOTFILES/agents/skills/no-mistakes"' "$setup"
+rg -Fq 'claude "$HOME/.claude/settings.json" --home "$HOME"' "$setup"
+rg -Fq 'copilot "$HOME/.copilot/settings.json" --home "$HOME"' "$setup"
 
 [ ! -L "$tmp/.local/bin/captain" ]
 [ ! -L "$tmp/.local/bin/no-mistakes" ]
