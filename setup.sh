@@ -97,10 +97,13 @@ remove_managed_link "$HOME/.no-mistakes/config.yaml" "$DOTFILES/no-mistakes/conf
 for skill_root in "$HOME/.codex/skills" "$HOME/.claude/skills" "$HOME/.config/opencode/skills"; do
   remove_managed_link "$skill_root/no-mistakes" "$DOTFILES/agents/skills/no-mistakes"
 done
+HERDR_ARCHIVE_ROOT="$HOME/.factory-migration/archive/$(date -u +%Y-%m-%dT%H%M%SZ)-residual-herdr-hooks-$$"
 python3 "$DOTFILES/scripts/remove-retired-herdr-hooks.py" \
-  claude "$HOME/.claude/settings.json" --home "$HOME"
+  claude "$HOME/.claude/settings.json" --home "$HOME" \
+  --archive-root "$HERDR_ARCHIVE_ROOT"
 python3 "$DOTFILES/scripts/remove-retired-herdr-hooks.py" \
-  copilot "$HOME/.copilot/settings.json" --home "$HOME"
+  copilot "$HOME/.copilot/settings.json" --home "$HOME" \
+  --archive-root "$HERDR_ARCHIVE_ROOT"
 
 mkdir -p \
   "$HOME/.config/fish" \

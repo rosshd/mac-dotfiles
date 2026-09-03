@@ -7,6 +7,7 @@ tmp="$(mktemp -d /private/tmp/remove-retired-herdr-hooks-test.XXXXXX)"
 trap 'rm -rf "$tmp"' EXIT
 
 mkdir -p "$tmp/home/.claude" "$tmp/home/.copilot"
+archive="$tmp/archive"
 cat > "$tmp/home/.claude/settings.json" <<JSON
 {
   "theme": "dark",
@@ -36,8 +37,24 @@ cat > "$tmp/home/.copilot/settings.json" <<JSON
 JSON
 chmod 600 "$tmp/home/.claude/settings.json" "$tmp/home/.copilot/settings.json"
 
-python3 "$helper" claude "$tmp/home/.claude/settings.json" --home "$tmp/home"
-python3 "$helper" copilot "$tmp/home/.copilot/settings.json" --home "$tmp/home"
+mkdir -p "$tmp/home/.claude/hooks" "$tmp/home/.copilot/hooks"
+printf 'claude hook\n' > "$tmp/home/.claude/hooks/herdr-agent-state.sh"
+printf 'copilot hook\n' > "$tmp/home/.copilot/hooks/herdr-agent-state.sh"
+cp "$tmp/home/.claude/settings.json" "$tmp/claude-before.json"
+cp "$tmp/home/.copilot/settings.json" "$tmp/copilot-before.json"
+
+python3 "$helper" claude "$tmp/home/.claude/settings.json" --home "$tmp/home" \
+  --archive-root "$archive"
+python3 "$helper" copilot "$tmp/home/.copilot/settings.json" --home "$tmp/home" \
+  --archive-root "$archive"
+
+cmp "$tmp/claude-before.json" "$archive/claude/settings.json"
+cmp "$tmp/copilot-before.json" "$archive/copilot/settings.json"
+cmp "$tmp/home/.claude/hooks/herdr-agent-state.sh" \
+  "$archive/claude/hooks/herdr-agent-state.sh"
+cmp "$tmp/home/.copilot/hooks/herdr-agent-state.sh" \
+  "$archive/copilot/hooks/herdr-agent-state.sh"
+[ -f "$archive/README.md" ]
 
 python3 - "$tmp/home/.claude/settings.json" "$tmp/home/.copilot/settings.json" <<'PY'
 import json
@@ -69,22 +86,47 @@ PY
 
 claude_checksum="$(shasum -a 256 "$tmp/home/.claude/settings.json")"
 copilot_checksum="$(shasum -a 256 "$tmp/home/.copilot/settings.json")"
-python3 "$helper" claude "$tmp/home/.claude/settings.json" --home "$tmp/home"
-python3 "$helper" copilot "$tmp/home/.copilot/settings.json" --home "$tmp/home"
+python3 "$helper" claude "$tmp/home/.claude/settings.json" --home "$tmp/home" \
+  --archive-root "$archive"
+python3 "$helper" copilot "$tmp/home/.copilot/settings.json" --home "$tmp/home" \
+  --archive-root "$archive"
 [ "$(shasum -a 256 "$tmp/home/.claude/settings.json")" = "$claude_checksum" ]
 [ "$(shasum -a 256 "$tmp/home/.copilot/settings.json")" = "$copilot_checksum" ]
 
 printf '{"hooks":{"SessionStart":[]}}\n' > "$tmp/no-match.json"
 no_match_checksum="$(shasum -a 256 "$tmp/no-match.json")"
-python3 "$helper" claude "$tmp/no-match.json" --home "$tmp/home"
+python3 "$helper" claude "$tmp/no-match.json" --home "$tmp/home" \
+  --archive-root "$tmp/no-match-archive"
 [ "$(shasum -a 256 "$tmp/no-match.json")" = "$no_match_checksum" ]
+[ ! -e "$tmp/no-match-archive" ]
 
 printf '{invalid json\n' > "$tmp/invalid.json"
 invalid_checksum="$(shasum -a 256 "$tmp/invalid.json")"
-if python3 "$helper" claude "$tmp/invalid.json" --home "$tmp/home" 2>/dev/null; then
+if python3 "$helper" claude "$tmp/invalid.json" --home "$tmp/home" \
+  --archive-root "$tmp/invalid-archive" 2>/dev/null; then
   echo "invalid settings must fail closed" >&2
   exit 1
 fi
 [ "$(shasum -a 256 "$tmp/invalid.json")" = "$invalid_checksum" ]
+[ ! -e "$tmp/invalid-archive" ]
+
+mkdir -p "$tmp/symlink/home/.claude/hooks" "$tmp/symlink/managed"
+cat > "$tmp/symlink/managed/settings.json" <<JSON
+{"hooks":{"SessionStart":[{"hooks":[{"type":"command","command":"bash '$tmp/symlink/home/.claude/hooks/herdr-agent-state.sh' session"}]}]},"preserved":true}
+JSON
+ln -s "$tmp/symlink/managed/settings.json" "$tmp/symlink/home/.claude/settings.json"
+python3 "$helper" claude "$tmp/symlink/home/.claude/settings.json" \
+  --home "$tmp/symlink/home" --archive-root "$tmp/symlink/archive"
+[ -L "$tmp/symlink/home/.claude/settings.json" ]
+[ "$(readlink "$tmp/symlink/home/.claude/settings.json")" = "$tmp/symlink/managed/settings.json" ]
+python3 - "$tmp/symlink/managed/settings.json" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1], encoding="utf-8") as handle:
+    settings = json.load(handle)
+assert settings == {"hooks": {}, "preserved": True}
+PY
+[ "$(cat "$tmp/symlink/archive/claude/settings.symlink-target")" = "$tmp/symlink/managed/settings.json" ]
 
 echo "retired Herdr hook cleanup: ok"

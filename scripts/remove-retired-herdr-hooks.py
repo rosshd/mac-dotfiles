@@ -7,6 +7,7 @@ import argparse
 import json
 import os
 from pathlib import Path
+import shutil
 import stat
 import tempfile
 from typing import Any
@@ -84,14 +85,42 @@ def remove_copilot_hook(settings: dict[str, Any], home: Path) -> bool:
     return True
 
 
+def archive_state(agent: str, settings_path: Path, home: Path, archive_root: Path) -> None:
+    agent_archive = archive_root / agent
+    agent_archive.mkdir(parents=True, exist_ok=False)
+    shutil.copy2(settings_path, agent_archive / "settings.json")
+
+    hook_path = home / f".{agent}/hooks/herdr-agent-state.sh"
+    if hook_path.is_file():
+        hooks_archive = agent_archive / "hooks"
+        hooks_archive.mkdir()
+        shutil.copy2(hook_path, hooks_archive / hook_path.name)
+
+    if settings_path.is_symlink():
+        (agent_archive / "settings.symlink-target").write_text(
+            f"{os.readlink(settings_path)}\n",
+            encoding="utf-8",
+        )
+
+    readme = archive_root / "README.md"
+    if not readme.exists():
+        readme.write_text(
+            "# Residual Herdr hook rollback snapshot\n\n"
+            "This directory preserves agent settings and dormant Herdr hook scripts "
+            "before setup removes retired SessionStart registrations.\n",
+            encoding="utf-8",
+        )
+
+
 def write_atomically(path: Path, settings: dict[str, Any]) -> None:
-    original_mode = stat.S_IMODE(path.stat().st_mode)
+    destination = path.resolve(strict=True) if path.is_symlink() else path
+    original_mode = stat.S_IMODE(destination.stat().st_mode)
     rendered = json.dumps(settings, indent=2, ensure_ascii=False) + "\n"
     with tempfile.NamedTemporaryFile(
         mode="w",
         encoding="utf-8",
-        dir=path.parent,
-        prefix=f".{path.name}.",
+        dir=destination.parent,
+        prefix=f".{destination.name}.",
         delete=False,
     ) as handle:
         temporary = Path(handle.name)
@@ -101,7 +130,7 @@ def write_atomically(path: Path, settings: dict[str, Any]) -> None:
 
     try:
         temporary.chmod(original_mode)
-        os.replace(temporary, path)
+        os.replace(temporary, destination)
     finally:
         temporary.unlink(missing_ok=True)
 
@@ -111,6 +140,7 @@ def main() -> int:
     parser.add_argument("agent", choices=("claude", "copilot"))
     parser.add_argument("settings", type=Path)
     parser.add_argument("--home", type=Path, required=True)
+    parser.add_argument("--archive-root", type=Path, required=True)
     args = parser.parse_args()
 
     if not args.settings.exists():
@@ -126,6 +156,7 @@ def main() -> int:
         "copilot": remove_copilot_hook,
     }
     if removers[args.agent](settings, args.home):
+        archive_state(args.agent, args.settings, args.home, args.archive_root)
         write_atomically(args.settings, settings)
         print(f"  removed retired Herdr hook from {args.settings}")
     return 0

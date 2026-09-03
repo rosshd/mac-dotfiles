@@ -79,8 +79,13 @@ remove_managed_link "$tmp/.codex/skills/no-mistakes" "$root/agents/skills/no-mis
 
 rg -Fq 'remove_managed_link "$HOME/.local/bin/no-mistakes" "$HOME/.no-mistakes/bin/no-mistakes"' "$setup"
 rg -Fq 'remove_managed_link "$skill_root/no-mistakes" "$DOTFILES/agents/skills/no-mistakes"' "$setup"
-rg -Fq 'claude "$HOME/.claude/settings.json" --home "$HOME"' "$setup"
-rg -Fq 'copilot "$HOME/.copilot/settings.json" --home "$HOME"' "$setup"
+rg -Fq 'HERDR_ARCHIVE_ROOT="$HOME/.factory-migration/archive/' "$setup"
+rg -Fq 'claude "$HOME/.claude/settings.json" --home "$HOME" \' "$setup"
+rg -Fq 'copilot "$HOME/.copilot/settings.json" --home "$HOME" \' "$setup"
+if [ "$(rg -Fc -- '--archive-root "$HERDR_ARCHIVE_ROOT"' "$setup")" -ne 2 ]; then
+  echo "both retired hook cleanups must use the rollback archive" >&2
+  exit 1
+fi
 
 [ ! -L "$tmp/.local/bin/captain" ]
 [ ! -L "$tmp/.local/bin/no-mistakes" ]
