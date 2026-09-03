@@ -9,8 +9,10 @@ Find actionable defects rather than narrating the diff.
 
 ## Workflow
 
-1. Resolve the review scope and read repository instructions, intent, tests, and relevant surrounding code.
+1. Resolve the review scope and read repository instructions, issue or stated intent, branch diff, tests, and relevant surrounding code.
    When domain vocabulary or prior decisions affect the change, read [`durable-context.md`](../../references/durable-context.md) and the project context it identifies.
+   Treat those repository sources as the evidence boundary.
+   Inspect global memory, session logs, home-directory material, or unrelated repositories only when the issue or user explicitly names that evidence.
 2. Review engineering quality: correctness, edge cases, compatibility, state transitions, error handling, security boundaries, performance risks, regression coverage, and repository standards.
 3. Review spec fidelity separately: trace the implementation against the stated intent, acceptance criteria, constraints, and non-goals.
    If no reliable spec or intent exists, say that this axis is unavailable instead of inventing requirements.
@@ -24,7 +26,8 @@ Do not collapse them into a combined score or verdict.
 
 Use one full local review pass by default.
 
-After the user accepts and applies findings, allow at most one targeted rereview of those fixes.
+When a shipping request already has authority to repair in-scope findings, allow one repair and one targeted rereview under the factory contract.
+Otherwise, wait for the user to accept findings before applying them.
 
 Do not restart a full review loop.
 

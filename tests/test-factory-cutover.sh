@@ -117,14 +117,31 @@ factory_contract="$root/plugins/workflow-core/references/factory-contract.md"
 for required in \
   'send_message_to_thread' \
   'The user should not have to announce that the worker finished' \
+  'active batch' \
+  'final owner settles' \
+  'authorized low- and medium-risk shipping' \
+  'stop before merge or production activation' \
+  'passive statement that no push or pull request occurred' \
   'bounded task-wait capability'; do
   rg -Fq "$required" "$dispatch_skill"
 done
 for required in \
   'worker-driven handback' \
+  'Batch settlement' \
+  'Risk and continuation' \
+  'status:verify' \
+  'needs-human' \
+  'standing authorization' \
+  'one automatic repair' \
   'The user is not the completion transport'; do
   rg -Fq "$required" "$factory_contract"
 done
+
+review_skill="$root/plugins/workflow-core/skills/ce-code-review/SKILL.md"
+shipping_skill="$root/plugins/workflow-core/skills/ce-commit-push-pr/SKILL.md"
+rg -Fq 'Treat those repository sources as the evidence boundary' "$review_skill"
+rg -Fq 'Apply at most one repair cycle automatically' "$shipping_skill"
+rg -Fq "standing risk policy" "$shipping_skill"
 
 workflow="$root/.github/workflows/ci.yml"
 [ -f "$workflow" ]

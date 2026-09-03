@@ -122,12 +122,23 @@ def main() -> int:
             "Dependencies",
             "dispatch.authorized",
             "handback",
+            "needs-human",
+            "status:verify",
             "send_message_to_thread",
             "task.created",
         }
         for term in sorted(required_contract_terms):
             if term not in contract:
                 failures.append(f"factory contract missing: {term}")
+
+        for required_policy in {
+            "Batch settlement",
+            "Risk and continuation",
+            "standing authorization",
+            "one automatic repair",
+        }:
+            if required_policy not in contract:
+                failures.append(f"factory contract missing policy: {required_policy}")
 
     searchable = "\n".join(
         path.read_text()
