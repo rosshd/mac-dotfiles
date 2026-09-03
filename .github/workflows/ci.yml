@@ -16,5 +16,7 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
+      - name: Install test dependency
+        run: brew install ripgrep
       - name: Run canonical gate
         run: make check

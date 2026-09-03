@@ -122,6 +122,7 @@ for required_line in \
   '    name: Repository gate' \
   '    runs-on: macos-latest' \
   '      - uses: actions/checkout@v4' \
+  '        run: brew install ripgrep' \
   '        run: make check'; do
   rg -Fxq "$required_line" "$workflow"
 done
