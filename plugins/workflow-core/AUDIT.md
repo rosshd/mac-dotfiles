@@ -18,6 +18,7 @@ Supporting references are loaded only when the selected task needs them.
 - Plans that exceed one focused task use dependency-aware vertical work items, one fresh task per item.
 - Code review keeps engineering quality and spec fidelity as separate judgments.
 - GitHub issues remain the durable task briefs, and dispatch proposes at most two independent Ready issues before asking for task-creation authorization.
+- Dispatched owner tasks send one terminal handback to the dispatcher; bounded dispatcher waiting is the fallback when cross-task messaging is unavailable.
 
 ## Skills
 
@@ -40,7 +41,7 @@ Supporting references are loaded only when the selected task needs them.
 | `ce-babysit-pr` | Implicit for ongoing PR monitoring | Compound Engineering lineage | Plain status labels and no merge authority. |
 | `ce-pov` | Implicit for adoption verdicts | Compound Engineering lineage | Solo, grounded recommendation unless an oracle is requested. |
 | `factory-bootstrap` | Implicit for repository adoption | Local | Adds only the minimum repository-owned factory contract. |
-| `factory-dispatch` | Implicit for Ready-work selection | Local | Proposes at most two issues and creates owner tasks only after explicit authorization. |
+| `factory-dispatch` | Implicit for Ready-work selection | Local | Proposes at most two issues, creates authorized owner tasks, and requires worker-driven handback. |
 
 ## Trigger ownership
 

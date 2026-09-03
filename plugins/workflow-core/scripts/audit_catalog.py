@@ -121,6 +121,8 @@ def main() -> int:
             "Permissions",
             "Dependencies",
             "dispatch.authorized",
+            "handback",
+            "send_message_to_thread",
             "task.created",
         }
         for term in sorted(required_contract_terms):

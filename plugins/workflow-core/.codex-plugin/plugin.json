@@ -1,6 +1,6 @@
 {
   "name": "workflow-core",
-  "version": "1.0.0+codex.20260902210417",
+  "version": "1.0.0+codex.20260903191517",
   "description": "A compact, permission-aware engineering workflow and writing-quality skill set for Ross.",
   "author": {
     "name": "Ross Dawson"

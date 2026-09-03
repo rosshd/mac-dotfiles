@@ -30,6 +30,9 @@ For a named dry-run fixture, evaluate the supplied synthetic issues with the sam
 
 Create tasks only after the user explicitly authorizes the proposed issue numbers.
 
+Before task creation, resolve the current dispatcher task ID and host ID when the Codex app exposes cross-task messaging.
+Pass those identities to each owner task with the handback instructions below.
+
 For each authorized issue:
 
 1. Re-read the issue and repository state immediately before dispatch.
@@ -39,6 +42,29 @@ For each authorized issue:
    Do not create `.artifacts/fleet`, a copied plan, or a second issue body.
 5. After task creation succeeds, replace `status:ready` with `status:active` and record the task identifier on the issue.
 6. If task creation or label reconciliation fails, stop and report the exact partial state.
+
+## Worker handback
+
+Dispatch is complete only when the owner has a return path.
+
+When `send_message_to_thread` is available, tell the owner task to send exactly one handback message to the dispatcher task when one of these conditions occurs:
+
+- local implementation and required verification complete;
+- work is blocked;
+- user input or new authority is required.
+
+Routine progress stays in the owner task.
+The terminal handback includes the issue, owner task, worktree, branch, exact head SHA, local gate result, review status, and next permission boundary.
+An attention handback replaces the completion result with the exact blocker or decision needed.
+
+After confirming that callback instruction is present, the dispatcher may end its turn.
+The worker message wakes the dispatcher, which reads the owner result, revalidates the exact head, reconciles the issue status, and continues only work already authorized by the user.
+Creating the task is not a completed factory run.
+The user should not have to announce that the worker finished.
+
+If cross-task messaging is unavailable, keep the dispatcher turn active and use the bounded task-wait capability until the owner completes or needs attention.
+Carry forward the wait cursor, remain quiet on unchanged snapshots, and consume the terminal result directly.
+Do not replace handback with a scheduled poller, heartbeat, daemon, or queue.
 
 Dispatch no more than two write-owning tasks in one request.
 

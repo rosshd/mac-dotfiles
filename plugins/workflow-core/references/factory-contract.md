@@ -75,6 +75,16 @@ The issue remains canonical when details change.
 
 The owner task stops after the issue acceptance checks and local verification are complete unless the user separately authorizes shipping, deployment, monitoring, or another issue.
 
+Owner completion includes a worker-driven handback to the dispatcher.
+When `send_message_to_thread` is available, the dispatcher passes its task and host identities in the owner prompt, and the owner sends one terminal message after completion, blocking, or a need for user input.
+The handback identifies the issue, task, worktree, branch, exact head SHA, gate result, review status, and next permission boundary.
+Routine progress remains in the owner task.
+
+The dispatcher may end its turn after it confirms the callback instruction.
+The handback wakes the dispatcher to consume the result, reconcile `status:active`, and continue the already-authorized review or shipping path.
+If cross-task messaging is unavailable, the dispatcher stays active and waits for the owner with the available bounded task-wait mechanism.
+The user is not the completion transport.
+
 ## Draft analytics events
 
 PSF-02 defines event vocabulary only.

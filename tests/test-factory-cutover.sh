@@ -112,6 +112,20 @@ PY
 rg -Fq 'factory-issue.md' "$root/docs/WORKFLOW.md"
 [ -f "$root/agents/prompts/templates/factory-issue.md" ]
 
+dispatch_skill="$root/plugins/workflow-core/skills/factory-dispatch/SKILL.md"
+factory_contract="$root/plugins/workflow-core/references/factory-contract.md"
+for required in \
+  'send_message_to_thread' \
+  'The user should not have to announce that the worker finished' \
+  'bounded task-wait capability'; do
+  rg -Fq "$required" "$dispatch_skill"
+done
+for required in \
+  'worker-driven handback' \
+  'The user is not the completion transport'; do
+  rg -Fq "$required" "$factory_contract"
+done
+
 workflow="$root/.github/workflows/ci.yml"
 [ -f "$workflow" ]
 for required_line in \
