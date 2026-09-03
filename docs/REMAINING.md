@@ -1,43 +1,33 @@
-# Remaining Work
+# Remaining work
 
-## Done
+## Complete in source
 
-- Health check script (`bin/doctor`): verifies binaries, Fish/tmux/Neovim/WezTerm
-  configs, tool versions, and warns on legacy background processes.
-- Installed the external orchestration stack and wired it into `setup.sh`:
-  `treehouse`, `no-mistakes` (verified pinned release archive), `gnhf`, `firstmate`,
-  `opensuperwhisper`. See [Tools](TOOLS.md) for what each replaces.
-- Made the repo the single source of truth: all configs and agent files are symlinked into place.
-  Codex, Claude, OpenCode, Copilot CLI, and Gemini CLI global instruction paths point at the same `agents/AGENTS.md`.
-- Shell efficiency: fzf keybindings, atuin history, direnv, and tmux session
-  persistence (tpm + resurrect + continuum).
-- Simplified the default `ship` workspace to `home` and `notes` only.
-- Added reusable coding templates with tool ownership and rationale.
-- Removed obsolete Sketchybar and AeroSpace commits from the local feature-branch history while preserving the meaningful terminal-first commit sequence.
-- Prepared the cleaned feature branch for validation before a later force-with-lease update; this cleanup does not push it.
-- Added `Brewfile` as the canonical package manifest and changed `setup.sh` to use it.
-- Added `rebuild-mac` for package drift checks, Brewfile application, and active nix-darwin rebuilds.
-- Activated the Nix, nix-darwin, and Home Manager config in `flake.nix` and `nix/`.
-- Added `doctor` checks for Brewfile drift, Nix readiness, Herdr integration status, and phone host visibility.
-- Added `captain phone-host` for stable iPhone Shortcut SSH setup.
-- Installed and configured Herdr as the live terminal agent multiplexer.
-- Installed Herdr integrations for Codex, Claude, OpenCode, and Copilot CLI.
+- GitHub Issues define the durable factory work contract.
+- One Codex owner task and one managed worktree own each implementation.
+- Repository gates, one bounded independent review, exact-head CI, and risk-gated merge control shipping.
+- Workflow Core provides the shared planning, implementation, review, shipping, bootstrap, and dispatch skills.
+- WezTerm, tmux, Neovim, direct agent CLIs, `gh dash`, notifications, and phone access remain available.
+- The rebuild source excludes the superseded orchestration packages, links, hooks, aliases, keybindings, configs, and helper entry points.
+- Existing installed state and rollback artifacts remain preserved until a later authorized cleanup.
 
-## Manual steps (need your password / one-time)
+## Post-merge verification
 
-- Set fish as the login shell:
-  `echo "$(command -v fish)" | sudo tee -a /etc/shells && chsh -s "$(command -v fish)"`
-- Import existing shell history into atuin: `atuin import auto`
+The source pull request does not apply workstation configuration.
+After merge, the release owner must record:
 
-## Medium Priority
+1. The merged commit and merge timestamp.
+2. `rebuild-mac check` before any live apply.
+3. An explicitly authorized installed-state cutover.
+4. Exact managed links and Codex hooks.
+5. `codex plugin list`, `doctor`, and a fresh Codex discovery check.
+6. `gh dash`, direct dispatch, generic notification, terminal, and phone smoke tests.
+7. The start of the 14-day stability window.
 
-1. Disable all non-essential macOS Login Items and per-app "launch on login" settings.
+## Manual steps
 
-   Check at System Settings > General > Login Items and in each app that can self-register.
-   Keep Rectangle and Karabiner available at startup because Caps Lock Hyper window shortcuts depend on them.
-   Priority apps to inspect: WezTerm, Raycast, OpenSuperWhisper, Aerial, no-mistakes, and any menu bar utility.
+- Set Fish as the login shell when needed.
+- Import existing shell history with `atuin import auto`.
+- Review Login Items and keep only required quiet helpers.
+- Decide whether VS Code needs repository-owned configuration.
 
-
-## Low Priority
-
-2. Decide whether VS Code needs any dotfiles at all or stays outside this workflow.
+Secrets, SSH keys, API keys, private notification topics, and tool sign-ins remain manual.

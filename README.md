@@ -8,12 +8,12 @@ The workflow is terminal-centric and macOS-native:
 
 - WezTerm opens directly into the restored tmux workspace.
 - tmux restores the last saved session after reboot; if no snapshot exists, `ship` creates only `home` and `notes`.
-- tmux owns task-specific panes, windows, agent side sessions, and the captain status surface on demand.
+- tmux owns task-specific panes, windows, and agent side sessions.
 - Neovim is the primary editor and file navigation surface.
 - Codex, Claude Code, and OpenCode are available from the same terminal workflow.
-- An agent orchestration stack (`treehouse`, `no-mistakes`, `gnhf`, `firstmate`) layers on top; see [Tools](docs/TOOLS.md).
-- Herdr is available as the terminal-native agent multiplexer for long-lived multi-agent sessions.
-- The `captain` command is the main control surface for dispatch, status, voice entry, and station notifications.
+- GitHub Issues hold durable work briefs, and Codex managed tasks own isolated implementation work.
+- Repository gates, one bounded independent review, exact-head CI, and explicit release checks control shipping.
+- `gh dash` is the terminal status surface for issues and pull requests.
 - Raycast remains the global launcher.
 - Rectangle remains the lightweight macOS window helper and the sole login-item exception because Karabiner Hyper window shortcuts depend on it.
 - Other login items should stay off; the laptop should boot to a clean desktop with no visible app windows.

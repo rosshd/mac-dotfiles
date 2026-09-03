@@ -23,7 +23,7 @@ chmod +x "$fakebin/terminal-notifier"
 
 osascript_args="$tmp/osascript.args"
 terminal_notifier_args="$tmp/terminal-notifier.args"
-title='Captain "quoted" \\ title'
+title='Workflow "quoted" \\ title'
 message='Message "quoted" \\ body'
 
 PATH="$fakebin:/usr/bin:/bin" OSASCRIPT_ARGS="$osascript_args" \

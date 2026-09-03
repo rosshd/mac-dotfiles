@@ -29,22 +29,10 @@ in
   };
   home.file.".config/voice/vocabulary.md".source = ../voice/vocabulary.md;
   home.file.".config/gh-dash/config.yml".source = ../gh-dash/config.yml;
-  home.file.".config/herdr/config.toml".source = ../herdr/config.toml;
-  home.file.".no-mistakes/config.yaml".source = ../no-mistakes/config.yaml;
   home.file.".local/bin/agent".source = ../bin/agent;
   home.file.".local/bin/agent-doctor".source = ../bin/agent-doctor;
-  home.file.".local/bin/captain" = {
-    source = ../bin/captain;
-    force = true;
-  };
   home.file.".local/bin/clean-reboot".source = ../bin/clean-reboot;
-  home.file.".local/bin/crew".source = ../bin/crew;
   home.file.".local/bin/doctor".source = ../bin/doctor;
-  home.file.".local/bin/firstmate".source = ../bin/firstmate;
-  home.file.".local/bin/fleet" = {
-    source = ../bin/fleet;
-    force = true;
-  };
   home.file.".local/bin/notify".source = ../bin/notify;
   home.file.".local/bin/networking".source = ../bin/networking;
   home.file.".local/bin/networking-mcp".source = ../bin/networking-mcp;
@@ -56,7 +44,6 @@ in
   home.file.".local/bin/spotify-mute".source = ../bin/spotify-mute;
   home.file.".local/bin/tmux-resurrect-clean".source = ../bin/tmux-resurrect-clean;
   home.file.".local/bin/voice-vocab".source = ../bin/voice-vocab;
-  home.file.".local/bin/wt".source = ../bin/wt;
   home.file.".codex/AGENTS.md".source = ../agents/AGENTS.md;
   home.file.".codex/hooks.json".source = ../agents/config/codex-hooks.json;
   home.file.".codex/skills/axi" = managedSkill ../agents/skills/axi;

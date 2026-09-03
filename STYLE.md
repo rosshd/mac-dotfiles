@@ -5,7 +5,7 @@ The main surface is WezTerm running tmux, with Neovim as the editor and agent CL
 
 ## Visual Direction
 
-- Theme: Firefox, WezTerm, tmux, Neovim, Starship, and Herdr share a dark, low-glare rose palette.
+- Theme: Firefox, WezTerm, tmux, Neovim, and Starship share a dark, low-glare rose palette.
 - Editor: Neovim uses the repo's custom theme and a compact statusline.
 - Layout: native macOS windows, Mission Control, Raycast, and Rectangle instead of a custom top bar or tiling manager.
 - Typography: JetBrains Mono Nerd Font for terminal/editor glyph support.

@@ -11,7 +11,7 @@ It is exposed at `~/agents` and linked into each supported agent's discovery pat
 - `domains/` contains reusable policies for non-code workspaces.
 - `integrations/` contains thin entry points for desktop tools.
 - `prompts/routines/` contains scheduled and recurring prompts.
-- `prompts/templates/` contains prompts and briefs created on demand.
+- `prompts/templates/` contains issue and planning prompts created on demand.
 - `projects/` indexes project-specific agent context without removing it from its repository.
 - `skills/` contains reusable, conditionally loaded workflows.
 

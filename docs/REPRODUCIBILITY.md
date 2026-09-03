@@ -4,7 +4,7 @@ This repo has two rebuild paths.
 The active Nix/Lix path owns the reproducible system and user configuration.
 The Homebrew path remains available for package-only recovery and is also applied by nix-darwin activation.
 
-## Package Manifest: Brewfile
+## Package manifest: Brewfile
 
 `Brewfile` is the canonical package manifest for the current setup.
 It owns the terminal tools, agent CLIs, Mac apps, fonts, and quiet background utilities used by the workflow.
@@ -23,7 +23,7 @@ Why this exists:
 - It gives `doctor` a concrete way to detect missing apps.
 - It makes a fresh Mac bootstrap less dependent on memory.
 
-## Active Path: Lix plus nix-darwin
+## Active path: Lix plus nix-darwin
 
 `flake.nix`, `nix/darwin.nix`, and `nix/home.nix` define the active nix-darwin and Home Manager layer.
 They own the package set, macOS defaults, and repo-managed configuration links.
@@ -49,37 +49,33 @@ Why this exists:
 - It keeps package and config ownership explicit while using Lix as the Nix-compatible implementation.
 - It gives future agents one active rebuild path instead of an unfinished migration target.
 
-## What Nix Owns First
+## What Nix owns first
 
 - Fish, tmux, Starship, Neovim, WezTerm, Karabiner, voice vocabulary, and gh-dash config links.
 - Global agent instruction links for Codex, Claude, OpenCode, Copilot CLI, and Gemini CLI.
-- no-mistakes global config, including explicit agent binary paths for daemon and hook launches.
 - Repo-owned helper scripts in `~/.local/bin`.
 - The core terminal package set.
 - macOS defaults that keep startup clean and predictable.
 
-## What Stays Manual For Now
+## What stays manual for now
 
 - Initial Lix and nix-darwin bootstrap on a new Mac.
 - Secrets, SSH keys, API keys, and private notification topics.
 - Tool-specific sign-ins like GitHub, Tailscale, Codex, Claude, and OpenSuperWhisper permissions.
 
-## Herdr
+## Workflow Core
 
-Herdr is installed through Homebrew and configured from this repo.
-It is the terminal-native agent multiplexer for live multi-agent sessions.
+The canonical plugin source lives under `plugins/workflow-core`.
+The personal Codex marketplace points at that source, and `codex plugin list` reports whether the plugin is installed and enabled.
+`doctor` checks the source skills and installed plugin state.
 
-Files:
+## Check-mode rebuild
 
-```text
-Brewfile
-herdr/config.toml
+Run this before any authorized package or Nix application:
+
+```bash
+rebuild-mac check
 ```
 
-The rebuild path installs Herdr and links:
-
-```text
-~/.config/herdr/config.toml
-```
-
-`setup.sh` also installs Herdr integrations for Codex, Claude, OpenCode, and Copilot CLI.
+The command runs `brew bundle check` and parses the Nix flake without changing the installed generation.
+The repository contract tests also prove that retired packages, links, hooks, aliases, and helper entry points are absent from a clean rebuild source.
