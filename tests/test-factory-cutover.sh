@@ -43,7 +43,7 @@ active_surfaces=(
   nix/home.nix
   voice/vocabulary.md
 )
-retired_pattern='captain|fleet|gnhf|treehouse|no-mistakes|no mistakes|herdr|firstmate'
+retired_pattern='captain|fleet|gnhf|good[[:space:]-]*night[[:space:]-]*have[[:space:]-]*fun|tree[[:space:]-]*house|no[[:space:]-]*mistakes|herdr|first[[:space:]-]*mate|crew([[:space:]-]*mate)?|lavish'
 if rg -n -i "$retired_pattern" "${active_surfaces[@]/#/$root/}"; then
   echo "active source still exposes the retired workflow" >&2
   exit 1

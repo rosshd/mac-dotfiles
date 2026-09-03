@@ -8,7 +8,7 @@ WezTerm, tmux, Neovim, nvim, Oil, Telescope, Diffview, Gitsigns, Lazygit, Delta,
 
 ## Agents
 
-Codex, Codex CLI, Claude Code, OpenCode, Copilot, GitHub Copilot, agent harness, crewmate, first mate.
+Codex, Codex CLI, Claude Code, OpenCode, Copilot, GitHub Copilot, agent harness.
 
 ## Workflow
 
