@@ -64,7 +64,6 @@ in
   home.file.".codex/skills/home-setups" = managedSkill ../agents/skills/home-setups;
   home.file.".codex/skills/manual-test-fixes" = managedSkill ../agents/skills/manual-test-fixes;
   home.file.".codex/skills/networking" = managedSkill ../agents/skills/networking;
-  home.file.".codex/skills/no-mistakes" = managedSkill ../agents/skills/no-mistakes;
   home.file.".codex/skills/repo-validation" = managedSkill ../agents/skills/repo-validation;
   home.file.".codex/skills/visual-planning-artifact" = managedSkill ../agents/skills/visual-planning-artifact;
   home.file.".claude/CLAUDE.md".source = ../agents/AGENTS.md;
@@ -73,7 +72,6 @@ in
   home.file.".claude/skills/home-setups" = managedSkill ../agents/skills/home-setups;
   home.file.".claude/skills/manual-test-fixes" = managedSkill ../agents/skills/manual-test-fixes;
   home.file.".claude/skills/networking" = managedSkill ../agents/skills/networking;
-  home.file.".claude/skills/no-mistakes" = managedSkill ../agents/skills/no-mistakes;
   home.file.".claude/skills/repo-validation" = managedSkill ../agents/skills/repo-validation;
   home.file.".claude/skills/visual-planning-artifact" = managedSkill ../agents/skills/visual-planning-artifact;
   home.file.".config/opencode/AGENTS.md".source = ../agents/AGENTS.md;
@@ -82,7 +80,6 @@ in
   home.file.".config/opencode/skills/home-setups" = managedSkill ../agents/skills/home-setups;
   home.file.".config/opencode/skills/manual-test-fixes" = managedSkill ../agents/skills/manual-test-fixes;
   home.file.".config/opencode/skills/networking" = managedSkill ../agents/skills/networking;
-  home.file.".config/opencode/skills/no-mistakes" = managedSkill ../agents/skills/no-mistakes;
   home.file.".config/opencode/skills/repo-validation" = managedSkill ../agents/skills/repo-validation;
   home.file.".config/opencode/skills/visual-planning-artifact" = managedSkill ../agents/skills/visual-planning-artifact;
   home.file.".copilot/copilot-instructions.md".source = ../agents/AGENTS.md;

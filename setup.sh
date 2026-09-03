@@ -69,6 +69,7 @@ publish_managed_skills() {
   mkdir -p "$target_root"
   for skill in "$source_root"/*; do
     [ -d "$skill" ] || continue
+    [ "$(basename "$skill")" = "no-mistakes" ] && continue
     link_managed_directory "$skill" "$target_root/$(basename "$skill")"
   done
 }
@@ -96,8 +97,9 @@ fi
 # gh-dash: terminal dashboard for GitHub PRs and issues.
 gh extension install dlvhdr/gh-dash 2>/dev/null || gh extension upgrade dlvhdr/gh-dash
 
-# Agent skills (axi, no-mistakes, ...) are vendored under agents/skills/
-# and published to all three agents by the symlinks below -- no fetch needed here.
+# Agent skills are vendored under agents/skills/ and published to all three
+# agents below. Retired skills remain in the repository for rollback, but
+# publish_managed_skills excludes them from discovery.
 # To refresh or add one, run from the repo root, then move it out of the
 # CLI's default .agents/skills/ into agents/skills/:
 #   npx --yes skills add kunchenguid/<skill>
