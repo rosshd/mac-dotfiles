@@ -117,6 +117,7 @@ The dispatcher continues that path without asking Ross to verify routine behavio
 High-risk work may be pushed and opened as a reviewed pull request when the issue permissions allow it.
 Before merge or production activation, mark the issue `status:verify` and `needs-human`, then give Ross one verification packet with the exact behavior to inspect, the relevant risk evidence, rollback path, and one direct approval question.
 Ross verifies the high-risk product or operational boundary, not the agent's test commands.
+After Ross approves, remove `needs-human` and resume only the exact reviewed path covered by that approval.
 
 An actionable independent-review finding may receive one automatic repair and one targeted rereview when the fix stays inside the issue outcome and permissions and does not increase risk.
 Changed scope, new authority, or increased risk requires Ross's decision.

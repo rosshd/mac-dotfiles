@@ -68,6 +68,7 @@ Use `References #<issue>` while post-merge verification remains.
 
 Merge low- and medium-risk work under issue, current-request, or standing factory authorization only after required CI and a clean exact-head review.
 High-risk work may reach a reviewed pull request, then stops for Ross before merge or production activation.
+After Ross approves, resume only the exact reviewed path covered by that approval.
 Verify the installed or deployed system after merge.
 Keep the issue open until its release checks pass.
 

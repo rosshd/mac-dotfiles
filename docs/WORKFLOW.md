@@ -130,7 +130,7 @@ Use a closing keyword only when merge itself completes the issue and no installe
 A merge requires:
 
 - Merge authorization in the issue, current request, or Ross's standing low- and medium-risk factory policy.
-- Risk that remains within the authorized low or medium boundary.
+- Risk covered by Ross's standing low- or medium-risk policy, or high-risk verification and explicit merge approval.
 - A passing canonical gate for the exact head.
 - One bounded independent review with no unresolved finding.
 - Required CI passing for the exact pull-request head.
@@ -138,6 +138,7 @@ A merge requires:
 
 High-risk work may be pushed and opened as a reviewed pull request when issue permissions allow it.
 It stops for Ross before merge or production activation with one exact verification packet and direct approval question.
+After approval, resume only the exact reviewed path covered by that approval.
 Do not weaken required checks to make a pull request mergeable.
 
 ## Release verification
