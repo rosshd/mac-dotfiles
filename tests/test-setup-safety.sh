@@ -69,7 +69,10 @@ ln -s "$tmp/.no-mistakes/bin/no-mistakes" "$tmp/.local/bin/no-mistakes"
 ln -s "$root/agents/skills/no-mistakes" "$tmp/.codex/skills/no-mistakes"
 
 function_source="$(sed -n '/^remove_managed_link()/,/^# gh-dash:/p' "$setup" | sed '$d')"
-source <(printf '%s\n' "$function_source")
+function_file="$tmp/setup-functions.sh"
+printf '%s\n' "$function_source" > "$function_file"
+# shellcheck source=/dev/null
+source "$function_file"
 remove_managed_link "$tmp/.local/bin/captain" "$root/bin/captain"
 remove_managed_link "$tmp/.local/bin/no-mistakes" "$tmp/.no-mistakes/bin/no-mistakes"
 remove_managed_link "$tmp/.codex/skills/no-mistakes" "$root/agents/skills/no-mistakes"
