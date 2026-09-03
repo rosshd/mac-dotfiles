@@ -1,507 +1,196 @@
-# Captain Workflow
+# Personal software factory workflow
 
-This is the single canonical workflow doc.
-Any other workflow file (including `~/.config/agents/workflow.md`) is a deprecated pointer to this one.
-Agent-facing instructions live in `agents/AGENTS.md` and the shared skills under `agents/skills/`.
+This is the canonical day-to-day workflow.
+GitHub Issues hold durable work state, Codex managed tasks own implementation, and each repository owns its quality gate.
 
-## The captain loop
-
-Your job is the outer loop only.
-Everything inside a lane runs without you until a gate or the end.
-The `captain` command is the terminal control surface for this loop.
+## Normal path
 
 ```text
-intake (idea, bug, issue)
-  -> write brief (objective, scope, stop condition, verification, escalation)
-  -> pick lane
-      interactive  - ambiguous or design-heavy work
-      fleet        - any well-briefed task (default)
-      cloud        - scheduled or off-machine work
-  -> lane runs to its selected review or shipping target
-  -> notify: done / blocked / gate
-  -> review PR or gate finding
-      approve -> merge
-      redirect -> new brief
-  -> compound reusable learning (ce-compound)
+intake
+  -> create or refine one GitHub Issue
+  -> confirm dependencies, ownership, and risk
+  -> dispatch one Codex owner task into one managed worktree
+  -> implement with focused checks
+  -> run the repository gate
+  -> commit the scoped change
+  -> review the exact tested head once
+  -> push without force and open a linked pull request
+  -> require exact-head CI and risk-gated merge authorization
+  -> verify the release or installed state
+  -> close the issue only after verification
+  -> inspect Ready issues and propose bounded next work
 ```
 
-Daily commands:
-
-```bash
-captain status              # one-shot status across fleet, Treehouse, no-mistakes, GitHub, voice
-captain phone-status        # compact iPhone Shortcut status output
-captain dispatch "<task>"   # create a fleet brief and dispatch from phone voice/text
-captain watch               # live terminal dashboard
-captain brief <slug>        # write a bounded task brief
-captain start <slug>        # dispatch a fleet run in a Treehouse-leased worktree
-captain done <path>         # return/remove a finished worktree
-captain review "<intent>"   # run no-mistakes for interactive-lane work
-captain voice               # open OpenSuperWhisper and show voice vocabulary
-captain station             # test the local station notification sound
-herdr                       # rich terminal dashboard for live agent panes
-```
-
-`captain status` and `captain phone-status` read each fleet's latest GNHF run log rather than treating a tmux window as proof that an agent is active.
-They report running, ready, capped, failed, stuck, orphaned, idle, stale, or untracked state, plus iteration and commit progress.
-A run is considered stuck after 20 minutes without a GNHF log update; override this with `CAPTAIN_FLEET_STUCK_SECONDS` when needed.
-Captain only shows a completed no-mistakes result as current when it matches the checkout branch and HEAD and was updated within three days.
-Older or mismatched results collapse automatically to `gate needed` when work exists or `gate idle` on a clean default branch.
-Override the three-day window with `CAPTAIN_NO_MISTAKES_MAX_AGE_SECONDS` and the 20-minute active-run threshold with `CAPTAIN_NO_MISTAKES_STUCK_SECONDS`.
+GitHub is the source of truth for issue, pull-request, review, CI, and merge state.
+Codex tasks are execution records, not a second task database.
+Local tmux windows remain a convenient workspace, but they do not prove task status.
 
 ## Workspace
 
-Open WezTerm.
+Open WezTerm when you are ready to work.
 Fish runs `ship`, which attaches to the persistent tmux session named `main`.
-Rectangle is the sole login-item exception because Karabiner Hyper window shortcuts depend on it.
-No other user app should launch automatically at login.
-The day starts with a clean desktop; open WezTerm only when you are ready to work.
-tmux saves sessions periodically and restores the last saved workspace when a new tmux server starts.
-If no snapshot exists, `ship` creates the fallback `home` and `notes` windows.
-`ship` attempts an explicit resurrect restore before it creates that fallback.
-Use `ship --save` before a restart when you want the current pane layout captured immediately.
+tmux restores the last saved session when a new server starts.
+If no snapshot exists, `ship` creates the `home` and `notes` windows.
 
 ```bash
-ship          # attaches to main
-ship --save   # manually save the tmux layout before restarting
-doctor        # health check when tooling behaves unexpectedly
-rebuild-mac check # package and Nix readiness check
-gh dash       # PR and issue board across repos
+ship
+ship --save
+doctor
+rebuild-mac check
+gh dash
 ```
 
-Session windows:
-
-- `home` - project navigation, Git status, quick commands
-- `notes` - plans, review notes, and handoffs
-
-Open extra tmux windows only when the task needs them:
-
-- `code` - Neovim, git status, diffs
-- `agent` - primary interactive agent (Codex default)
-- `test` - focused checks, green gate, smoke flows
-- `captain` - `captain watch`, fleet state, gates, and station alerts
-
-Herdr is the alternate live-agent surface.
-Use tmux for the normal terminal workspace and fast keyboard muscle memory.
-Use Herdr when the main job is keeping several agent panes visible, tracking which one is blocked/done/working, or attaching from a narrow terminal.
-It complements the captain loop rather than replacing it.
+Use Neovim for direct editing and Git inspection.
+Launch Codex from the repository that owns the work.
 
 ```bash
-herdr
-herdr --session captain
-herdr integration status
-```
-
-Inside Herdr, start agents exactly as you do elsewhere:
-
-```bash
+cd <repository>
 codex
-claude
-opencode
 ```
 
-Herdr has integrations installed for Codex, Claude, OpenCode, and Copilot CLI.
-It sorts the agent panel by attention priority and uses in-app toasts without sound so Glass/ntfy remains the captain-needed alert.
+The tmux `Ctrl-y` binding opens Codex in a side pane rooted at the current pane directory.
 
-## Agent roles
+## GitHub Issue contract
 
-**Codex** is the default agent for implementation, repo inspection, tests, terminal tools, and GitHub workflows.
+Create one issue for each bounded change.
+Use `agents/prompts/templates/factory-issue.md` when the repository does not provide its own issue form.
+
+Every dispatchable issue records:
+
+1. One observable outcome.
+2. Testable acceptance checks.
+3. Constraints that must remain true.
+4. Nearby non-goals.
+5. Current evidence and source locations.
+6. Low, medium, or high risk with the recovery path.
+7. Authorized repository and external actions.
+8. Dependencies or `None`.
+9. Focused, repository-wide, review, CI, and release verification.
+
+The issue body remains canonical if scope changes.
+Update it before continuing when new evidence changes the outcome, permissions, risk, or dependencies.
+
+## Ownership and dispatch
+
+One issue maps to one Codex owner task and one managed worktree.
+Before editing, the owner records the permanent task ID, issue number, repository, worktree, branch, and exact start SHA.
+The owner also checks for a competing issue, task, branch, worktree, or pull request.
+Unknown overlap means one owner until the boundary is clear.
+
+Dispatch requires explicit authorization.
+Use the Codex app to create the task and select the saved repository project.
+Git repositories should use a managed worktree unless Ross explicitly requests the saved checkout.
+The issue body supplies the durable scope, and the task prompt carries only the execution-critical constraints.
+
+Do not create a copied task brief in the repository.
+Do not split one issue across concurrent implementers who can touch the same files or state.
+
+## Implementation
+
+Start from the issue's verified base commit.
+Read repository instructions and preserve unrelated user changes.
+Add a focused failing test or contract before implementation when practical.
+Make the smallest coherent source change that satisfies the acceptance checks.
+Keep external mutations within the issue's permissions.
+
+Run the narrowest meaningful check first.
+Then run the canonical repository gate from the repository root.
 
 ```bash
-codex   # or: cdx   agent codex
+make check
 ```
 
-**Claude Code** adds value when an independent model family helps: second opinion on a consequential decision, cross-model review, diagnosing a Codex blind spot.
+If a repository uses another command, its `AGENTS.md` and README must name it.
+Do not claim completion from a partial check when the canonical gate is available.
+
+## Independent review
+
+Run one bounded, read-only review after the scoped commit and full gate pass.
+Review the branch diff against its intended base.
+The reviewed SHA must equal the exact head covered by the latest successful gate.
 
 ```bash
-claude   # or: cc   agent claude
+git rev-parse HEAD
+codex review --base <base-branch>
 ```
 
-Do not run two agents on the same implementation without separate ownership boundaries (separate worktrees).
+Resolve concrete defects before shipping.
+Any change after review invalidates the evidence and requires a new commit, a fresh gate, and at most one targeted rereview.
+Escalate product or UX tradeoffs instead of silently choosing them.
 
-## The three lanes
+## Shipping and merge
 
-### Interactive lane (exception)
+Immediately before pushing, confirm the branch, remote, existing pull-request state, and exact tested SHA.
+Push without force.
+Open or update one pull request that links the issue and records the task ID, branch, worktree, start SHA, pushed SHA, validation, review result, risk, rollback, and remaining release checks.
 
-Use when requirements are unclear, the work is design-heavy, or a product decision dominates.
+Use `References #<issue>` when release verification remains after merge.
+Use a closing keyword only when merge itself completes the issue and no installed or deployed verification remains.
+
+A merge requires:
+
+- Explicit merge authorization in the issue or current request.
+- Risk that remains within the authorized low or medium boundary.
+- A passing canonical gate for the exact head.
+- One bounded independent review with no unresolved finding.
+- Required CI passing for the exact pull-request head.
+- A documented rollback path.
+
+High-risk work stops for Ross before merge or external mutation.
+Do not weaken required checks to make a pull request mergeable.
+
+## Release verification
+
+Merge is not release verification.
+Verify the actual deployed or installed system through the closest user-visible path.
+Check the final revision, health signal, key workflow, and rollback readiness.
+Record exact commands, results, and timestamps in the issue or pull request.
+
+For workstation configuration, prefer `rebuild-mac check` before any apply.
+Run an activating rebuild only when the issue explicitly authorizes it.
+Inspect managed links, hooks, plugin inventory, `doctor`, `gh dash`, Codex discovery, generic notifications, and terminal or phone access after an authorized cutover.
+
+Close the issue only after every acceptance check and required release check is recorded.
+
+## Notifications and monitoring
+
+The shared Codex Stop hook sends one generic completion notification.
+Use `notify` directly for an explicit local or phone alert.
 
 ```bash
-agent codex          # or agent claude
+notify "Review ready" "The Codex task finished"
+notify --sound Glass --volume normal --repeat 1 "Notification test" "The notification path works"
 ```
 
-- Use `ce-brainstorm` or `ce-plan` to converge.
-- Once converged, write a brief and dispatch to the fleet lane.
+Use recurring task monitoring only when Ross asks to watch a pull request or other changing state.
+Keep quiet while state is unchanged and report completion, failure, or required action.
 
-### Fleet lane (default for well-briefed work)
-
-Any task you can write a bounded brief for: features, bug fixes, refactors, test coverage.
-
-```bash
-fleet brief <slug>          # create brief from template, open in $EDITOR
-fleet start <slug>          # dispatch: gnhf in a worktree, notify on done/blocked
-fleet start <slug> --agent claude   # override agent per task (codex default)
-fleet status                # show active windows and worktrees
-fleet done <worktree-path>  # remove a finished worktree
-```
-
-Briefs live at `.artifacts/fleet/<slug>.md` in the repo (gitignored).
-Fleet worktrees are leased from Treehouse by default and their paths are recorded next to the brief.
-A default run ends at an independently reviewed local branch; you decide whether to ship it.
-The fleet runner starts with bounded GNHF implementation and local verification.
-The default `--ship reviewed-branch` then runs exactly one bounded, lightweight, read-only Codex review and never starts no-mistakes.
-It records `reviewed` or `failed`, releases the slug owner, and exits without parking the tmux pane.
-`--ship committed-branch` stops after implementation and is reported as ready for review without running an independent review.
-`--ship green-pr` instead starts the full no-mistakes push, PR, and CI gate.
-That lane never pre-authorizes user decisions.
-It records `review-needed` when no-mistakes reaches a gate, or `ship-ready` and `failed` for terminal outcomes from the exact run.
-Only one runner may own a slug at a time, including the dispatch-to-runner handoff.
-`fleet start` on an existing slug resumes the run from where gnhf left off.
-
-Brief template fields: objective, scope (in/out/conflicts-with), stop condition, verification, escalation, ship.
-Write the stop condition around the completed outcome and verification, not around the existence of GNHF's automatic commit.
-The agent must set `should_fully_stop=true` when the final iteration completes the scoped outcome; GNHF commits that successful iteration after the response.
-
-### Cloud lane (scheduled and off-machine)
-
-Recurring maintenance and PR babysitting that runs while you sleep.
-
-**Routines** (run in the cloud on a cron schedule):
-
-| Routine | Schedule | Repo |
-| --- | --- | --- |
-| openlearn nightly chores | 3am ET daily | rosshd/openlearn |
-| mac-dotfiles doc-drift check | 8am ET Mondays | rosshd/mac-dotfiles |
-
-Manage at https://claude.ai/code/routines.
-Prompt sources: `~/agents/prompts/routines/`.
-
-**PR babysitter** (per-session loop, fixes red CI and surfaces review comments):
-
-```bash
-/loop 15m /babysit-prs
-```
-
-**Fleet status from anywhere:**
-
-```bash
-fleet status              # tmux windows + worktrees
-gh dash                   # PR and issue board
-```
-
-## Notifications
-
-`notify` fans out to a macOS banner and an ntfy push (phone), so agent done/blocked/gate events reach you anywhere.
-Local station notifications also play a sound.
-Sound playback is single-owner through `afplay`, so alerts do not double-trigger through the macOS notification system.
-Use `Glass` for captain-needed alerts because it is clear, pleasant, and less fatiguing than harsher system sounds.
-Tune it with `--volume quiet|normal|loud|urgent` and `--repeat <n>`.
-
-```bash
-notify "title" "message"
-notify --sound Glass --volume loud --repeat 2 --priority high --tag rotating_light "Captain needed" "Review the gate"
-notify --sound Glass --volume normal --repeat 1 "Done" "The run finished"
-captain station
-notify "title" "message" --priority high --tag rotating_light
-```
-
-Config at `~/.config/notify/notify.conf` (NTFY_SERVER, NTFY_TOPIC).
-Optional defaults: `NOTIFY_SOUND`, `NOTIFY_VOLUME`, and `NOTIFY_REPEAT`.
-Wired into: Claude Code Stop/Notification hooks, `fleet start` run end, no-mistakes gates.
-Only fires on done/blocked/gate - never on progress updates.
-
-Use the tmux `Ctrl-a N` binding to test the sound from the terminal.
-
-## Phone Shortcuts
+## Phone access
 
 Phone access uses Tailscale plus normal macOS Remote Login.
-The Tailscale macOS app gives the phone a private network path to this Mac; macOS `sshd` handles the actual Shortcut command execution.
-Do not rely on Tailscale SSH for the Mac app variant because the standalone macOS app is not a Tailscale SSH server.
-Prefer the Tailscale MagicDNS hostname over a raw `100.x` IP when Shortcuts supports it.
-The hostname is more stable and avoids the wrong-IP failure mode.
-
-Mac setup:
+The phone can open the same terminal workflow through SSH and inspect GitHub state with `gh`.
+Prefer the Tailscale MagicDNS hostname over a raw address.
 
 ```bash
-brew install --cask tailscale-app
-open -a Tailscale
-sudo systemsetup -setremotelogin on
-tailscale status
-captain phone-host
+/bin/zsh -lc 'cd <repository> && gh issue list && gh pr list'
+/bin/zsh -lc 'cd <repository> && codex'
 ```
 
-Sign in to Tailscale on the Mac and phone with the same account.
-Use the Mac's Tailscale hostname or `100.x.y.z` address as the SSH host in Shortcuts.
-Keep Remote Login limited to your user account in System Settings > General > Sharing > Remote Login.
+Keep Remote Login limited to Ross's user account.
+Treat the phone as another direct terminal client, not a separate dispatch system.
 
-Use `captain phone-status` for iPhone Shortcuts instead of `captain status`.
-It is designed for the small Shortcuts result modal: short lines, no ANSI escape codes, no raw tool tables, and a decision-first `Needs You` section.
+## Next work
 
-```bash
-/bin/zsh -lc 'cd /Users/ross/Developer/projects/openlearn && /Users/ross/.local/bin/captain phone-status'
-```
-
-Keep full terminal status on `captain status`.
-
-Use `captain phone-host` when Shortcuts says it cannot connect to SSH.
-It prints the Mac hostname and Tailscale self status when the CLI is available.
-
-Herdr can also be used from a phone SSH terminal when you need a live session instead of a Shortcut result modal.
-For phone prompting, Shortcuts remain faster for dispatch/status.
-For live triage, SSH into the Mac and run `herdr` or `herdr --session captain`.
-
-Use `captain dispatch` for voice-driven work from the phone.
-The command turns rough dictated text into a dispatch preview by default.
-It does not create a brief, worktree, or fleet run unless you pass `--start`.
-This prevents accidental Shortcut submissions from creating worktrees.
-
-Shortcut: `Captain Dispatch`
-
-1. Add `Dictate Text`.
-2. Add `Run Script over SSH` for preview.
-3. Set host to the Mac SSH host, user `ross`, port `22`, and authentication to the iPhone SSH key.
-4. Pass the dictated text as Shortcut Input.
-5. Use this preview script:
-
-```bash
-/bin/zsh -lc 'cd /Users/ross/Developer/projects/openlearn && /Users/ross/.local/bin/captain dispatch "$1"' -- 'DICTATED_TEXT'
-```
-
-Replace `DICTATED_TEXT` with the dictated text variable in Shortcuts.
-6. Add `Choose from Menu` with `Yes` and `No`.
-7. Under `Yes`, run this start script with the same dictated text:
-
-```bash
-/bin/zsh -lc 'cd /Users/ross/Developer/projects/openlearn && /Users/ross/.local/bin/captain dispatch --start "$1"' -- 'DICTATED_TEXT'
-```
-
-8. Under `No`, run the `Captain Dispatch` shortcut again when you want a clean retry.
-
-Phone dispatch defaults to `--ship reviewed-branch`, which performs independent local review without pushing.
-Use `--ship committed-branch` to skip independent review or `--ship green-pr` to request push, PR, and CI explicitly.
-
-## Voice Input
-
-OpenSuperWhisper is the local voice entry surface.
-Use it for long prompts, fleet briefs, and planning notes instead of squeezing ideas into short typed commands.
-
-```bash
-captain voice
-voice-vocab
-```
-
-Keep voice input as a prompt accelerator, not a hidden automation layer.
-The agent still needs explicit scope, done criteria, and verification.
-Update `voice/vocabulary.md` whenever new tool names or project terms are misheard.
-
-## GitHub tools
-
-```bash
-gh dash           # terminal dashboard: PRs, issues, CI status across repos
-gh pr list        # raw list
-gh issue list     # raw list
-```
-
-gh-dash config: `gh-dash/config.yml` (symlinked to `~/.config/gh-dash/config.yml`).
-
-## Validation layers
-
-**Focused checks** - the narrowest test, lint, typecheck, or manual reproduction for the changed behavior.
-Run repeatedly during implementation.
-
-**Project green gate** - the repo's authoritative local command.
-Must pass before implementation is complete.
-
-```bash
-make check      # openlearn: lint + unittest + pytest + mocked smoke flow
-make validate   # other repos
-```
-
-**Project review evidence** - captures diff, checks, results, skipped coverage, remaining risk.
-
-```bash
-make review
-```
-
-**CE deep review** (`ce-code-review`) - semantic review for broad, risky, or architecturally important changes.
-Run before final review evidence only when the risk warrants it.
-Strong triggers: storage formats, provider boundaries, auth/permissions, concurrency, large diffs with new behavior.
-
-**no-mistakes shipping gate** - owns rebase, release review, tests, docs, lint, push, PR creation, and CI.
-Start only after the change is committed on a feature branch.
-
-```bash
-git status --short
-git branch --show-current
-no-mistakes axi run --intent "<user-visible objective, constraints, deliberate tradeoffs>"
-```
-
-When a gate fires: read every finding, allow mechanical fixes, escalate product decisions.
-Advance with `no-mistakes axi respond`.
-Never edit around an active gate or abort to bypass a finding.
-
-```bash
-no-mistakes axi status
-no-mistakes axi logs --step review --full
-```
-
-The fleet lane starts no-mistakes automatically after a successful GNHF implementation only for `--ship green-pr`.
-It runs the gate once and closes with `review-needed` at a decision gate, or `ship-ready` and `failed` for terminal outcomes.
-The default `--ship reviewed-branch` runs one bounded, lightweight, read-only Codex review instead, while `--ship committed-branch` skips independent review.
-Use `no-mistakes axi respond` after reviewing a Fleet or manually started interactive gate.
-
-## Reproducible laptop foundation
-
-The active reproducibility path is the Lix-backed nix-darwin and Home Manager configuration in `flake.nix`, `nix/darwin.nix`, and `nix/home.nix`.
-The `Brewfile` remains the package manifest and package-only recovery path.
-
-```bash
-rebuild-mac check
-rebuild-mac brew
-rebuild-mac nix
-```
-
-`doctor` reports package drift, Nix readiness, Herdr install state, and Herdr integration status.
-
-See [Reproducibility](REPRODUCIBILITY.md).
-
-## Reusable Templates
-
-Use [Coding Templates](CODING_TEMPLATES.md) for repeatable repo setup, bug fix, review, validation, worktree, and planning workflows.
-The templates map each workflow part to the tool that owns it and explain why.
-
-## Model Policy
-
-Codex defaults to `gpt-5.5` for captain, planning, difficult implementation, review, debugging, and computer-use work.
-Use faster/lighter models only for read-heavy scouts, summarization, and low-risk support agents.
-Let Codex choose subagent settings when the task is routine; pin model/reasoning only when the brief needs it.
-
-Good split:
-
-- Captain/orchestrator: strongest available model, medium or high reasoning.
-- Review/security/debug agents: high reasoning.
-- Scouts/status/document extraction: fast model, low or medium reasoning.
-
-## Task intake (interactive lane)
-
-Before editing anything:
-
-1. Read the project `AGENTS.md`.
-2. Inspect `git status`.
-3. Identify unrelated existing changes.
-4. State the user-visible outcome.
-5. Reproduce or understand the failure when fixing a bug.
-6. Find the nearest implementation and tests.
-7. Classify as small, medium, or large.
-
-**Small** - narrow, well understood, low risk, obvious test:
-
-```text
-understand/reproduce -> implement -> focused test -> green gate -> commit -> no-mistakes
-```
-
-**Medium** - several files, meaningful behavior, clear direction:
-
-```text
-short plan -> implement -> focused tests -> green gate -> review evidence -> commit -> no-mistakes
-```
-
-Add CE review when implementation contains significant judgment or crosses an important boundary.
-
-**Large/risky** - uncertain requirements, broad behavior, storage, architecture, external integrations:
-
-```text
-ce-brainstorm/ce-plan -> approve decisions -> worktree -> implement
--> focused tests -> green gate -> CE review -> review evidence
--> commit -> no-mistakes -> human merge -> ce-compound
-```
-
-## Compound Engineering skills
-
-Installed globally in Codex. Restart Codex after upgrading.
-
-| Skill | Use when |
-| --- | --- |
-| `ce-pov` | Deciding whether to adopt a library, platform, or pattern |
-| `ce-brainstorm` | Requirements, users, or constraints are unclear |
-| `ce-plan` | Multi-file, multi-phase, or high-risk work |
-| `ce-debug` | Intermittent, cross-boundary, or hard-to-localize failures |
-| `ce-code-review` | Broad, risky, unfamiliar, or architecturally important changes |
-| `ce-compound` | After solving something surprising whose lesson improves future work |
-
-Do not use `ce-commit-push-pr` when shipping through no-mistakes.
-Do not use `ce-work`, `ce-worktree`, or `/lfg` unless you explicitly want CE to own a hands-off execution lane.
-
-## Plan reviews
-
-Keep one canonical Markdown plan in the repository.
-Review it through a concise chat summary and a numbered list of unresolved decisions.
-Update that same file after feedback instead of creating a second review artifact or local review server.
-
-## Isolation
-
-One active scoped task can use the working tree directly when its state is clear.
-Use a worktree when another task or agent needs independent filesystem state.
-
-```bash
-wt get                    # lease a Treehouse worktree for this repo
-wt status                 # show Treehouse pool state
-wt return <path>          # return a Treehouse worktree
-wt new <slug>             # create worktree at ~/Developer/worktrees/<repo>/<slug>
-wt list                   # list worktrees
-wt done <path>            # remove a clean worktree
-wt prune                  # prune stale git metadata
-```
-
-Fleet runs lease and resume Treehouse worktrees automatically.
-Manual worktrees are for interactive-lane parallel work.
-Parallel tasks need separate subsystems, separate worktrees, and independent stop conditions.
+After verified completion, inspect open issues and their dependencies.
+Propose only Ready issues whose write sets and external state do not conflict.
+Rank the smallest bounded work that moves the product forward.
+Create another Codex task only after Ross authorizes that dispatch.
 
 ## Failure handling
 
-**Focused check fails** - fix the implementation or test assumption before broadening.
-
-**Green gate fails** - do not ship.
-
-**CE review finds a product decision** - resolve it before applying a speculative fix.
-
-**no-mistakes gate fires** - use its respond mechanism; do not edit around it or abort to bypass.
-
-**CI fails** - inspect the exact job and logs, fix the cause on the same branch, rerun.
-
-**Fleet run blocked** - gnhf notifies you; inspect the worktree, fix the blocker, `fleet start <slug>` to resume.
-
-**no-mistakes stuck/hung** - inspect with `no-mistakes axi logs --step <step> --full`; abort with `no-mistakes axi abort` only after confirming the run is genuinely hung, not just slow.
-
-**Rate limit during fleet run** - gnhf backs off and retries; if it hits 3 consecutive failures it aborts. `fleet start <slug>` resumes from the same run ID at the next iteration.
-
-**Unrelated changes exist** - preserve them; keep task commits scoped.
-
-## Compounding
-
-After consequential work, ask:
-
-1. What was surprising?
-2. Could the failure recur?
-3. Can a test catch it?
-4. Can an automated gate catch it?
-5. Does a project skill need a rule?
-6. Does an architecture document need a durable contract?
-7. Will a future agent find and use the learning?
-
-Prefer in order: regression test -> automated check -> project skill -> architecture doc -> solution note.
-Global instruction only when universally applicable.
-Keep `AGENTS.md` short.
-
-## Definition of done
-
-A task is done when:
-
-- the requested outcome is present
-- unrelated behavior is preserved
-- focused tests cover the change
-- the project green gate passes
-- required smoke or end-to-end checks pass
-- review findings are resolved or explicitly accepted
-- the diff contains no unrelated changes
-- exact verification evidence is reported
-- the branch is a green PR when shipping was requested
-- reusable learning is encoded at the narrowest durable layer
+If a focused test fails, keep the loop local until the cause is understood.
+If the repository gate fails, fix the failure or report a real blocker before review.
+If review finds a defect, stop shipping and resolve the finding.
+If CI fails on the exact head, inspect the failing job and reproduce it locally when practical.
+If risk expands beyond the issue's permission, stop before the higher-risk action.
+If release verification fails, preserve rollback state and keep the issue open.

@@ -1,170 +1,211 @@
-# Coding Templates
+# Coding templates
 
-Use these templates to keep the workflow repeatable without making every task a bespoke plan.
-Pick the narrowest template that matches the job.
+Use the narrowest template that matches the work.
+The GitHub Issue remains the durable brief.
 
-## Tool Map
+## Tool map
 
 | Workflow part | Tool | Why |
 | --- | --- | --- |
-| Daily terminal workspace | `ship` + tmux | Creates one persistent cockpit with only `home` and `notes` by default. |
-| Editing | Neovim | Keeps code, search, Git signs, LSP, and formatting on the keyboard. |
-| Narrow repo inspection | Codex | Best default for local files, terminal commands, tests, and implementation. |
-| Alternate model opinion | Claude Code | Useful for consequential second opinions or when Codex is stuck. |
-| Model-agnostic agent trial | OpenCode | Useful when testing another provider or TUI without changing the core workflow. |
-| Isolated implementation | `fleet` + Treehouse | Leases a separate worktree so the main checkout stays clean. |
-| Long bounded loop | `gnhf` through `fleet` | Keeps the agent running until the brief reaches done or blocked. |
-| Review and ship gate | `no-mistakes` | Handles validation, review, push, PR, and CI gate behavior. |
-| Planning surface | Markdown plan + concise chat review | Keeps one canonical artifact and presents only the decisions that need attention. |
-| Status and notification | `captain` + `notify` | Surfaces done, blocked, and gate events without progress noise. |
-| GitHub triage | `gh dash` | Shows PRs and issues without leaving the terminal. |
+| Daily terminal workspace | `ship` and tmux | Restores the keyboard-first workspace. |
+| Editing | Neovim | Keeps code, search, Git, language tools, and formatting on the keyboard. |
+| Implementation owner | Codex managed task | Gives one issue a durable execution record and isolated worktree. |
+| Planning | Markdown plan and concise chat review | Keeps one canonical plan and exposes only real decisions. |
+| Local quality gate | Repository-owned `make check` | Defines the checks required before push. |
+| Independent review | `codex review --base <base>` | Reviews the exact tested branch diff once. |
+| GitHub state | GitHub Issues, pull requests, CI, and `gh dash` | Keeps durable work and shipping state in one system. |
+| Notification | `notify` | Sends an explicit generic local or phone alert. |
+| Rebuild readiness | `rebuild-mac check` | Checks package and Nix inputs without applying them. |
 
-## Template: New Repo Setup
-
-Use when creating or adopting a repo.
+## New repository
 
 ```text
-Goal:
-Set up <repo> so it can be edited, tested, validated, and handed to agents from the terminal workflow.
+Outcome:
+Make <repository> satisfy the personal software factory contract.
 
-Tools:
-- Neovim for first-pass inspection and config edits.
-- Codex for repo mapping and setup implementation.
-- `doctor` only for global toolchain issues.
-- Project-native checks for verification.
+Acceptance checks:
+- README names setup, development entry point, and local gate.
+- AGENTS.md names entry points, checks, generated files, and release boundaries.
+- One canonical gate covers every required pre-push check.
+- CI runs the same gate or a documented equivalent.
+- Issue and pull-request templates record risk, verification, and rollback.
 
-Steps:
-1. Identify language, package manager, test command, lint command, and typecheck command.
-2. Add or update `AGENTS.md` with entry points, checks, generated files, and non-negotiables.
-3. Add a `make check` or equivalent green gate if the repo does not have one.
-4. Add `.env.example` only if configuration is required.
-5. Run the focused setup checks and the green gate.
+Constraints:
+- Preserve current product behavior.
+- Keep secrets and local state out of version control.
 
-Stop condition:
-The repo has documented agent instructions, a green local check command, and no secrets or local state committed.
+Verification:
+- Run focused configuration checks.
+- Run the canonical repository gate.
+- Review the exact tested head.
 ```
 
-## Template: Bug Fix
+Use the Workflow Core `factory-bootstrap` skill for this case.
 
-Use when behavior is wrong or a test is failing.
+## Bug fix
 
 ```text
-Goal:
+Outcome:
 Fix <user-visible failure> while preserving unrelated behavior.
 
-Tools:
-- Codex for reproduction, implementation, and focused tests.
-- Neovim for manual inspection when the change is small.
-- `fleet` if the fix needs an isolated worktree or can run unattended.
-- `no-mistakes` only after the focused fix is green.
+Evidence:
+- Record the closest practical reproduction.
+- Identify the smallest owner module.
 
-Steps:
-1. Reproduce or reason from the closest practical user-visible path.
-2. Find the narrowest owner module.
-3. Add or update a regression test first when practical.
-4. Patch the smallest behavior surface that explains the failure.
-5. Run the focused regression test.
-6. Run the project green gate.
+Implementation:
+1. Add or update a regression test first when practical.
+2. Run the test and confirm it exposes the failure.
+3. Patch the smallest behavior surface that explains the failure.
+4. Run the focused regression test.
+5. Run the repository gate.
 
 Stop condition:
-The failure is covered by a focused check, the check fails before or would have failed before the fix, and the green gate passes.
+The failure is covered, the focused check passes, and the repository gate passes.
 ```
 
-## Template: Review Pass
+Use one Codex owner task and one managed worktree when the issue is ready.
 
-Use before trusting a branch or PR.
+## Feature
 
 ```text
-Goal:
-Find correctness, regression, UX, security, and test gaps in <branch/PR>.
+Outcome:
+Deliver <observable capability>.
 
-Tools:
-- Codex review mode for diff-aware findings.
-- Claude Code only for high-consequence second review.
-- `make review` when the repo provides it.
-- `gh dash` or GitHub PR view for PR state.
+Acceptance checks:
+- Describe user-visible success.
+- Name compatibility and failure behavior.
+- Name required tests and release checks.
 
-Steps:
-1. Inspect status and diff.
-2. Read the touched owner modules.
-3. Prioritize findings over summaries.
-4. Verify suspicious behavior with a focused command when possible.
-5. Report file and line references for every actionable issue.
+Constraints:
+- Preserve existing behavior outside the feature.
+- Keep external actions within explicit permissions.
 
-Stop condition:
-Findings are either fixed, explicitly accepted, or documented as remaining risk.
+Verification:
+- Run focused tests for the new behavior.
+- Run the repository gate.
+- Run one independent review on the exact tested head.
+- Require exact-head CI before merge.
+- Verify the deployed or installed result after merge.
 ```
 
-## Template: Validation Pass
+Resolve product choices before dispatch.
 
-Use after implementation and before handoff.
+## Validation pass
 
 ```text
-Goal:
-Prove <change> works with the strongest practical local evidence.
-
-Tools:
-- Focused test command for the changed behavior.
-- Project green gate, usually `make check`.
-- `make review` before a PR when available.
-- `no-mistakes` when shipping or pushing through the full gate.
+Outcome:
+Prove <change> works with the strongest practical evidence.
 
 Steps:
-1. Run the narrowest test that exercises the changed behavior.
-2. Run the repo green gate.
-3. Run typecheck if the repo treats it as useful, even when non-blocking.
-4. Record exact commands and outcomes.
-5. Fix lint, flaky tests, or unrelated failures encountered in the touched area.
+1. Confirm the branch and exact head.
+2. Run the narrowest behavior check.
+3. Run the canonical repository gate.
+4. Run repository-specific smoke or end-to-end checks.
+5. Run git diff --check against the intended base.
+6. Record commands, results, skipped coverage, and remaining risk.
 
 Stop condition:
-The handoff names the exact checks run, their results, and any residual risk.
+Every required check covers the same head and any residual risk is explicit.
 ```
 
-## Template: Worktree Branch Setup
-
-Use when a task should not touch the main working tree.
+## Review pass
 
 ```text
-Goal:
-Create an isolated checkout for <task> and keep ownership boundaries clear.
-
-Tools:
-- `fleet brief <slug>` for unattended agent work.
-- `fleet start <slug>` for Treehouse-leased worktrees and gnhf execution.
-- `wt get` / `wt return` for manual Treehouse worktree leases.
-- Git only for explicit branch inspection and cleanup.
+Outcome:
+Find concrete defects, regressions, missing tests, and repository-rule violations in <branch or pull request>.
 
 Steps:
-1. Choose a slug that names the deliverable, not the implementation guess.
-2. Write objective, scope in/out, conflicts, verification, and escalation rules.
-3. Start the fleet lane if the stop condition is clear.
-4. Use an interactive worktree if product direction is still unsettled.
-5. Return or remove the worktree only after the branch is merged or abandoned.
+1. Inspect status and the complete diff.
+2. Read each touched owner module and its tests.
+3. Verify suspicious behavior with a focused command when possible.
+4. Report actionable findings with file and line references.
+5. State that no findings were found when the review is clean.
 
 Stop condition:
-The worktree has one owner, one stop condition, and no untracked user data.
+The review covers the exact tested head and every finding has a disposition.
 ```
 
-## Template: Plan Review
+Use one full independent review.
+After accepted fixes, run the full gate again and permit at most one targeted rereview.
 
-Use when a plan needs approval or focused feedback.
+## Managed worktree dispatch
 
 ```text
-Goal:
-Create and review a canonical Markdown plan for <problem>.
+Outcome:
+Give one Ready issue one implementation owner.
 
-Tools:
-- Codex for repo-grounded options, tradeoffs, and implementation details.
-- Markdown for the canonical plan.
-- Chat for a short summary and numbered decisions.
+Before dispatch:
+1. Confirm the issue body is current.
+2. Confirm dependencies are complete.
+3. Confirm no competing task, branch, worktree, or pull request exists.
+4. Record the verified base commit.
+5. Confirm authorized risk and external actions.
 
-Steps:
-1. State the decision and the options.
-2. Save the complete plan in the repository's planning directory.
-3. Summarize the outcome, important risks, and unresolved decisions in chat.
-4. Present decisions as a short numbered list with one recommended option each.
-5. Update the same Markdown file after feedback, then convert the approved direction into a fleet brief or interactive task.
+Task prompt:
+- Link the issue as canonical scope.
+- Name the repository and managed worktree.
+- Name the branch and exact start SHA.
+- Carry only execution-critical constraints.
+- Name the required focused and full gates.
 
 Stop condition:
-The plan is ready to implement and the user can approve, reject, or redirect it without opening another tool.
+One permanent Codex task ID maps to the issue and worktree.
 ```
+
+Create the task only after Ross authorizes dispatch.
+
+## Pull request
+
+```text
+Purpose:
+<One paragraph describing the shipped source change.>
+
+Issue:
+References #<number>
+
+Ownership:
+- Task ID: <permanent Codex task ID>
+- Branch: <branch>
+- Worktree: <path>
+- Start SHA: <sha>
+- Pushed SHA: <sha>
+
+Validation:
+- <focused command and result>
+- <canonical gate and result>
+- <diff check and result>
+- <independent review and result>
+- <exact-head CI and result>
+
+Risk:
+<Low, medium, or high with reasoning.>
+
+Rollback:
+<Concrete recovery path.>
+
+Post-merge checks:
+- <Installed or deployed state check.>
+- <User-visible smoke check.>
+```
+
+Use a non-closing issue reference while post-merge checks remain.
+
+## Plan review
+
+```text
+Outcome:
+Produce one implementation-ready Markdown plan for <problem>.
+
+Steps:
+1. Inspect the current repository and constraints.
+2. State the recommended direction and real alternatives.
+3. Save one canonical Markdown file.
+4. Summarize the result and numbered decisions in chat.
+5. Update the same file after feedback.
+6. Convert the approved outcome into a GitHub Issue.
+
+Stop condition:
+The issue can be written without inventing product behavior or scope.
+```
+
+Keep each full sentence on its own physical line in long Markdown files.

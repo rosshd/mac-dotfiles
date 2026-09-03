@@ -8,11 +8,11 @@ WezTerm, tmux, Neovim, nvim, Oil, Telescope, Diffview, Gitsigns, Lazygit, Delta,
 
 ## Agents
 
-Codex, Codex CLI, Claude Code, OpenCode, Copilot, GitHub Copilot, agent harness, crewmate, first mate.
+Codex, Codex CLI, Claude Code, OpenCode, Copilot, GitHub Copilot, agent harness.
 
 ## Workflow
 
-AGENTS.md, CLAUDE.md, skill, skill creator, Markdown plan, plan review, repo validation, worktree, git worktree, Treehouse, No Mistakes, GoodNightHaveFun, GNHF, AXI, pull request, PR, smoke test, end-to-end test, pytest, unittest.
+AGENTS.md, CLAUDE.md, skill, skill creator, Markdown plan, plan review, repo validation, managed worktree, Workflow Core, GitHub Issue, pull request, PR, smoke test, end-to-end test, pytest, unittest.
 
 ## Repos and paths
 

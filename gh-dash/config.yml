@@ -3,8 +3,6 @@
 prSections:
   - title: My PRs
     filters: is:open author:@me archived:false
-  - title: Fleet
-    filters: is:open author:@me head:fleet/
   - title: Needs review
     filters: is:open review-requested:@me archived:false
 issuesSections:

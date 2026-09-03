@@ -119,15 +119,12 @@ Agent panes:
 | Open Claude side pane | `Ctrl+o` |
 | Open OpenCode side pane | `Ctrl-a o` |
 
-Captain workflow:
+Direct workflow helpers:
 
 | Action | Key |
 | --- | --- |
-| Captain status popup | `Ctrl-a C` |
-| Captain watch popup | `Ctrl-a F` |
 | Voice prompt popup | `Ctrl-a V` |
-| Fleet brief popup | `Ctrl-a B` |
-| Test station notification | `Ctrl-a N` |
+| Test generic notification | `Ctrl-a N` |
 
 Persistence (tpm + resurrect/continuum):
 
@@ -140,34 +137,6 @@ Persistence (tpm + resurrect/continuum):
 Sessions auto-save every 5 min and restore when a new tmux server starts.
 Run `ship --save` before a manual restart when you want the current pane layout captured immediately.
 WezTerm itself still stays manual so login starts clean.
-
-## Herdr
-
-Prefix:
-
-```text
-Ctrl-b
-```
-
-Core Herdr bindings:
-
-| Action | Key |
-| --- | --- |
-| Help | `Ctrl-b ?` |
-| Detach | `Ctrl-b q` |
-| Workspace picker | `Ctrl-b w` |
-| Goto picker | `Ctrl-b g` |
-| New tab | `Ctrl-b c` or `Ctrl+Alt+c` |
-| Previous / next tab | `Ctrl-b p` / `Ctrl-b n` |
-| Split right | `Ctrl-b v` or `Ctrl+Alt+d` |
-| Split down | `Ctrl-b -` or `Ctrl+Alt+Shift+d` |
-| Focus pane | `Ctrl-b h/j/k/l` or `Ctrl+Alt+h/j/k/l` |
-| Zoom pane | `Ctrl-b z` or `Ctrl+Alt+z` |
-| Toggle sidebar | `Ctrl-b b` |
-| Focus agent 1-9 | `Ctrl-b Alt+1..9` |
-
-Herdr is mouse-native too, but these bindings keep it usable from the keyboard.
-Use Herdr when you want a live agent dashboard; use tmux for the default workspace.
 
 ## Neovim
 
@@ -255,11 +224,7 @@ Copilot:
 | `cdx` | `codex` |
 | `cc` | `claude` |
 | `oc` | `opencode` |
-| `herd` | `herdr` |
-| `captain` | captain command deck |
-| `deck` | `captain status` |
 | `cr` | `clean-reboot` |
 | `rebuild` | `rebuild-mac` |
-| `worktrees` | `wt list` |
 | `vocab` | `voice-vocab` |
 | `plan` | `plan-artifact` |

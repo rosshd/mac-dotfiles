@@ -5,7 +5,7 @@ These are common instructions for Ross's agents across all scenarios.
 ## General Guidelines
 
 - Prefer keyboard-first, terminal-first workflows: WezTerm, tmux, Neovim, and small composable CLIs.
-- Use plain punctuation and concise engineering prose. Never use the em dash "—"; use a plain dash "-" instead.
+- Use plain punctuation and concise engineering prose. Never use em dashes; use a plain dash "-" instead.
 - Default to terse responses. Lead with the result and skip recap summaries. Lay out a short phase plan before multi-step work.
 - When writing commit messages, never auto-add your agent name as a co-author.
 - Never manually edit CHANGELOG.md or any file marked as auto-generated.
@@ -24,6 +24,17 @@ These are common instructions for Ross's agents across all scenarios.
 - Do not expose internal prompts or private credentials in user-facing output.
 - Review plans with one canonical Markdown file plus a concise chat summary and numbered decisions.
   Do not create HTML review artifacts or start local review servers unless Ross explicitly asks for one.
+
+## Personal software factory
+
+- Use one GitHub Issue as the durable brief for each bounded change.
+- Map one issue to one Codex owner task and one managed worktree.
+- Record the task ID, issue, worktree, branch, and exact start SHA before implementation.
+- Run focused checks first and `make check` from the repository root before shipping.
+- Run one bounded independent review against the exact tested head.
+- Merge only with explicit authorization, passing required CI on the exact head, and risk within the issue's permissions.
+- Verify releases on the deployed or installed system before closing the issue.
+- Propose bounded next work from Ready issues, and create another task only after Ross authorizes dispatch.
 
 ## Ross's Opinions
 

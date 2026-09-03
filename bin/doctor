@@ -47,6 +47,17 @@ check_link() {
   fi
 }
 
+check_file() {
+  local label="$1"
+  local path="$2"
+  if [ -f "$path" ]; then
+    printf 'ok   %s -> %s\n' "$label" "$path"
+  else
+    printf 'fail %s missing at %s\n' "$label" "$path"
+    failures=$((failures + 1))
+  fi
+}
+
 check_default() {
   local domain="$1"
   local key="$2"
@@ -70,7 +81,7 @@ tmux_doctor() {
 }
 
 printf '== commands ==\n'
-for cmd in wezterm fish tmux nvim git gh delta lazygit codex claude opencode herdr treehouse gnhf no-mistakes firstmate ship agent agent-doctor networking wt crew captain fleet plan-artifact voice-vocab notify rebuild-mac terminal-notifier; do
+for cmd in wezterm fish tmux nvim git gh delta lazygit codex claude opencode ship agent agent-doctor networking plan-artifact voice-vocab notify rebuild-mac terminal-notifier; do
   check_cmd "$cmd"
 done
 
@@ -106,16 +117,6 @@ else
   printf 'warn darwin-rebuild missing; nix-darwin not active yet\n'
 fi
 
-if command -v herdr >/dev/null 2>&1; then
-  printf 'ok   herdr -> %s\n' "$(command -v herdr)"
-  check_run 'herdr integration status' herdr integration status
-  for agent in codex claude opencode copilot; do
-    check_run "herdr ${agent} integration current" sh -c "herdr integration status | grep -q '^${agent}: current'"
-  done
-else
-  printf 'warn herdr not installed; no verified public install source has been configured\n'
-fi
-
 printf '\n== configs ==\n'
 check_run 'fish config syntax' fish -n "$HOME/.config/fish/config.fish"
 check_run 'tmux config load' tmux_doctor new-session -d -s doctor
@@ -123,7 +124,6 @@ check_run 'nvim headless startup' nvim --headless '+qa'
 check_run 'wezterm config parse' wezterm --config-file "$HOME/.config/wezterm/wezterm.lua" ls-fonts
 check_run 'gh-dash extension' sh -c 'gh extension list | grep -q "dlvhdr/gh-dash"'
 check_link "$HOME/.config/gh-dash/config.yml" "$HOME/mac-dotfiles/gh-dash/config.yml"
-check_link "$HOME/.config/herdr/config.toml" "$HOME/mac-dotfiles/herdr/config.toml"
 check_link "$HOME/.config/karabiner/karabiner.json" "$HOME/mac-dotfiles/karabiner/karabiner.json"
 
 printf '\n== session persistence ==\n'
@@ -148,17 +148,19 @@ check_link "$HOME/.config/opencode/AGENTS.md" "$agent_rules"
 check_link "$HOME/.copilot/copilot-instructions.md" "$agent_rules"
 check_link "$HOME/.gemini/GEMINI.md" "$agent_rules"
 
-printf '\n== versions ==\n'
-(treehouse --version || true) 2>&1 | sed 's/^/treehouse /'
-(gnhf --version || true) 2>&1 | sed 's/^/gnhf      /'
-(no-mistakes --version || true) 2>&1 | sed 's/^/mistakes  /'
+printf '\n== software factory ==\n'
+for skill in ce-work ce-code-review ce-commit-push-pr factory-bootstrap factory-dispatch; do
+  check_file "$skill skill source" "$HOME/mac-dotfiles/plugins/workflow-core/skills/$skill/SKILL.md"
+done
+check_run 'Workflow Core plugin enabled' sh -c \
+  'output="$(codex plugin list)" && printf "%s\n" "$output" | grep -Eq "workflow-core@personal[[:space:]]+installed, enabled"'
 
 printf '\n== background ==\n'
-if pgrep -ifl 'AeroSpace|SketchyBar|iTerm|cmatrix|pipes\.sh' >/tmp/doctor-legacy.out 2>/dev/null; then
-  printf 'warn legacy-looking process found\n'
-  sed 's/^/     /' /tmp/doctor-legacy.out
+if pgrep -ifl 'AeroSpace|SketchyBar|iTerm|cmatrix|pipes\.sh' >/tmp/doctor-obsolete.out 2>/dev/null; then
+  printf 'warn obsolete desktop process found\n'
+  sed 's/^/     /' /tmp/doctor-obsolete.out
 else
-  printf 'ok   no legacy workflow processes detected\n'
+  printf 'ok   no obsolete desktop processes detected\n'
 fi
 
 if osascript -e 'tell application "System Events" to get the name of every login item' >/tmp/doctor-login-items.out 2>/dev/null; then
@@ -194,7 +196,7 @@ else
   printf 'warn Tailscale not installed; run brew install --cask tailscale-app\n'
 fi
 
-rm -f /tmp/doctor-check.out /tmp/doctor-check.err /tmp/doctor-legacy.out /tmp/doctor-login-items.out
+rm -f /tmp/doctor-check.out /tmp/doctor-check.err /tmp/doctor-obsolete.out /tmp/doctor-login-items.out
 
 if [ "$failures" -eq 0 ]; then
   printf '\nAll checks passed.\n'

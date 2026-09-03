@@ -9,7 +9,7 @@ description: >
 # Babysit Open PRs
 
 Sweep open pull requests, get red CI back to green, and surface anything that needs Ross.
-This skill is the cloud-lane PR babysitter from the captain workflow (docs/WORKFLOW.md in mac-dotfiles).
+This skill is the monitored-PR path from `docs/WORKFLOW.md` in mac-dotfiles.
 
 ## Repos to sweep
 

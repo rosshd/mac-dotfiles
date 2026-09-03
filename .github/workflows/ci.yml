@@ -1,0 +1,22 @@
+name: Repository gate
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  repository-gate:
+    name: Repository gate
+    runs-on: macos-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install test dependency
+        run: brew install ripgrep
+      - name: Run canonical gate
+        run: make check
