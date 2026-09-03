@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+set -euo pipefail
+${PAGER:-cat} "$HOME/.config/voice/vocabulary.md"

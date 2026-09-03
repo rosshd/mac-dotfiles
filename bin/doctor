@@ -1,0 +1,204 @@
+#!/usr/bin/env bash
+set -u
+
+PATH="$HOME/.local/bin:/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:$PATH"
+
+if [ -r /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh ]; then
+  # shellcheck disable=SC1091
+  . /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh
+fi
+if [ -d /run/current-system/sw/bin ]; then
+  PATH="/run/current-system/sw/bin:$PATH"
+fi
+
+failures=0
+check_cmd() {
+  local name="$1"
+  if command -v "$name" >/dev/null 2>&1; then
+    printf 'ok   %s -> %s\n' "$name" "$(command -v "$name")"
+  else
+    printf 'miss %s\n' "$name"
+    failures=$((failures + 1))
+  fi
+}
+
+check_run() {
+  local label="$1"
+  shift
+  if "$@" >/tmp/doctor-check.out 2>/tmp/doctor-check.err; then
+    printf 'ok   %s\n' "$label"
+  else
+    printf 'fail %s\n' "$label"
+    sed -n '1,6p' /tmp/doctor-check.err | sed 's/^/     /'
+    failures=$((failures + 1))
+  fi
+}
+
+check_link() {
+  local path="$1"
+  local expected="$2"
+  if [ -L "$path" ] && [ "$(/usr/bin/readlink "$path")" = "$expected" ]; then
+    printf 'ok   %s -> %s\n' "$path" "$expected"
+  elif [ -L "$path" ] && [ -f "$path" ] && [ -f "$expected" ] && cmp -s "$path" "$expected"; then
+    printf 'ok   %s -> Home Manager store copy of %s\n' "$path" "$expected"
+  else
+    printf 'fail %s should point to %s\n' "$path" "$expected"
+    failures=$((failures + 1))
+  fi
+}
+
+check_default() {
+  local domain="$1"
+  local key="$2"
+  local expected="$3"
+  local actual
+  if [ "$domain" = "-g" ]; then
+    actual="$(defaults read -g "$key" 2>/dev/null || true)"
+  else
+    actual="$(defaults read "$domain" "$key" 2>/dev/null || true)"
+  fi
+  if [ "$actual" = "$expected" ]; then
+    printf 'ok   defaults %s %s = %s\n' "$domain" "$key" "$expected"
+  else
+    printf 'fail defaults %s %s expected %s, got %s\n' "$domain" "$key" "$expected" "${actual:-unset}"
+    failures=$((failures + 1))
+  fi
+}
+
+tmux_doctor() {
+  tmux -L doctor-check -f "$HOME/.tmux.conf" "$@"
+}
+
+printf '== commands ==\n'
+for cmd in wezterm fish tmux nvim git gh delta lazygit codex claude opencode herdr treehouse gnhf no-mistakes firstmate ship agent agent-doctor networking wt crew captain fleet plan-artifact voice-vocab notify rebuild-mac terminal-notifier; do
+  check_cmd "$cmd"
+done
+
+printf '\n== reproducibility ==\n'
+if [ -f "$HOME/mac-dotfiles/Brewfile" ]; then
+  if command -v brew >/dev/null 2>&1; then
+    check_run 'Brewfile satisfied' env HOMEBREW_NO_AUTO_UPDATE=1 brew bundle check --file "$HOME/mac-dotfiles/Brewfile" --no-upgrade
+  else
+    printf 'fail Brewfile present but brew is missing\n'
+    failures=$((failures + 1))
+  fi
+else
+  printf 'fail Brewfile missing\n'
+  failures=$((failures + 1))
+fi
+
+if [ -f "$HOME/mac-dotfiles/flake.nix" ]; then
+  printf 'ok   active Nix flake present\n'
+else
+  printf 'fail active Nix flake missing\n'
+  failures=$((failures + 1))
+fi
+
+if command -v nix >/dev/null 2>&1; then
+  check_run 'nix flake parses' nix flake show "$HOME/mac-dotfiles"
+else
+  printf 'warn nix/lix not installed; run Lix bootstrap before using rebuild-mac nix\n'
+fi
+
+if command -v darwin-rebuild >/dev/null 2>&1; then
+  printf 'ok   darwin-rebuild -> %s\n' "$(command -v darwin-rebuild)"
+else
+  printf 'warn darwin-rebuild missing; nix-darwin not active yet\n'
+fi
+
+if command -v herdr >/dev/null 2>&1; then
+  printf 'ok   herdr -> %s\n' "$(command -v herdr)"
+  check_run 'herdr integration status' herdr integration status
+  for agent in codex claude opencode copilot; do
+    check_run "herdr ${agent} integration current" sh -c "herdr integration status | grep -q '^${agent}: current'"
+  done
+else
+  printf 'warn herdr not installed; no verified public install source has been configured\n'
+fi
+
+printf '\n== configs ==\n'
+check_run 'fish config syntax' fish -n "$HOME/.config/fish/config.fish"
+check_run 'tmux config load' tmux_doctor new-session -d -s doctor
+check_run 'nvim headless startup' nvim --headless '+qa'
+check_run 'wezterm config parse' wezterm --config-file "$HOME/.config/wezterm/wezterm.lua" ls-fonts
+check_run 'gh-dash extension' sh -c 'gh extension list | grep -q "dlvhdr/gh-dash"'
+check_link "$HOME/.config/gh-dash/config.yml" "$HOME/mac-dotfiles/gh-dash/config.yml"
+check_link "$HOME/.config/herdr/config.toml" "$HOME/mac-dotfiles/herdr/config.toml"
+check_link "$HOME/.config/karabiner/karabiner.json" "$HOME/mac-dotfiles/karabiner/karabiner.json"
+
+printf '\n== session persistence ==\n'
+check_run 'tmux continuum restore enabled' sh -c '[ "$(tmux -L doctor-check show-options -gqv @continuum-restore)" = on ]'
+check_run 'tmux resurrect dir pinned' sh -c 'dir="$(tmux -L doctor-check show-options -gqv @resurrect-dir)"; [ "$dir" = "~/.local/share/tmux/resurrect" ] || [ "$dir" = "$HOME/.local/share/tmux/resurrect" ]'
+check_run 'tmux resurrect snapshot exists' sh -c '[ -L "$HOME/.local/share/tmux/resurrect/last" ] || [ -f "$HOME/.local/share/tmux/resurrect/last" ]'
+check_run 'tmux restores Codex via resume' sh -c 'tmux -L doctor-check show-options -gqv @resurrect-processes | grep -q "codex resume --last"'
+tmux_doctor kill-server >/dev/null 2>&1 || true
+
+printf '\n== clean boot defaults ==\n'
+check_default -g NSQuitAlwaysKeepsWindows 0
+check_default -g ApplePersistenceIgnoreState 1
+check_default com.apple.loginwindow TALLogoutSavesState 0
+check_default com.apple.loginwindow LoginwindowLaunchesRelaunchApps 0
+
+printf '\n== agent instructions ==\n'
+agent_rules="$HOME/mac-dotfiles/agents/AGENTS.md"
+check_link "$HOME/agents" "$HOME/mac-dotfiles/agents"
+check_link "$HOME/.codex/AGENTS.md" "$agent_rules"
+check_link "$HOME/.claude/CLAUDE.md" "$agent_rules"
+check_link "$HOME/.config/opencode/AGENTS.md" "$agent_rules"
+check_link "$HOME/.copilot/copilot-instructions.md" "$agent_rules"
+check_link "$HOME/.gemini/GEMINI.md" "$agent_rules"
+
+printf '\n== versions ==\n'
+(treehouse --version || true) 2>&1 | sed 's/^/treehouse /'
+(gnhf --version || true) 2>&1 | sed 's/^/gnhf      /'
+(no-mistakes --version || true) 2>&1 | sed 's/^/mistakes  /'
+
+printf '\n== background ==\n'
+if pgrep -ifl 'AeroSpace|SketchyBar|iTerm|cmatrix|pipes\.sh' >/tmp/doctor-legacy.out 2>/dev/null; then
+  printf 'warn legacy-looking process found\n'
+  sed 's/^/     /' /tmp/doctor-legacy.out
+else
+  printf 'ok   no legacy workflow processes detected\n'
+fi
+
+if osascript -e 'tell application "System Events" to get the name of every login item' >/tmp/doctor-login-items.out 2>/dev/null; then
+  login_items="$(cat /tmp/doctor-login-items.out)"
+  if printf '%s\n' "$login_items" | grep -q 'Rectangle'; then
+    printf 'ok   Rectangle login item configured\n'
+  else
+    printf 'fail Rectangle login item missing; Caps Lock window shortcuts will not work after startup\n'
+    failures=$((failures + 1))
+  fi
+  extras="$(printf '%s\n' "$login_items" | tr ',' '\n' | sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//' | grep -v '^$' | grep -v '^Rectangle$' || true)"
+  if [ -n "$extras" ]; then
+    printf 'warn extra login items configured: %s\n' "$extras"
+  else
+    printf 'ok   no extra login items configured\n'
+  fi
+else
+  printf 'warn could not inspect login items; check System Settings > General > Login Items manually\n'
+fi
+
+printf '\n== phone access ==\n'
+if [ -d /Applications/Tailscale.app ] || command -v tailscale >/dev/null 2>&1; then
+  printf 'ok   Tailscale installed\n'
+  printf '     LocalHostName: %s\n' "$(scutil --get LocalHostName 2>/dev/null || hostname -s)"
+  if command -v tailscale >/dev/null 2>&1; then
+    tailscale status --self 2>/dev/null | sed 's/^/     /' || printf 'warn tailscale status unavailable; sign in from the Tailscale app\n'
+  elif [ -x /Applications/Tailscale.app/Contents/MacOS/Tailscale ]; then
+    printf 'ok   Tailscale app binary present; CLI status is optional\n'
+  else
+    printf 'warn tailscale CLI not on PATH; use the Tailscale app status menu\n'
+  fi
+else
+  printf 'warn Tailscale not installed; run brew install --cask tailscale-app\n'
+fi
+
+rm -f /tmp/doctor-check.out /tmp/doctor-check.err /tmp/doctor-legacy.out /tmp/doctor-login-items.out
+
+if [ "$failures" -eq 0 ]; then
+  printf '\nAll checks passed.\n'
+else
+  printf '\n%s check(s) failed.\n' "$failures"
+fi
+exit "$failures"

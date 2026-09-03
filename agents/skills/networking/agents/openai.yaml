@@ -1,0 +1,4 @@
+interface:
+  display_name: "Networking"
+  short_description: "Capture and maintain private relationship context"
+  default_prompt: "Use $networking to add this information to my private networking workspace."

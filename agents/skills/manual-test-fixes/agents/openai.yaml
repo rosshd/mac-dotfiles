@@ -1,0 +1,6 @@
+interface:
+  display_name: "Manual Test Fixes"
+  short_description: "Triage and integrate manual-test findings"
+  default_prompt: "Use $manual-test-fixes to triage this manual test report, coordinate independent fixes, merge them into local main, and run one final review."
+policy:
+  allow_implicit_invocation: true

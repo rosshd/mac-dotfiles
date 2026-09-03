@@ -1,0 +1,6 @@
+interface:
+  display_name: "Writing for Agents"
+  short_description: "Write documents agents consume"
+  default_prompt: "Use $writing-for-agents to make this agent-facing document concise and reliably triggered."
+policy:
+  allow_implicit_invocation: true

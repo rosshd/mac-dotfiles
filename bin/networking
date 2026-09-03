@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+script="$HOME/agents/skills/networking/scripts/networking.py"
+if [ ! -f "$script" ]; then
+  echo "networking skill script not found at $script" >&2
+  exit 1
+fi
+
+exec /usr/bin/python3 "$script" "$@"

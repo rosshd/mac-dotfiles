@@ -1,0 +1,4 @@
+interface:
+  display_name: "Factory Dispatch"
+  short_description: "Propose and start bounded Ready work"
+  default_prompt: "Use $factory-dispatch to inspect Ready GitHub issues and propose the next bounded work."
