@@ -18,16 +18,20 @@ Ship the requested branch without including unrelated work.
 6. Record the current commit SHA, run the full local gate at that SHA, and keep its command and result visible in the task transcript.
 7. Resolve the intended base branch and run one read-only `codex review --base <base>` pass over the branch diff.
    Keep the review output visible in the task transcript instead of redirecting, summarizing away, or replacing it with a private result.
-8. Stop on actionable review findings and ask the user which findings to apply.
-   After accepted fixes, create the new commit, rerun the full local gate, and permit at most one targeted rereview of those fixes.
+8. Apply at most one repair cycle automatically when actionable findings remain inside the issue outcome and permissions and do not increase risk.
+   Create the repair commit, rerun the full local gate, and run one targeted rereview of only those fixes.
+   Stop for changed scope, new authority, increased risk, or findings that survive the targeted rereview.
 9. Immediately before pushing, prove that `HEAD` still equals the SHA covered by the latest passing gate and review, then recheck branch, remote, and existing PR state.
 10. Push without force and open or update the matching PR.
 11. Write a concise PR description covering purpose, important decisions, exact validation evidence, independent review result, and remaining risk.
-12. Return the PR URL, pushed SHA, gate command and result, review result, and exact shipping outcome.
+12. Return the PR URL, pushed SHA, gate command and result, review result, risk, and exact shipping outcome to the caller.
 
 Do not add branding or a teaching section unless requested.
 
-Do not merge, force-push, rebase published work, or start `ce-babysit-pr` automatically.
+Do not force-push, rebase published work, or start `ce-babysit-pr` automatically.
+
+This skill ends at the pull request.
+The factory dispatcher may continue through CI, merge, and release verification only under the factory contract's standing risk policy and the issue permissions.
 
 PR monitoring requires a separate explicit request.
 

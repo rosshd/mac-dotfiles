@@ -32,7 +32,10 @@ These are common instructions for Ross's agents across all scenarios.
 - Record the task ID, issue, worktree, branch, and exact start SHA before implementation.
 - Run focused checks first and `make check` from the repository root before shipping.
 - Run one bounded independent review against the exact tested head.
-- Merge only with explicit authorization, passing required CI on the exact head, and risk within the issue's permissions.
+- Treat Ross's standing authorization as permission to push, open a pull request, monitor CI, merge, and verify the release for low- and medium-risk work when the issue permissions allow each action.
+- High-risk work may reach a reviewed pull request, but requires Ross's explicit verification before merge or production activation.
+- Use `needs-human` only for a concrete human decision or action, and ask the exact question that blocks progress.
+- Apply at most one in-scope repair and targeted rereview automatically when review findings preserve the issue's permissions and risk.
 - Verify releases on the deployed or installed system before closing the issue.
 - Propose bounded next work from Ready issues, and create another task only after Ross authorizes dispatch.
 

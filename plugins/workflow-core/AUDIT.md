@@ -10,14 +10,17 @@ Supporting references are loaded only when the selected task needs them.
 
 - `unslop` keeps the upstream `Must always apply` trigger and runs as the final check over authored user-facing prose.
 - The user's request, repository instructions, required formats, exact quotations, and technical accuracy take precedence over style transformations.
-- Ordinary implementation ends after local verification unless the user explicitly requests a commit, push, PR, deployment, or monitoring.
+- Ordinary implementation returns through handback after local verification, then the dispatcher applies issue permissions and the standing risk policy.
 - Shipping requires repository-owned validation and one visible, bounded independent review at the exact commit being pushed.
+- Low- and medium-risk factory work may continue through authorized merge and release verification; high-risk work stops before merge or production activation for one exact human verification gate.
+- One in-scope review repair and targeted rereview may proceed automatically without expanding permissions or risk.
 - Subagents, outside models, and parallel delegation require an explicit request.
 - Markdown is the default durable planning format.
 - Substantial repository-backed discovery can preserve exact vocabulary in `CONTEXT.md` and hard-to-reverse decisions in ADRs.
 - Plans that exceed one focused task use dependency-aware vertical work items, one fresh task per item.
 - Code review keeps engineering quality and spec fidelity as separate judgments.
 - GitHub issues remain the durable task briefs, and dispatch proposes at most two independent Ready issues before asking for task-creation authorization.
+- Dispatched owner tasks send one terminal handback to the dispatcher, which records owners before issue mutation, reconciles terminal labels, and settles the full batch before continuing or asking one exact permission question.
 
 ## Skills
 
@@ -33,14 +36,14 @@ Supporting references are loaded only when the selected task needs them.
 | `ce-work` | Implicit for concrete implementation | Compound Engineering lineage | One selected work item through local verification unless shipping is requested. |
 | `ce-debug` | Implicit for one bug or failure | Compound Engineering lineage | Diagnosis does not authorize a fix. |
 | `ce-simplify-code` | Implicit when simplification is requested | Compound Engineering lineage | One integrated pass by default. |
-| `ce-code-review` | Implicit when review is requested | Compound Engineering lineage | Separate engineering-quality and spec-fidelity findings, report-only and single-agent by default. |
+| `ce-code-review` | Implicit when review is requested | Compound Engineering lineage | Separate quality and spec findings within a repository-bounded evidence scope. |
 | `ce-commit` | Implicit for commit requests | Compound Engineering lineage | Local commits only with named files. |
-| `ce-commit-push-pr` | Implicit for shipping or PR requests | Compound Engineering lineage | Requires current-head validation and bounded visible review, with no automatic babysitting. |
+| `ce-commit-push-pr` | Implicit for shipping or PR requests | Compound Engineering lineage | Requires current-head validation, bounded review, and at most one authorized repair cycle. |
 | `ce-resolve-pr-feedback` | Implicit for existing PR feedback | Compound Engineering lineage | Fixes only accepted feedback and never merges. |
 | `ce-babysit-pr` | Implicit for ongoing PR monitoring | Compound Engineering lineage | Plain status labels and no merge authority. |
 | `ce-pov` | Implicit for adoption verdicts | Compound Engineering lineage | Solo, grounded recommendation unless an oracle is requested. |
 | `factory-bootstrap` | Implicit for repository adoption | Local | Adds only the minimum repository-owned factory contract. |
-| `factory-dispatch` | Implicit for Ready-work selection | Local | Proposes at most two issues and creates owner tasks only after explicit authorization. |
+| `factory-dispatch` | Implicit for Ready-work selection | Local | Creates authorized owner tasks, settles their handbacks as a batch, and applies risk-based continuation. |
 
 ## Trigger ownership
 

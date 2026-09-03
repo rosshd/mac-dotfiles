@@ -112,6 +112,54 @@ PY
 rg -Fq 'factory-issue.md' "$root/docs/WORKFLOW.md"
 [ -f "$root/agents/prompts/templates/factory-issue.md" ]
 
+dispatch_skill="$root/plugins/workflow-core/skills/factory-dispatch/SKILL.md"
+factory_contract="$root/plugins/workflow-core/references/factory-contract.md"
+for required in \
+  'send_message_to_thread' \
+  'The user should not have to announce that the worker finished' \
+  'Initialize an empty active batch before creating the first task' \
+  'Immediately record the issue and created owner in the active batch before any other mutation' \
+  'local completion becomes `status:verify`' \
+  'an external blocker becomes `status:blocked`' \
+  'a high-risk pull request awaiting verification becomes `status:verify` plus `needs-human`' \
+  'active batch' \
+  'final owner settles' \
+  'authorized low- and medium-risk shipping' \
+  'stop before merge or production activation' \
+  'passive statement that no push or pull request occurred' \
+  'bounded task-wait capability'; do
+  rg -Fq "$required" "$dispatch_skill"
+done
+for required in \
+  'worker-driven handback' \
+  'Batch settlement' \
+  'Risk and continuation' \
+  'status:verify' \
+  'needs-human' \
+  'standing authorization' \
+  'one automatic repair' \
+  'After Ross approves, remove `needs-human` and resume only the exact reviewed path covered by that approval' \
+  'The user is not the completion transport'; do
+  rg -Fq "$required" "$factory_contract"
+done
+
+workflow_doc="$root/docs/WORKFLOW.md"
+quicklearn_doc="$root/docs/WORKFLOW-QUICKLEARN.md"
+rg -Fq "standing low- and medium-risk factory policy" "$workflow_doc"
+rg -Fq "High-risk work may be pushed and opened as a reviewed pull request" "$workflow_doc"
+rg -Fq "high-risk verification and explicit merge approval" "$workflow_doc"
+rg -Fq "After approval, resume only the exact reviewed path" "$workflow_doc"
+rg -Fq "one repair cycle" "$workflow_doc"
+rg -Fq "High-risk work may reach a reviewed pull request" "$quicklearn_doc"
+rg -Fq "After Ross approves, resume only the exact reviewed path" "$quicklearn_doc"
+rg -Fq "stop before merge or production activation" "$quicklearn_doc"
+
+review_skill="$root/plugins/workflow-core/skills/ce-code-review/SKILL.md"
+shipping_skill="$root/plugins/workflow-core/skills/ce-commit-push-pr/SKILL.md"
+rg -Fq 'Treat those repository sources as the evidence boundary' "$review_skill"
+rg -Fq 'Apply at most one repair cycle automatically' "$shipping_skill"
+rg -Fq "standing risk policy" "$shipping_skill"
+
 workflow="$root/.github/workflows/ci.yml"
 [ -f "$workflow" ]
 for required_line in \

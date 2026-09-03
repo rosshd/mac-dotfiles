@@ -56,6 +56,13 @@ Use only these factory labels unless the repository already needs additional pro
 Treat the four `status:*` labels as mutually exclusive.
 Treat unlabeled open issues as ideas or backlog, not dispatchable work.
 
+`status:verify` means that implementation exists and a named verification step remains.
+It does not by itself require human action.
+Add `needs-human` only when a concrete human decision or action blocks progress, and pair it with one direct question.
+
+Risk is authoritative in the issue body.
+Use `risk:high` as the visible exception label; low and medium do not require risk labels.
+
 ## Freshness and independence
 
 Age alone does not make an issue stale.
@@ -73,7 +80,47 @@ One dispatched issue maps to one Codex owner task and one managed worktree.
 The task prompt links the issue and carries only the execution-critical fields needed to start safely.
 The issue remains canonical when details change.
 
-The owner task stops after the issue acceptance checks and local verification are complete unless the user separately authorizes shipping, deployment, monitoring, or another issue.
+The owner task stops after the issue acceptance checks and local verification are complete, then returns control through handback.
+
+Owner completion includes a worker-driven handback to the dispatcher.
+When `send_message_to_thread` is available, the dispatcher passes its task and host identities in the owner prompt, and the owner sends one terminal message after completion, blocking, or a need for user input.
+The handback identifies the issue, task, worktree, branch, exact head SHA, gate result, review status, risk, and next permission boundary.
+Routine progress remains in the owner task.
+
+The dispatcher may end its turn after it confirms the callback instruction.
+The handback wakes the dispatcher to consume the result, reconcile `status:active`, and continue the already-authorized review or shipping path.
+If cross-task messaging is unavailable, the dispatcher stays active and waits for the owner with the available bounded task-wait mechanism.
+The user is not the completion transport.
+
+A locally completed handback replaces `status:active` with `status:verify` while review, shipping, CI, or release verification remains.
+A blocked handback replaces `status:active` with `status:blocked`.
+Add `needs-human` only when that blocked state needs Ross's decision or action.
+A high-risk pull request awaiting Ross uses `status:verify` plus `needs-human`.
+After every release check passes, close the issue instead of leaving an ownerless active status.
+
+## Batch settlement
+
+The dispatcher initializes the batch before creating its first task and records each owner immediately after task creation, before label reconciliation or another task creation.
+Each terminal handback settles exactly one owner.
+While owners remain, the dispatcher records the result and returns to sleep without asking the user to relay progress.
+When the last owner settles, the dispatcher aggregates the results and continues every already-authorized path.
+If new authority is required, it asks one exact next-action question.
+A passive statement that nothing was pushed is not a terminal batch result.
+
+## Risk and continuation
+
+Automated tests, the repository gate, independent review, required CI, and agent-run release verification apply at every risk level.
+
+Ross's standing authorization permits push, pull-request creation, CI monitoring, merge, and release verification for low- and medium-risk work when the issue permissions cover those actions.
+The dispatcher continues that path without asking Ross to verify routine behavior.
+
+High-risk work may be pushed and opened as a reviewed pull request when the issue permissions allow it.
+Before merge or production activation, mark the issue `status:verify` and `needs-human`, then give Ross one verification packet with the exact behavior to inspect, the relevant risk evidence, rollback path, and one direct approval question.
+Ross verifies the high-risk product or operational boundary, not the agent's test commands.
+After Ross approves, remove `needs-human` and resume only the exact reviewed path covered by that approval.
+
+An actionable independent-review finding may receive one automatic repair and one targeted rereview when the fix stays inside the issue outcome and permissions and does not increase risk.
+Changed scope, new authority, or increased risk requires Ross's decision.
 
 ## Draft analytics events
 
