@@ -185,17 +185,28 @@ Changed scope, new authority, or increased risk requires Ross's decision.
 ## Intervention capture and notifications
 
 Use the existing passive factory-observability collector's supported versioned event schema.
-For opted-in tasks, metadata-only prompt hooks expose stable message references without storing prompt text.
+For opted-in tasks, metadata-only input hooks record capture receipts without storing prompt text.
 Enroll the actual chat session once with `factory-observability register-observer` using [the collector's v3 protocol](/Users/ross/Developer/projects/factory-observability/docs/task-event-protocol-v3.md) when that local collector is installed.
 Use the installed collector's protocol if the workstation pointer is unavailable.
-At ordinary task checkpoints, import the local prompt spool, classify only directly evidenced interventions, and emit explicit terminal results with actual runtime identities.
+At ordinary task checkpoints, run `import-input-observations` for the local hybrid spool and inspect `capture-health` when capture is missing.
+Keep historical prompt observations in their original spool and store.
+An `input_captured` receipt identifies one hook invocation, not a unique host message; session plus turn alone cannot distinguish several inputs within one turn.
+A `runtime_interrupted` event records a native stopped turn, not an agent mistake or a human intervention by itself.
+Hook retries may create distinct capture receipts; import retries retain the receipt identity and do not duplicate its event.
+Do not infer complete coverage, zero effort or exactly-once message counts from receipt counts.
+Classify only directly evidenced interventions and emit explicit terminal results with actual runtime identities.
 Treat unavailable telemetry as unknown and continue the authorized task; observation never becomes a permission gate.
-Classify a recorded decision, correction, context repair, continuation nudge, external unblock, or status check when directly evidenced.
+For a decision, correction, context repair, continuation nudge, external unblock or status check, emit an `agent_intervention` receipt through the installed protocol.
+Retain the actual root and affected task, one occurrence UUID, `source_grade: agent_reported`, and a directly observed capture ID when available; otherwise leave capture linkage null.
+The occurrence UUID identifies the agent's report, not an invented runtime message.
 Normal intake and changed scope are not automatically interventions or failures.
-Keep necessary, avoidable, and unknown assessments distinct and deduplicate forwarding of the same source message.
-Correct classifications with append-only correction events.
+Keep necessary, avoidable and unknown assessments distinct.
+Forward the original occurrence, capture linkage and classification unchanged instead of creating another intervention; keep agent-reported observations separate from legacy source-message evidence.
+Correct classifications with append-only `agent_intervention_correction` events.
 Leave human active time unknown unless measured or supplied.
 Analytics must not dispatch, approve, merge, label, or otherwise control work.
+Use fixed-enum, owner-only capture-health receipts to diagnose missing capture; keep raw payloads, exception text and transcripts out of diagnostics.
+The app-server event adapter remains deferred until safe access to the running host is verified; do not create a client, attach another writer or resume an active chat for telemetry.
 
 Notify from an opted-in terminal state, not every Stop.
 Parents publish one batch completion notification; routine progress and unchanged waits stay quiet.

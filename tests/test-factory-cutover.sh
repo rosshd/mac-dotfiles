@@ -96,11 +96,16 @@ import sys
 with open(sys.argv[1], encoding="utf-8") as handle:
     hooks = json.load(handle)["hooks"]
 
-assert set(hooks) == {"Stop", "UserPromptSubmit"}
+assert set(hooks) == {"Stop", "UserPromptSubmit", "Interrupt"}
 prompt = hooks["UserPromptSubmit"][0]["hooks"][0]
-assert "/factory-prompt-hook --context-directory " in prompt["command"]
+assert "/factory-input-hook --context-directory " in prompt["command"]
+assert "--health-directory " in prompt["command"]
 assert prompt["timeout"] == 2
 assert prompt["additionalContextLimit"] == 300
+interrupt = hooks["Interrupt"][0]["hooks"][0]
+assert interrupt["command"] == prompt["command"]
+assert interrupt["timeout"] == 1
+assert "additionalContextLimit" not in interrupt
 commands = [
     hook["command"]
     for group in hooks["Stop"]
