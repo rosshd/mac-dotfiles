@@ -190,7 +190,8 @@ With the installed and trusted SessionStart hook, ordinary chats started at an e
 Fresh enrollment requires a UUID session and `standalone_root` project ownership, and records that session as the root leader with runtime kind `codex_chat`, a null parent, and one random run ID.
 Existing valid session enrollment is reused unchanged before cwd eligibility, retaining its ownership and run on startup, resume, clear, and compact.
 Fresh enrollment skips subdirectories, unlisted repositories, symlinked roots, and checkouts with a `.git` file instead of a primary `.git` directory.
-Managed worktree chats and child tasks require explicit enrollment with their actual root, immediate parent, runtime kind, and role using `factory-observability register-observer` and [the collector's v3 protocol](/Users/ross/Developer/projects/factory-observability/docs/task-event-protocol-v3.md).
+Managed worktree chats and child chat sessions require explicit enrollment with their actual session UUID, root, immediate parent, `codex_chat` runtime kind, and role using `factory-observability register-observer` and [the collector's v3 protocol](/Users/ross/Developer/projects/factory-observability/docs/task-event-protocol-v3.md).
+Collaboration workers retain explicit typed v3 events with runtime kind `collaboration`, their actual root-qualified task paths, and actual root and immediate parent.
 No parent identity is inferred from cwd or branch; native SessionStart documents no factory parent identity.
 Use the installed collector's protocol if the workstation pointer is unavailable, and diagnose a malformed or unsafe context without replacing it.
 The hook returns `{}` without added context and records bounded enrollment-health metadata; it fails open when enrollment is unavailable.

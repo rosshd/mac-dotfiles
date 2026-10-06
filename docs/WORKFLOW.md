@@ -169,7 +169,8 @@ The config opts in ApplyQuest, OpenLearn, mac-dotfiles, and factory-observabilit
 ApplyQuest's configured primary root is `/Users/ross/Developer/projects/job-hunt-leaderboard`; the usual `/Users/ross/Developer/projects/applyquest` is a linked checkout and is skipped unless explicitly enrolled with `register-observer`.
 The hook matches startup, resume, clear, and compact and reuses any valid existing session enrollment unchanged, including its run ID and explicit child ownership.
 Fresh enrollment skips subdirectories, unlisted repositories, symlinked roots, and worktrees with a `.git` file.
-Child tasks and user-created managed worktree chats still require explicit enrollment with their actual ownership through the collector's [v3 protocol](/Users/ross/Developer/projects/factory-observability/docs/task-event-protocol-v3.md).
+Child chat sessions and user-created managed worktree chats still require explicit `register-observer` enrollment with their actual session UUID and `codex_chat` ownership through the collector's [v3 protocol](/Users/ross/Developer/projects/factory-observability/docs/task-event-protocol-v3.md).
+Collaboration workers retain explicit typed v3 events with runtime kind `collaboration`, their actual root-qualified task paths, and actual root and immediate parent.
 The hook cannot infer a parent from cwd or branch, and a malformed or unsafe context is diagnosed without replacement.
 
 Source validation checks the shared configuration and instructions; installation must also provide the collector's `bin/factory-session-hook`, the configured project file as a regular owner-owned `0644` file, and the normal hooks link.
