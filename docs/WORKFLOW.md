@@ -161,6 +161,24 @@ Inspect managed links, hooks, plugin inventory, `doctor`, `gh dash`, Codex disco
 
 Close the issue only after every acceptance check and required release check is recorded.
 
+## Session observation
+
+After installation and normal `/hooks` trust review, the shared SessionStart hook automatically enrolls ordinary chats whose cwd is an exact primary repository root listed in `agents/config/factory-observer-projects.json`.
+No special phrase or manual enrollment command is needed for those chats.
+The config opts in ApplyQuest, OpenLearn, mac-dotfiles, and factory-observability as standalone roots.
+ApplyQuest's configured primary root is `/Users/ross/Developer/projects/job-hunt-leaderboard`; the usual `/Users/ross/Developer/projects/applyquest` is a linked checkout and is skipped unless explicitly enrolled with `register-observer`.
+The hook matches startup, resume, clear, and compact and reuses any valid existing session enrollment unchanged, including its run ID and explicit child ownership.
+Fresh enrollment skips subdirectories, unlisted repositories, symlinked roots, and worktrees with a `.git` file.
+Child tasks and user-created managed worktree chats still require explicit enrollment with their actual ownership through the collector's [v3 protocol](/Users/ross/Developer/projects/factory-observability/docs/task-event-protocol-v3.md).
+The hook cannot infer a parent from cwd or branch, and a malformed or unsafe context is diagnosed without replacement.
+
+Source validation checks the shared configuration and instructions; installation must also provide the collector's `bin/factory-session-hook`, the configured project file as a regular owner-owned `0644` file, and the normal hooks link.
+Runtime acceptance requires a trusted SessionStart invocation in an opted-in primary root, one valid session context before input capture, unchanged context after resume or compact, and no fresh context in an ineligible checkout.
+Inspect the collector's bounded `enrollment-health` diagnostics when enrollment is missing.
+Enrollment returns `{}` without adding model context and fails open; unavailable observation never blocks authorized work.
+Enrollment alone does not establish complete input coverage; use the collector's import and capture-health checks for capture evidence.
+The [official hooks reference](https://developers.openai.com/codex/hooks/) documents SessionStart fields, sources, and trust review.
+
 ## Notifications and monitoring
 
 The shared Codex Stop hook is silent unless the root owner publishes allowlisted terminal metadata.

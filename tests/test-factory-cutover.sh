@@ -28,6 +28,7 @@ active_surfaces=(
   STYLE.md
   agents/AGENTS.md
   agents/config/codex-hooks.json
+  agents/config/factory-observer-projects.json
   agents/skills/babysit-prs/SKILL.md
   bin/doctor
   docs/CODING_TEMPLATES.md
@@ -96,7 +97,7 @@ import sys
 with open(sys.argv[1], encoding="utf-8") as handle:
     hooks = json.load(handle)["hooks"]
 
-assert set(hooks) == {"Stop", "UserPromptSubmit", "Interrupt"}
+assert set(hooks) == {"SessionStart", "Stop", "UserPromptSubmit", "Interrupt"}
 prompt = hooks["UserPromptSubmit"][0]["hooks"][0]
 assert "/factory-input-hook --context-directory " in prompt["command"]
 assert "--health-directory " in prompt["command"]
