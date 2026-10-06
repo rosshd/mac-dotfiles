@@ -4,10 +4,22 @@
       {
         "hooks": [
           {
-            "command": "/usr/bin/env PATH=/opt/homebrew/bin:/Users/ross/.local/bin:/usr/bin:/bin /Users/ross/Developer/projects/factory-observability/bin/factory-prompt-hook --context-directory /Users/ross/Developer/projects/factory-observability/.data/workflow-v3/contexts --spool-directory /Users/ross/Developer/projects/factory-observability/.data/workflow-v3/prompts",
-            "statusMessage": "Observing opted-in prompt metadata",
+            "command": "/usr/bin/env PATH=/opt/homebrew/bin:/Users/ross/.local/bin:/usr/bin:/bin /Users/ross/Developer/projects/factory-observability/bin/factory-input-hook --context-directory /Users/ross/Developer/projects/factory-observability/.data/workflow-v3/contexts --spool-directory /Users/ross/Developer/projects/factory-observability/.data/workflow-v3/inputs --health-directory /Users/ross/Developer/projects/factory-observability/.data/workflow-v3/health",
+            "statusMessage": "Observing opted-in input metadata",
             "timeout": 2,
             "additionalContextLimit": 300,
+            "type": "command"
+          }
+        ]
+      }
+    ],
+    "Interrupt": [
+      {
+        "hooks": [
+          {
+            "command": "/usr/bin/env PATH=/opt/homebrew/bin:/Users/ross/.local/bin:/usr/bin:/bin /Users/ross/Developer/projects/factory-observability/bin/factory-input-hook --context-directory /Users/ross/Developer/projects/factory-observability/.data/workflow-v3/contexts --spool-directory /Users/ross/Developer/projects/factory-observability/.data/workflow-v3/inputs --health-directory /Users/ross/Developer/projects/factory-observability/.data/workflow-v3/health",
+            "statusMessage": "Recording opted-in runtime interruption",
+            "timeout": 1,
             "type": "command"
           }
         ]
