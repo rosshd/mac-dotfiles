@@ -25,6 +25,7 @@ assert projects == [
         "repository": f"rosshd/{name}",
         "path": path,
         "ownership": "standalone_root",
+        **({"linked_checkout": "/Users/ross/Developer/projects/applyquest"} if name == "applyquest" else {}),
     }
     for name, path in (
         ("applyquest", "/Users/ross/Developer/projects/job-hunt-leaderboard"),
@@ -33,6 +34,11 @@ assert projects == [
         ("factory-observability", "/Users/ross/Developer/projects/factory-observability"),
     )
 ]
+assert len({project["repository"] for project in projects}) == len(projects)
+paths = [project[field] for project in projects for field in ("path", "linked_checkout") if field in project]
+assert len(paths) == len(set(paths)) == 5
+assert all(Path(path).is_absolute() and str(Path(path)) == path for path in paths)
+assert len(config_path.read_bytes()) <= 4096
 
 hooks = json.loads((root / "agents/config/codex-hooks.json").read_text())["hooks"]
 groups = hooks["SessionStart"]
@@ -60,6 +66,7 @@ for required in (
     "No parent identity is inferred", "Managed worktree chats",
     "register-observer", "malformed or unsafe context",
     "normal trust approval",
+    "linked_checkout", "regular `.git` file", "all other worktrees",
 ):
     assert required in contract, required
 
@@ -68,7 +75,8 @@ for required in (
     "No special phrase or manual enrollment command",
     "normal `/hooks` trust review", "startup, resume, clear, and compact",
     "Runtime acceptance", "enrollment-health", "complete input coverage",
-    "job-hunt-leaderboard", "applyquest` is a linked checkout",
+    "job-hunt-leaderboard", "/Users/ross/Developer/projects/applyquest",
+    "linked_checkout", "all other worktrees", "unchanged hook definition",
 ):
     assert required in workflow, required
 PY

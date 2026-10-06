@@ -163,18 +163,21 @@ Close the issue only after every acceptance check and required release check is 
 
 ## Session observation
 
-After installation and normal `/hooks` trust review, the shared SessionStart hook automatically enrolls ordinary chats whose cwd is an exact primary repository root listed in `agents/config/factory-observer-projects.json`.
+After installation and normal `/hooks` trust review, the shared SessionStart hook automatically enrolls ordinary chats whose cwd is an exact checkout root listed in `agents/config/factory-observer-projects.json`.
 No special phrase or manual enrollment command is needed for those chats.
 The config opts in ApplyQuest, OpenLearn, mac-dotfiles, and factory-observability as standalone roots.
-ApplyQuest's configured primary root is `/Users/ross/Developer/projects/job-hunt-leaderboard`; the usual `/Users/ross/Developer/projects/applyquest` is a linked checkout and is skipped unless explicitly enrolled with `register-observer`.
+ApplyQuest's primary `/Users/ross/Developer/projects/job-hunt-leaderboard` and usual linked checkout `/Users/ross/Developer/projects/applyquest` are both explicitly approved as standalone roots.
+Each repository entry accepts one optional `linked_checkout`; `path` requires a `.git` directory and `linked_checkout` requires a regular `.git` file.
+Omitting `linked_checkout` retains primary-only behavior, and duplicate primary or linked paths, relative paths, unknown fields and symlinks are rejected.
 The hook matches startup, resume, clear, and compact and reuses any valid existing session enrollment unchanged, including its run ID and explicit child ownership.
-Fresh enrollment skips subdirectories, unlisted repositories, symlinked roots, and worktrees with a `.git` file.
-Child chat sessions and user-created managed worktree chats still require explicit `register-observer` enrollment with their actual session UUID and `codex_chat` ownership through the collector's [v3 protocol](/Users/ross/Developer/projects/factory-observability/docs/task-event-protocol-v3.md).
+Fresh enrollment skips subdirectories, unlisted repositories, symlinked roots, and all other worktrees.
+Child chat sessions and user-created managed worktree chats outside this exact opt-in still require explicit `register-observer` enrollment with their actual session UUID and `codex_chat` ownership through the collector's [v3 protocol](/Users/ross/Developer/projects/factory-observability/docs/task-event-protocol-v3.md).
 Collaboration workers retain explicit typed v3 events with runtime kind `collaboration`, their actual root-qualified task paths, and actual root and immediate parent.
 The hook cannot infer a parent from cwd or branch, and a malformed or unsafe context is diagnosed without replacement.
 
 Source validation checks the shared configuration and instructions; installation must also provide the collector's `bin/factory-session-hook`, the configured project file as a regular owner-owned `0644` file, and the normal hooks link.
-Runtime acceptance requires a trusted SessionStart invocation in an opted-in primary root, one valid session context before input capture, unchanged context after resume or compact, and no fresh context in an ineligible checkout.
+Runtime acceptance requires a trusted SessionStart invocation in an opted-in primary or linked root, one valid session context before input capture, unchanged context after resume or compact, and no fresh context in an ineligible checkout.
+Adding this config field preserves the unchanged hook definition, command, matcher and trust identity; it does not manufacture another trust review or prove native dispatch.
 Inspect the collector's bounded `enrollment-health` diagnostics when enrollment is missing.
 Enrollment returns `{}` without adding model context and fails open; unavailable observation never blocks authorized work.
 Enrollment alone does not establish complete input coverage; use the collector's import and capture-health checks for capture evidence.
