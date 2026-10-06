@@ -96,7 +96,11 @@ import sys
 with open(sys.argv[1], encoding="utf-8") as handle:
     hooks = json.load(handle)["hooks"]
 
-assert set(hooks) == {"Stop"}
+assert set(hooks) == {"Stop", "UserPromptSubmit"}
+prompt = hooks["UserPromptSubmit"][0]["hooks"][0]
+assert "/factory-prompt-hook --context-directory " in prompt["command"]
+assert prompt["timeout"] == 2
+assert prompt["additionalContextLimit"] == 300
 commands = [
     hook["command"]
     for group in hooks["Stop"]
@@ -104,9 +108,10 @@ commands = [
     if hook["type"] == "command"
 ]
 assert len(commands) == 1
-assert "/notify " in commands[0]
-assert "Codex done" in commands[0]
-assert hooks["Stop"][0]["hooks"][0]["statusMessage"] == "Sending completion notification"
+assert commands[0].endswith("/factory-notify-hook")
+assert "Codex done" not in commands[0]
+assert hooks["Stop"][0]["hooks"][0]["timeout"] == 3
+assert hooks["Stop"][0]["hooks"][0]["statusMessage"] == "Checking opted-in terminal state"
 PY
 
 rg -Fq 'factory-issue.md' "$root/docs/WORKFLOW.md"

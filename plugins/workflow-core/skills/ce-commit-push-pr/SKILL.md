@@ -15,14 +15,17 @@ Ship the requested branch without including unrelated work.
 4. Create scoped commits with named files when uncommitted task work remains.
 5. Resolve the repository's canonical local gate from its instructions, build files, and CI configuration.
    Stop if the gate is missing, ambiguous, or cannot exercise the change adequately.
-6. Record the current commit SHA, run the full local gate at that SHA, and keep its command and result visible in the task transcript.
-7. Resolve the intended base branch and run one read-only `codex review --base <base>` pass over the branch diff.
+6. Record the current commit SHA and canonical gate evidence.
+   Reuse a passing final gate only when the exact candidate, mode, and relevant environment still match; otherwise run the full gate.
+7. Resolve the intended base branch and obtain one bounded independent review of the branch diff against that base.
+   For recursive factory work, the base is the immediate parent's integration branch, not automatically main.
+   Use the runtime reviewer or one read-only `codex review --base <base>` pass.
    Keep the review output visible in the task transcript instead of redirecting, summarizing away, or replacing it with a private result.
 8. Apply at most one repair cycle automatically when actionable findings remain inside the issue outcome and permissions and do not increase risk.
    Create the repair commit, rerun the full local gate, and run one targeted rereview of only those fixes.
    Stop for changed scope, new authority, increased risk, or findings that survive the targeted rereview.
 9. Immediately before pushing, prove that `HEAD` still equals the SHA covered by the latest passing gate and review, then recheck branch, remote, and existing PR state.
-10. Push without force and open or update the matching PR.
+10. Push without force and open or update the matching PR with the explicit intended base.
 11. Write a concise PR description covering purpose, important decisions, exact validation evidence, independent review result, and remaining risk.
 12. Return the PR URL, pushed SHA, gate command and result, review result, risk, and exact shipping outcome to the caller.
 
@@ -33,7 +36,8 @@ Do not force-push, rebase published work, or start `ce-babysit-pr` automatically
 This skill ends at the pull request.
 The factory dispatcher may continue through CI, merge, and release verification only under the factory contract's standing risk policy and the issue permissions.
 
-PR monitoring requires a separate explicit request.
+Standalone PR monitoring requires a separate explicit request.
+The already-authorized factory owner retains its shared-contract continuation through required CI, risk-gated merge, and verification.
 
 Run no more than one full independent review and one targeted rereview for a shipping request.
 

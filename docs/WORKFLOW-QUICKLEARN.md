@@ -2,6 +2,11 @@
 
 ## Daily loop
 
+Use [the shared factory contract](../plugins/workflow-core/references/factory-contract.md) to resolve authority and completion.
+Children submit reviewed PRs to their immediate parent's branch.
+Parents verify combined changes and obtain independent review before submitting upward.
+The root owns main and release; CI pauses and high-risk decisions remain binding.
+
 ```text
 GitHub Issue
   -> one Codex owner task
@@ -99,6 +104,6 @@ Ask Ross before product tradeoffs, destructive changes, secrets, purchases, or p
 
 ## Next work
 
-Inspect Ready issues after verified completion.
+Inspect Ready issues after verified completion only when Ross asks.
 Propose bounded non-conflicting work.
 Dispatch only after Ross authorizes another Codex task.

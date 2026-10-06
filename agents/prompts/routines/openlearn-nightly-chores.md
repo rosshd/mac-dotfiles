@@ -2,7 +2,8 @@
 
 Status: created and enabled 2026-07-01 (routine id `trig_01SyRsg1J1au5iaGTT53gp7a`,
 https://claude.ai/code/routines/trig_01SyRsg1J1au5iaGTT53gp7a).
-This file is the source of truth for the prompt; update the routine via the /schedule skill when editing it.
+This file is the source of truth for the prompt.
+The October 5 local prompt update has not been verified in the remote routine; reconcile it through the owning service before claiming activation.
 
 - Schedule: `0 7 * * *` (nightly, 3am America/New_York during EDT)
 - Model: claude-sonnet-4-6
@@ -16,12 +17,13 @@ Read CLAUDE.md and AGENTS.md first and follow their rules.
 
 Do these chores:
 
-1. Run the green gate: `make check` (lint, unittest, pytest, mocked smoke flow).
+1. Run the green gate once on the final candidate: `make check`.
    Never use real learner data; use OPENLEARN_MOCK=1 and an isolated OPENLEARN_HOME as the tests already do.
 2. If anything fails, diagnose it.
    For clear mechanical breakage (a flaky test, a lint error, a broken import), fix it on a branch named `chores/nightly-<date>` and open a PR titled 'chores: <summary>' describing the failure and fix.
    Keep the diff minimal and scoped; do not refactor.
-3. Re-run `make check` 3 times to detect flakiness; report intermittent failures in the PR or summary rather than papering over them.
+3. Preserve the passing candidate's gate evidence.
+   Repeat only a named flaky test after observing flakiness or when explicitly investigating it; report intermittent failures rather than hiding them.
 4. Check TODO.md 'Done (recent)' against git log: if a completed item is still listed under Active/Backlog, note it (do not rewrite TODO.md yourself).
 5. If everything is green and there is nothing to fix, do NOT open a PR or make commits; just end with a one-paragraph summary.
 
