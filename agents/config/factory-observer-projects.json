@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "projects": [
+    {
+      "repository": "rosshd/applyquest",
+      "path": "/Users/ross/Developer/projects/job-hunt-leaderboard",
+      "ownership": "standalone_root"
+    },
+    {
+      "repository": "rosshd/openlearn",
+      "path": "/Users/ross/Developer/projects/openlearn",
+      "ownership": "standalone_root"
+    },
+    {
+      "repository": "rosshd/mac-dotfiles",
+      "path": "/Users/ross/mac-dotfiles",
+      "ownership": "standalone_root"
+    },
+    {
+      "repository": "rosshd/factory-observability",
+      "path": "/Users/ross/Developer/projects/factory-observability",
+      "ownership": "standalone_root"
+    }
+  ]
+}

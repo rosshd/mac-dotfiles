@@ -9,7 +9,7 @@ import sys
 
 root = Path(sys.argv[1])
 hooks = json.loads((root / "agents/config/codex-hooks.json").read_text())["hooks"]
-assert set(hooks) == {"UserPromptSubmit", "Interrupt", "Stop"}
+assert set(hooks) == {"SessionStart", "UserPromptSubmit", "Interrupt", "Stop"}
 for event, timeout in (("UserPromptSubmit", 2), ("Interrupt", 1)):
     groups = hooks[event]
     assert len(groups) == 1 and "matcher" not in groups[0]

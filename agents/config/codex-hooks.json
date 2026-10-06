@@ -1,5 +1,18 @@
 {
   "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "^(startup|resume|clear|compact)$",
+        "hooks": [
+          {
+            "command": "/usr/bin/env PATH=/opt/homebrew/bin:/Users/ross/.local/bin:/usr/bin:/bin /Users/ross/Developer/projects/factory-observability/bin/factory-session-hook --project-config /Users/ross/mac-dotfiles/agents/config/factory-observer-projects.json --context-directory /Users/ross/Developer/projects/factory-observability/.data/workflow-v3/contexts --health-directory /Users/ross/Developer/projects/factory-observability/.data/workflow-v3/enrollment-health",
+            "statusMessage": "Enrolling opted-in primary repository session",
+            "timeout": 2,
+            "type": "command"
+          }
+        ]
+      }
+    ],
     "UserPromptSubmit": [
       {
         "hooks": [
