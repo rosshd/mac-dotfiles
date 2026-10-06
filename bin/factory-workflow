@@ -1,0 +1,367 @@
+#!/usr/bin/env python3
+"""Hash-only candidate evidence and validated workflow receipts. No Git writes."""
+import argparse
+import fcntl
+import hashlib
+import json
+import os
+import platform
+from pathlib import Path
+import re
+import subprocess
+import sys
+
+
+def canonical(value):
+    return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
+
+
+def digest(value):
+    return hashlib.sha256(canonical(value).encode()).hexdigest()
+
+
+def git(repo, *args):
+    return subprocess.check_output(["git", "--no-optional-locks", "-C", str(repo), *args], stderr=subprocess.DEVNULL)
+
+
+def read(path):
+    with open(path, encoding="utf-8") as handle:
+        return json.load(handle)
+
+
+def keys(value, expected):
+    if not isinstance(value, dict) or set(value) != set(expected):
+        raise ValueError("unexpected or missing schema fields")
+
+
+def token(value):
+    if not isinstance(value, str) or not value or len(value) > 512 or any(ord(c) < 32 for c in value):
+        raise ValueError("invalid identifier")
+
+
+def hash_value(value, length=64):
+    if not isinstance(value, str) or not re.fullmatch(r"[0-9a-f]{%d}" % length, value):
+        raise ValueError("invalid hash")
+
+
+def choice(value, allowed):
+    if not isinstance(value, str) or value not in allowed:
+        raise ValueError("invalid enum value")
+
+
+def candidate(repo, mode, context):
+    """Hash tracked index/worktree deltas and nonignored untracked bytes/modes."""
+    token(mode)
+    keys(context, ["environment", "toolchain"])
+    # Operator supplies identifiers or configuration hashes, never secret values.
+    for key in context:
+        token(context[key])
+    root = Path(git(repo, "rev-parse", "--show-toplevel").decode().strip()).resolve()
+    sha = git(root, "rev-parse", "HEAD").decode().strip()
+    deltas = [hashlib.sha256(git(root, "diff", "--binary", "--no-ext-diff", "--no-textconv", *args)).hexdigest()
+              for args in [[], ["--cached"]]]
+    files = []
+    tracked = git(root, "ls-files", "--cached", "-z").split(b"\0")
+    untracked = git(root, "ls-files", "--others", "--exclude-standard", "-z").split(b"\0")
+    for raw in sorted(set([*tracked, *untracked])):
+        if not raw:
+            continue
+        path = root / os.fsdecode(raw)
+        try:
+            stat = path.lstat()
+        except FileNotFoundError:
+            files.append([os.fsdecode(raw), None, None])
+            continue
+        if path.is_symlink():
+            data = os.fsencode(os.readlink(path))
+        elif path.is_file():
+            data = path.read_bytes()
+        else:
+            raise ValueError("unsupported untracked file type")
+        files.append([os.fsdecode(raw), stat.st_mode, hashlib.sha256(data).hexdigest()])
+    # Git submodule changes cannot be fully fingerprinted through the parent diff.
+    if git(root, "ls-files", "--stage").decode(errors="replace").find("160000 ") >= 0:
+        raise ValueError("submodules require separate candidate evidence")
+    value = {"sha": sha, "content_hash": digest([deltas, files]),
+             "context_hash": digest([context, sys.version, platform.system(), platform.machine(),
+                                     git(root, "--version").decode().strip()]), "mode": mode}
+    value["digest"] = digest(value)
+    return value
+
+
+def validate_candidate(value):
+    keys(value, ["sha", "content_hash", "context_hash", "mode", "digest"])
+    hash_value(value["sha"], 40)
+    for key in ["content_hash", "context_hash", "digest"]:
+        hash_value(value[key])
+    token(value["mode"])
+    if value["digest"] != digest({k: v for k, v in value.items() if k != "digest"}):
+        raise ValueError("candidate digest mismatch")
+
+
+ENDPOINTS = ["local", "pr", "merge", "release"]
+STATES = {"local-complete": "local", "pr-ready": "pr", "merged": "merge", "released": "release"}
+RECEIPT_FIELDS = ["schema_version", "receipt_id", "root_task_id", "parent_task_id", "task_id",
+                  "issue", "worktree", "branch", "base_branch", "base_sha", "candidate",
+                  "authority", "endpoint", "risk", "ci", "gate", "review", "state"]
+
+
+def validate_receipt(value):
+    keys(value, RECEIPT_FIELDS)
+    if type(value["schema_version"]) is not int or value["schema_version"] != 1:
+        raise ValueError("unsupported receipt version")
+    for key in ["receipt_id", "root_task_id", "task_id", "issue", "worktree", "branch", "base_branch"]:
+        token(value[key])
+    if not re.fullmatch(r"https://github\.com/[^/]+/[^/]+/issues/[1-9][0-9]*", value["issue"]):
+        raise ValueError("issue must be a canonical GitHub issue URL")
+    if not Path(value["worktree"]).is_absolute():
+        raise ValueError("worktree must be absolute")
+    parent = value["parent_task_id"]
+    if parent is not None:
+        token(parent)
+    if (parent is None) != (value["task_id"] == value["root_task_id"]) or parent == value["task_id"]:
+        raise ValueError("invalid root/parent identity")
+    if value["branch"] == value["base_branch"]:
+        raise ValueError("owner and integration branches must differ")
+    hash_value(value["base_sha"], 40)
+    validate_candidate(value["candidate"])
+    keys(value["authority"], ["endpoint", "human_verified"])
+    choice(value["authority"]["endpoint"], ENDPOINTS)
+    choice(value["endpoint"], ENDPOINTS)
+    if type(value["authority"]["human_verified"]) is not bool:
+        raise ValueError("human_verified must be boolean")
+    if ENDPOINTS.index(value["endpoint"]) > ENDPOINTS.index(value["authority"]["endpoint"]):
+        raise ValueError("endpoint exceeds granted authority")
+    choice(value["risk"], ["low", "medium", "high"])
+    keys(value["ci"], ["status", "sha"])
+    choice(value["ci"]["status"], ["passed", "paused", "not-run", "failed"])
+    hash_value(value["ci"]["sha"], 40)
+    if value["ci"]["status"] == "paused" and value["endpoint"] != "local":
+        raise ValueError("CI pause requires local endpoint; PR creation may trigger paid CI")
+    for field, extra in [("gate", ["command"]), ("review", ["reviewer_task_id"])]:
+        keys(value[field], ["status", "candidate", *extra])
+        choice(value[field]["status"], ["passed", "failed", "not-run"])
+        if value[field]["status"] == "passed" and value[field]["candidate"] != value["candidate"]["digest"]:
+            raise ValueError("stale " + field + " evidence")
+        if value[field]["candidate"] is not None:
+            hash_value(value[field]["candidate"])
+    token(value["gate"]["command"])
+    reviewer = value["review"]["reviewer_task_id"]
+    if reviewer is not None:
+        token(reviewer)
+    if value["review"]["status"] == "passed" and (not reviewer or reviewer == value["task_id"]):
+        raise ValueError("independent review required")
+    choice(value["state"], [*STATES, "blocked"])
+    if value["state"] != "blocked" and STATES.get(value["state"]) != value["endpoint"]:
+        raise ValueError("state does not match endpoint")
+    if value["state"] != "blocked":
+        if value["gate"]["status"] != "passed" or value["gate"]["command"] != "make check":
+            raise ValueError("completed candidate needs canonical gate")
+        if value["endpoint"] != "local" and value["review"]["status"] != "passed":
+            raise ValueError("shipping needs independent review")
+    if value["endpoint"] in ["merge", "release"]:
+        if value["ci"]["status"] != "passed" or value["ci"]["sha"] != value["candidate"]["sha"]:
+            raise ValueError("merge/release needs exact-head CI; pause remains binding")
+        if value["risk"] == "high" and not value["authority"]["human_verified"]:
+            raise ValueError("high-risk activation needs human verification")
+    return value
+
+
+def load_ledger(handle):
+    result = []
+    for line in handle:
+        if line.strip():
+            result.append(validate_receipt(json.loads(line)))
+    return result
+
+
+def derived_state(receipts):
+    latest = {}
+    for receipt in receipts:
+        latest[receipt["task_id"]] = receipt
+    return {task: {"state": r["state"], "receipt_id": r["receipt_id"], "branch": r["branch"],
+                   "parent_task_id": r["parent_task_id"]} for task, r in sorted(latest.items())}
+
+
+def consume(ledger, receipt, repo, mode, context, root_task, parent_task, parent_branch):
+    validate_receipt(receipt)
+    if receipt["root_task_id"] != root_task or receipt["parent_task_id"] != parent_task:
+        raise ValueError("receipt addressed to different root/parent")
+    if receipt["base_branch"] != parent_branch:
+        raise ValueError("child PR must target immediate parent branch")
+    root = Path(git(repo, "rev-parse", "--show-toplevel").decode().strip()).resolve()
+    if root != Path(receipt["worktree"]).resolve():
+        raise ValueError("receipt belongs to another worktree")
+    if git(repo, "branch", "--show-current").decode().strip() != receipt["branch"]:
+        raise ValueError("receipt branch mismatch")
+    if receipt["candidate"] != candidate(repo, mode, context):
+        raise ValueError("stale candidate receipt")
+    if subprocess.run(["git", "--no-optional-locks", "-C", str(repo), "merge-base", "--is-ancestor", receipt["base_sha"], "HEAD"],
+                      stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode:
+        raise ValueError("base SHA is not preserved")
+    path = Path(ledger).resolve()
+    if path == root or root in path.parents:
+        raise ValueError("store evidence outside candidate worktree")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("a+", encoding="utf-8") as handle:
+        fcntl.flock(handle, fcntl.LOCK_EX)
+        handle.seek(0)
+        receipts = load_ledger(handle)
+        for old in receipts:
+            if old["receipt_id"] == receipt["receipt_id"]:
+                if old != receipt:
+                    raise ValueError("receipt ID collision")
+                return {"duplicate": True, "tasks": derived_state(receipts)}
+        if any(r["task_id"] != receipt["task_id"] and r["branch"] == receipt["branch"] for r in receipts):
+            raise ValueError("branch already has a different owner")
+        if any(r["task_id"] != receipt["task_id"] and Path(r["worktree"]).resolve() == root for r in receipts):
+            raise ValueError("worktree already has a different owner")
+        parent = next((r for r in reversed(receipts) if r["task_id"] == parent_task), None)
+        if parent and (parent["branch"] != parent_branch or parent["root_task_id"] != root_task):
+            raise ValueError("registered parent identity mismatch")
+        for child in receipts:
+            if child["parent_task_id"] == receipt["task_id"]:
+                if child["root_task_id"] != root_task or child["base_branch"] != receipt["branch"]:
+                    raise ValueError("registered child target mismatch")
+        latest = next((r for r in reversed(receipts) if r["task_id"] == receipt["task_id"]), None)
+        if latest:
+            immutable = ["root_task_id", "parent_task_id", "issue", "worktree", "branch", "base_branch", "base_sha"]
+            if any(latest[k] != receipt[k] for k in immutable):
+                raise ValueError("owner identity changed")
+            if ENDPOINTS.index(receipt["endpoint"]) < ENDPOINTS.index(latest["endpoint"]):
+                raise ValueError("receipt endpoint regressed")
+        # Follow recorded parents to reject cycles across receipts.
+        parents = {r["task_id"]: r["parent_task_id"] for r in receipts}
+        parents[receipt["task_id"]] = receipt["parent_task_id"]
+        node, seen = receipt["task_id"], set()
+        while node is not None:
+            if node in seen:
+                raise ValueError("ownership cycle")
+            seen.add(node)
+            node = parents.get(node)
+        handle.seek(0, 2)
+        handle.write(canonical(receipt) + "\n")
+        handle.flush()
+        os.fsync(handle.fileno())
+    return {"duplicate": False, "tasks": derived_state([*receipts, receipt])}
+
+
+def inventory(repo, receipts):
+    latest = {r["task_id"]: r for r in receipts}
+    owners = {str(Path(r["worktree"]).resolve()): r for r in latest.values()}
+    result = []
+    for block in git(repo, "worktree", "list", "--porcelain", "-z").split(b"\0\0"):
+        fields = {}
+        for raw in block.split(b"\0"):
+            if raw:
+                key, _, val = os.fsdecode(raw).partition(" ")
+                fields[key] = val
+        if "worktree" not in fields:
+            continue
+        path = fields["worktree"]
+        owner = owners.get(str(Path(path).resolve()))
+        try:
+            dirty = bool(git(path, "status", "--porcelain"))
+        except subprocess.CalledProcessError:
+            dirty = None
+        branch = fields.get("branch", "").removeprefix("refs/heads/")
+        owner_matches = bool(owner and branch == owner["branch"]
+                             and fields.get("HEAD") == owner["candidate"]["sha"])
+        if owner_matches:
+            try:
+                current = candidate(path, owner["candidate"]["mode"],
+                                    {"environment": "inventory", "toolchain": "inventory"})
+                owner_matches = current["content_hash"] == owner["candidate"]["content_hash"]
+            except (OSError, ValueError, subprocess.CalledProcessError):
+                owner_matches = False
+        active_children = [r["task_id"] for r in latest.values() if r["base_branch"] == branch
+                           and r["state"] not in ["merged", "released"]]
+        preserved = False
+        if owner_matches and owner["state"] in ["merged", "released"]:
+            preserved = subprocess.run(["git", "--no-optional-locks", "-C", str(repo), "merge-base", "--is-ancestor",
+                                        fields.get("HEAD", ""), owner["base_branch"]],
+                                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode == 0
+        classification = ("unresolved" if dirty is None else "unresolved-dirty" if dirty else
+                          "external" if not owner else "unresolved" if not owner_matches else
+                          "settled" if preserved and not active_children else "owned")
+        result.append({"worktree": path, "branch": branch or None, "classification": classification,
+                       "task_id": owner["task_id"] if owner else None, "active_children": active_children,
+                       "proposal": "verify remote PR dependencies and live owner, then archive recoverably"
+                       if classification == "settled" else "retain"})
+    return result
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    sub = parser.add_subparsers(dest="command", required=True)
+    for command in ["candidate", "gate-record", "gate-reuse", "consume"]:
+        p = sub.add_parser(command)
+        p.add_argument("--repo", required=True)
+        p.add_argument("--mode", required=True)
+        p.add_argument("--context", required=True, help="JSON file with environment/toolchain identifiers or hashes")
+        if command.startswith("gate-"):
+            p.add_argument("--evidence", required=True)
+            p.add_argument("--gate-command", default="make check")
+        if command == "gate-record":
+            p.add_argument("--candidate", required=True, help="snapshot captured BEFORE gate execution")
+            p.add_argument("--exit-code", required=True, type=int)
+        if command == "consume":
+            p.add_argument("--receipt", required=True)
+            p.add_argument("--ledger", required=True)
+            p.add_argument("--root-task", required=True)
+            p.add_argument("--parent-task", help="omit only for a root receipt")
+            p.add_argument("--parent-branch", required=True)
+    p = sub.add_parser("validate")
+    p.add_argument("--receipt", required=True)
+    p = sub.add_parser("state")
+    p.add_argument("--ledger", required=True)
+    p = sub.add_parser("inventory")
+    p.add_argument("--repo", required=True)
+    p.add_argument("--ledger")
+    args = parser.parse_args()
+    if args.command in ["candidate", "gate-record", "gate-reuse", "consume"]:
+        context = read(args.context)
+        now = candidate(args.repo, args.mode, context)
+    if args.command == "candidate":
+        result = now
+    elif args.command == "gate-record":
+        before = read(args.candidate)
+        validate_candidate(before)
+        if before != now:
+            raise ValueError("candidate changed during gate")
+        evidence = Path(args.evidence).resolve()
+        root = Path(git(args.repo, "rev-parse", "--show-toplevel").decode().strip()).resolve()
+        if root in evidence.parents or evidence == root:
+            raise ValueError("store evidence outside candidate worktree")
+        result = {"schema_version": 1, "candidate": now, "command": args.gate_command,
+                  "status": "passed" if args.exit_code == 0 else "failed"}
+        with evidence.open("x", encoding="utf-8") as handle:
+            handle.write(canonical(result) + "\n")
+    elif args.command == "gate-reuse":
+        evidence = read(args.evidence)
+        keys(evidence, ["schema_version", "candidate", "command", "status"])
+        if evidence["schema_version"] != 1 or evidence["status"] != "passed" or evidence["command"] != args.gate_command or evidence["candidate"] != now:
+            raise ValueError("gate evidence cannot be reused")
+        result = {"reusable": True, "candidate": now["digest"]}
+    elif args.command == "consume":
+        result = consume(args.ledger, read(args.receipt), args.repo, args.mode, context,
+                         args.root_task, args.parent_task, args.parent_branch)
+    elif args.command == "validate":
+        validate_receipt(read(args.receipt))
+        result = {"valid": True}
+    else:
+        receipts = []
+        if args.ledger:
+            with open(args.ledger, encoding="utf-8") as handle:
+                fcntl.flock(handle, fcntl.LOCK_SH)
+                receipts = load_ledger(handle)
+        result = derived_state(receipts) if args.command == "state" else inventory(args.repo, receipts)
+    print(canonical(result))
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except (ValueError, OSError, subprocess.CalledProcessError, json.JSONDecodeError) as error:
+        print("factory-workflow: " + (str(error) if isinstance(error, ValueError) else "operation failed"), file=sys.stderr)
+        sys.exit(1)
