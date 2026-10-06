@@ -1,0 +1,117 @@
+#!/usr/bin/env python3
+"""Fail-open, metadata-only notification for an opted-in terminal root state."""
+
+import hashlib
+import argparse
+import json
+import os
+from pathlib import Path
+import re
+import subprocess
+import sys
+
+
+IDENTITY = re.compile(r"[A-Za-z0-9_./:-]{1,160}\Z")
+SESSION = re.compile(r"[A-Za-z0-9_-]{1,100}\Z")
+STATES = {"completed", "needs_human", "release_failed"}
+
+
+def record(repo, session, task, state):
+    if not SESSION.fullmatch(session) or not IDENTITY.fullmatch(task) or state not in STATES:
+        raise ValueError("invalid terminal notification metadata")
+    root = Path(repo).resolve(strict=True)
+    directory = root / ".artifacts" / "factory-notifications"
+    receipt = directory / (session + ".json")
+    if any(p.is_symlink() for p in (root / ".artifacts", directory, receipt)):
+        raise ValueError("notification metadata must not use symlinks")
+    directory.mkdir(parents=True, exist_ok=True)
+    payload = json.dumps({"schema_version": 1, "task_id": task, "state": state}, sort_keys=True)
+    fd = os.open(receipt, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "w") as handle:
+        handle.write(payload)
+
+
+def notify(event, notifier=None):
+    if not isinstance(event, dict) or event.get("hook_event_name") != "Stop":
+        return False
+    if event.get("stop_hook_active"):
+        return False
+    session = event.get("session_id")
+    cwd = event.get("cwd")
+    if not isinstance(session, str) or not SESSION.fullmatch(session):
+        return False
+    if not isinstance(cwd, str) or not Path(cwd).is_absolute():
+        return False
+    directory = Path(cwd) / ".artifacts" / "factory-notifications"
+    receipt = directory / (session + ".json")
+    # Opt-in metadata cannot redirect the hook to unrelated files.
+    if any(p.is_symlink() for p in (Path(cwd) / ".artifacts", directory, receipt)):
+        return False
+    if not receipt.is_file() or receipt.stat().st_size > 1024:
+        return False
+    raw = receipt.read_bytes()
+    data = json.loads(raw)
+    if not isinstance(data, dict) or set(data) != {"schema_version", "state", "task_id"}:
+        return False
+    if type(data["schema_version"]) is not int or data["schema_version"] != 1:
+        return False
+    if data["state"] not in STATES:
+        return False
+    if not isinstance(data["task_id"], str) or not IDENTITY.fullmatch(data["task_id"]):
+        return False
+    # A receipt state is notified at most once, including concurrent Stop calls.
+    digest = hashlib.sha256(raw).hexdigest()
+    marker = directory / (session + "." + digest + ".sent")
+    try:
+        fd = os.open(marker, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    except FileExistsError:
+        return False
+    os.close(fd)
+    state = data["state"]
+    title = {
+        "completed": "Factory batch complete",
+        "needs_human": "Factory decision needed",
+        "release_failed": "Factory release failed",
+    }[state]
+    # Disable config loading as well as network delivery for this hook.
+    command = [
+        str(notifier or Path(__file__).resolve().with_name("notify")),
+        "--local-only", "--priority", "low" if state == "completed" else "high",
+        "--sound", "none" if state == "completed" else "Glass",
+        "--volume", "normal", "--repeat", "1",
+        title, "Open the owner task for its verified result or exact blocker.",
+    ]
+    environment = {**os.environ, "NOTIFY_SKIP_CONFIG": "1"}
+    subprocess.run(command, env=environment,
+                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                   timeout=2, check=False)
+    return True
+
+
+def main():
+    if len(sys.argv) > 1:
+        parser = argparse.ArgumentParser(description=__doc__)
+        parser.add_argument("command", choices=["record"])
+        parser.add_argument("--repo", required=True)
+        parser.add_argument("--session", required=True)
+        parser.add_argument("--task", required=True)
+        parser.add_argument("--state", choices=sorted(STATES), required=True)
+        args = parser.parse_args()
+        try:
+            record(args.repo, args.session, args.task, args.state)
+        except (OSError, ValueError) as exc:
+            parser.exit(1, str(exc) + "\n")
+        print("{}")
+        return 0
+    try:
+        raw = sys.stdin.buffer.read(65537)
+        if len(raw) <= 65536:
+            notify(json.loads(raw))
+    except (OSError, ValueError, TypeError, KeyError, subprocess.SubprocessError):
+        pass
+    print("{}")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

@@ -16,14 +16,12 @@ Validate changes with the repo's own commands and report evidence.
 5. Report exact commands and results.
 6. If a finding is mechanical and safe, fix it. If it changes product intent, ask the user.
 
-## openlearn defaults
+## Repository authority
 
-For `/Users/ross/Developer/projects/openlearn`, prefer:
-
-```bash
-.venv/bin/python -m unittest
-.venv/bin/python -m pytest -q
-OPENLEARN_MOCK=1 OPENLEARN_HOME=$(mktemp -d) .venv/bin/openlearn chat ai
-```
-
+The repository's own validation skill and Makefile select commands.
+For OpenLearn, use `.claude/skills/openlearn-validate/SKILL.md`.
+Its pytest lane includes unittest cases; do not run a duplicate suite.
+Run focused checks while iterating and the canonical gate once on the final candidate.
+Reuse recorded evidence only while candidate content, test mode, and relevant environment still match.
+Mock and isolate any learner flow.
 Slow AI-judge tests require explicit intent.

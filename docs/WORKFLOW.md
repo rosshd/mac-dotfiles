@@ -2,6 +2,8 @@
 
 This is the canonical day-to-day workflow.
 GitHub Issues hold durable work state, Codex managed tasks own implementation, and each repository owns its quality gate.
+For authorized factory work, [Workflow Core's shared contract](../plugins/workflow-core/references/factory-contract.md) defines authority, recursive ownership, completion, evidence reuse, and retirement.
+Standalone local requests retain their local endpoint.
 
 ## Normal path
 
@@ -18,7 +20,7 @@ intake
   -> require exact-head CI and the authorized risk boundary
   -> verify the release or installed state
   -> close the issue only after verification
-  -> inspect Ready issues and propose bounded next work
+  -> stop, or inspect Ready issues only when Ross asks
 ```
 
 GitHub is the source of truth for issue, pull-request, review, CI, and merge state.
@@ -73,6 +75,10 @@ Update it before continuing when new evidence changes the outcome, permissions, 
 ## Ownership and dispatch
 
 One issue maps to one Codex owner task and one managed worktree.
+Each implementation child owns a branch and submits its reviewed PR to its immediate parent's branch.
+Each parent acceptance-reviews child PRs, verifies their combined result, and independently reviews its final candidate before submitting upward.
+The root owns main and release.
+Resolve global active-worker and depth budgets before dispatch, rather than multiplying a separate allowance at each parent.
 Before editing, the owner records the permanent task ID, issue number, repository, worktree, branch, and exact start SHA.
 The owner also checks for a competing issue, task, branch, worktree, or pull request.
 Unknown overlap means one owner until the boundary is clear.
@@ -106,6 +112,7 @@ Do not claim completion from a partial check when the canonical gate is availabl
 ## Independent review
 
 Run one bounded, read-only review after the scoped commit and full gate pass.
+Reuse a passing gate for the exact content, mode, and relevant environment instead of rerunning it merely to collect evidence.
 Review the branch diff against its intended base.
 The reviewed SHA must equal the exact head covered by the latest successful gate.
 
@@ -156,7 +163,12 @@ Close the issue only after every acceptance check and required release check is 
 
 ## Notifications and monitoring
 
-The shared Codex Stop hook sends one generic completion notification.
+The shared Codex Stop hook is silent unless the root owner publishes allowlisted terminal metadata.
+Use `factory-notify-hook record --repo <root-worktree> --session <actual-session-id> --task <root-task-id> --state completed` after batch settlement.
+Use `needs_human` or `release_failed` only for the corresponding observed terminal state.
+Routine root batch completion is quiet; named human decisions and failed releases are urgent local notifications.
+It reads no transcripts, sends no network request, and performs no gate or retry.
+Changed hook definitions require normal `/hooks` trust review before running.
 Use `notify` directly for an explicit local or phone alert.
 
 ```bash
@@ -183,10 +195,11 @@ Treat the phone as another direct terminal client, not a separate dispatch syste
 
 ## Next work
 
-After verified completion, inspect open issues and their dependencies.
+After verified completion, inspect open issues and their dependencies only when Ross asks.
 Propose only Ready issues whose write sets and external state do not conflict.
 Rank the smallest bounded work that moves the product forward.
 Create another Codex task only after Ross authorizes that dispatch.
+An explicitly approved multi-item plan already authorizes its bounded implementation subtasks, not unrelated follow-on work.
 
 ## Failure handling
 

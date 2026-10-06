@@ -28,16 +28,21 @@ For a named dry-run fixture, evaluate the supplied synthetic issues with the sam
 
 ## Authorized dispatch
 
-Create tasks only after the user explicitly authorizes the proposed issue numbers.
+Create tasks only after the user explicitly authorizes the proposed issues or the bounded multi-item plan containing them.
+Read the shared contract's authority and recursive ownership sections.
+Resolve the root, immediate parent, explicit PR base, global active-owner budget, and depth before creation.
 
-Before task creation, resolve the current dispatcher task ID and host ID when the Codex app exposes cross-task messaging.
-Pass those identities to each owner task with the handback instructions below.
+Before creation, select the return transport from the owner's actual runtime.
+Pass the parent's actual runtime identity to collaboration subagents.
+For user-owned chats, resolve the dispatcher's chat and host IDs and Ross's authorization for a callback to that named destination.
 Initialize an empty active batch before creating the first task.
 
 For each authorized issue:
 
 1. Re-read the issue and repository state immediately before dispatch.
-2. Create one Codex owner task in one managed worktree for that issue.
+2. Create one isolated owner in its own branch and worktree for that issue.
+   Use runtime subagents for subtasks when Ross authorized delegation; create user-owned chats only when Ross asks for them.
+   Prefer managed worktrees and record a Git-worktree exception when the current host cannot create them.
 3. Immediately record the issue and created owner in the active batch before any other mutation.
 4. Put the issue URL and number, repository, outcome, acceptance checks, constraints, permissions, verification, and stop condition in the owner-task prompt.
 5. Keep the GitHub issue as the durable brief.
@@ -49,9 +54,11 @@ For each authorized issue:
 
 Dispatch is complete only when the owner has a return path.
 
-When `send_message_to_thread` is available, tell the owner task to send exactly one handback message to the dispatcher task when one of these conditions occurs:
+Collaboration subagents return through the runtime's terminal-result channel.
+The parent stays active and uses bounded runtime waits until each subagent settles; app chat tools do not replace that return channel.
+For user-owned chats only, when `send_message_to_thread` is available and Ross authorized the named callback destination, tell the owner to send exactly one handback when one of these conditions occurs:
 
-- local implementation and required verification complete;
+- the resolved local or reviewed-parent-PR endpoint is complete;
 - work is blocked;
 - user input or new authority is required.
 
@@ -59,8 +66,9 @@ Routine progress stays in the owner task.
 The terminal handback includes the issue, owner task, worktree, branch, exact head SHA, local gate result, review status, risk, and next permission boundary.
 An attention handback replaces the completion result with the exact blocker or decision needed.
 
-After confirming that callback instruction is present, the dispatcher may end its turn.
-The worker message wakes the dispatcher, which reads the owner result, revalidates the exact head, reconciles the issue status, and continues only work already authorized by the user.
+Only after confirming an authorized user-owned chat callback may the dispatcher end its turn.
+That callback wakes the dispatcher; a runtime subagent result is consumed by its still-active parent.
+The parent reads the result, revalidates the exact head, reconciles the issue status, and continues only work already authorized by the user.
 Creating the task is not a completed factory run.
 The user should not have to announce that the worker finished.
 
@@ -80,11 +88,12 @@ For high-risk work, prepare the exact verification packet and stop before merge 
 If another permission is missing, ask one direct question naming the blocked action.
 Never terminate a settled batch with only a passive statement that no push or pull request occurred.
 
-If cross-task messaging is unavailable, keep the dispatcher turn active and use the bounded task-wait capability until the owner completes or needs attention.
+For collaboration subagents, or user-owned chats without an authorized callback, keep the dispatcher turn active and use the runtime's bounded task-wait capability until the owner completes or needs attention.
 Carry forward the wait cursor, remain quiet on unchanged snapshots, and consume the terminal result directly.
 Do not replace handback with a scheduled poller, heartbeat, daemon, or queue.
 
-Dispatch no more than two write-owning tasks in one request.
+Dispatch within the shared contract's global active-worker and depth budgets.
+The default is two write-owning tasks across the tree; Ross may authorize a larger bounded batch.
 
 Use subagents only when the user explicitly requests delegation.
 Keep delegated parallel work read-heavy and independently bounded unless the user specifically authorizes parallel writes.

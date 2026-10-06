@@ -6,6 +6,7 @@ description: Monitor an open GitHub PR over time and react to CI or review feedb
 # Babysit PR
 
 Keep the named PR moving without merging it.
+Return merge-ready evidence to the authorized factory owner, which may continue its resolved endpoint under [the shared contract](../../references/factory-contract.md).
 
 ## Loop
 

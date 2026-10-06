@@ -34,6 +34,8 @@ in
   home.file.".local/bin/clean-reboot".source = ../bin/clean-reboot;
   home.file.".local/bin/doctor".source = ../bin/doctor;
   home.file.".local/bin/notify".source = ../bin/notify;
+  home.file.".local/bin/factory-notify-hook".source = ../bin/factory-notify-hook;
+  home.file.".local/bin/factory-workflow".source = ../bin/factory-workflow;
   home.file.".local/bin/networking".source = ../bin/networking;
   home.file.".local/bin/networking-mcp".source = ../bin/networking-mcp;
   home.file.".local/bin/plan-artifact".source = ../bin/plan-artifact;

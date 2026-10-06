@@ -128,7 +128,7 @@ ln -sfn "$DOTFILES/voice/vocabulary.md" "$HOME/.config/voice/vocabulary.md"
 mkdir -p "$HOME/.config/gh-dash"
 ln -sfn "$DOTFILES/gh-dash/config.yml" "$HOME/.config/gh-dash/config.yml"
 
-for script in ship agent agent-doctor plan-artifact voice-vocab doctor notify networking networking-mcp tmux-resurrect-clean clean-reboot rebuild-mac spotify-popup focus-app spotify-mute; do
+for script in ship agent agent-doctor plan-artifact voice-vocab doctor notify factory-notify-hook factory-workflow networking networking-mcp tmux-resurrect-clean clean-reboot rebuild-mac spotify-popup focus-app spotify-mute; do
   ln -sfn "$DOTFILES/bin/$script" "$HOME/.local/bin/$script"
   chmod +x "$DOTFILES/bin/$script"
 done
