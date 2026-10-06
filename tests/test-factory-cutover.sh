@@ -121,6 +121,8 @@ dispatch_skill="$root/plugins/workflow-core/skills/factory-dispatch/SKILL.md"
 factory_contract="$root/plugins/workflow-core/references/factory-contract.md"
 for required in \
   'send_message_to_thread' \
+  "Collaboration subagents return through the runtime's terminal-result channel" \
+  'Only after confirming an authorized user-owned chat callback may the dispatcher end its turn' \
   'The user should not have to announce that the worker finished' \
   'Initialize an empty active batch before creating the first task' \
   'Immediately record the issue and created owner in the active batch before any other mutation' \
