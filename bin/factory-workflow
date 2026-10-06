@@ -21,7 +21,7 @@ def digest(value):
 
 
 def git(repo, *args):
-    return subprocess.check_output(["git", "-C", str(repo), *args], stderr=subprocess.DEVNULL)
+    return subprocess.check_output(["git", "--no-optional-locks", "-C", str(repo), *args], stderr=subprocess.DEVNULL)
 
 
 def read(path):
@@ -196,7 +196,7 @@ def consume(ledger, receipt, repo, mode, context, root_task, parent_task, parent
         raise ValueError("receipt branch mismatch")
     if receipt["candidate"] != candidate(repo, mode, context):
         raise ValueError("stale candidate receipt")
-    if subprocess.run(["git", "-C", str(repo), "merge-base", "--is-ancestor", receipt["base_sha"], "HEAD"],
+    if subprocess.run(["git", "--no-optional-locks", "-C", str(repo), "merge-base", "--is-ancestor", receipt["base_sha"], "HEAD"],
                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode:
         raise ValueError("base SHA is not preserved")
     path = Path(ledger).resolve()
@@ -219,6 +219,10 @@ def consume(ledger, receipt, repo, mode, context, root_task, parent_task, parent
         parent = next((r for r in reversed(receipts) if r["task_id"] == parent_task), None)
         if parent and (parent["branch"] != parent_branch or parent["root_task_id"] != root_task):
             raise ValueError("registered parent identity mismatch")
+        for child in receipts:
+            if child["parent_task_id"] == receipt["task_id"]:
+                if child["root_task_id"] != root_task or child["base_branch"] != receipt["branch"]:
+                    raise ValueError("registered child target mismatch")
         latest = next((r for r in reversed(receipts) if r["task_id"] == receipt["task_id"]), None)
         if latest:
             immutable = ["root_task_id", "parent_task_id", "issue", "worktree", "branch", "base_branch", "base_sha"]
@@ -261,15 +265,25 @@ def inventory(repo, receipts):
         except subprocess.CalledProcessError:
             dirty = None
         branch = fields.get("branch", "").removeprefix("refs/heads/")
+        owner_matches = bool(owner and branch == owner["branch"]
+                             and fields.get("HEAD") == owner["candidate"]["sha"])
+        if owner_matches:
+            try:
+                current = candidate(path, owner["candidate"]["mode"],
+                                    {"environment": "inventory", "toolchain": "inventory"})
+                owner_matches = current["content_hash"] == owner["candidate"]["content_hash"]
+            except (OSError, ValueError, subprocess.CalledProcessError):
+                owner_matches = False
         active_children = [r["task_id"] for r in latest.values() if r["base_branch"] == branch
                            and r["state"] not in ["merged", "released"]]
         preserved = False
-        if owner and owner["state"] in ["merged", "released"]:
-            preserved = subprocess.run(["git", "-C", str(repo), "merge-base", "--is-ancestor",
+        if owner_matches and owner["state"] in ["merged", "released"]:
+            preserved = subprocess.run(["git", "--no-optional-locks", "-C", str(repo), "merge-base", "--is-ancestor",
                                         fields.get("HEAD", ""), owner["base_branch"]],
                                        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode == 0
         classification = ("unresolved" if dirty is None else "unresolved-dirty" if dirty else
-                          "external" if not owner else "settled" if preserved and not active_children else "owned")
+                          "external" if not owner else "unresolved" if not owner_matches else
+                          "settled" if preserved and not active_children else "owned")
         result.append({"worktree": path, "branch": branch or None, "classification": classification,
                        "task_id": owner["task_id"] if owner else None, "active_children": active_children,
                        "proposal": "verify remote PR dependencies and live owner, then archive recoverably"

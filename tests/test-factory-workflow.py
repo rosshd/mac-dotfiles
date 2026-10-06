@@ -3,6 +3,7 @@ import copy
 import importlib.machinery
 import importlib.util
 import json
+import os
 from pathlib import Path
 import subprocess
 import tempfile
@@ -219,6 +220,40 @@ class WorkflowTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "outside"):
             self.consume(self.receipt())
         self.assertFalse(self.ledger.exists())
+
+    def test_inventory_retains_switched_branch_and_changed_head(self):
+        value = self.receipt()
+        value["endpoint"], value["state"] = "merge", "merged"
+        value["ci"]["status"] = "passed"
+        self.git("switch", "-c", "unowned-other", "main")
+        result = workflow.inventory(self.repo, [value])[0]
+        self.assertEqual(result["classification"], "unresolved")
+        self.assertEqual(result["proposal"], "retain")
+        self.git("switch", "feature")
+        self.git("commit", "--allow-empty", "-m", "unrecorded candidate")
+        self.assertEqual(workflow.inventory(self.repo, [value])[0]["classification"], "unresolved")
+
+    def test_late_parent_rejects_existing_child_target(self):
+        child = self.receipt(task="child", parent="parent", target="claimed-parent")
+        self.consume(child, parent="parent", target="claimed-parent")
+        parent_worktree = self.home / "parent"
+        self.git("worktree", "add", "-b", "actual-parent", str(parent_worktree), "HEAD")
+        self.repo = parent_worktree
+        parent = self.receipt(task="parent", branch="actual-parent", target="main")
+        with self.assertRaisesRegex(ValueError, "child target"):
+            self.consume(parent)
+        with self.ledger.open() as handle:
+            self.assertEqual(set(workflow.derived_state(workflow.load_ledger(handle))), {"child"})
+
+    def test_inventory_does_not_refresh_index(self):
+        self.git("status", "--porcelain")
+        index = self.repo / ".git" / "index"
+        before = index.read_bytes()
+        path = self.repo / "code"
+        stat = path.stat()
+        os.utime(path, ns=(stat.st_atime_ns, stat.st_mtime_ns + 10_000_000_000))
+        workflow.inventory(self.repo, [])
+        self.assertEqual(index.read_bytes(), before)
         self.cli("state", "--ledger", str(self.ledger), success=False)
         self.assertFalse(self.ledger.exists())
 
