@@ -4,6 +4,7 @@
     {
       "repository": "rosshd/applyquest",
       "path": "/Users/ross/Developer/projects/job-hunt-leaderboard",
+      "linked_checkout": "/Users/ross/Developer/projects/applyquest",
       "ownership": "standalone_root"
     },
     {

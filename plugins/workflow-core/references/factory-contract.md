@@ -186,11 +186,13 @@ Changed scope, new authority, or increased risk requires Ross's decision.
 
 Use the existing passive factory-observability collector's supported versioned event schema.
 For opted-in tasks, metadata-only input hooks record capture receipts without storing prompt text.
-With the installed and trusted SessionStart hook, ordinary chats started at an exact primary repository root in `agents/config/factory-observer-projects.json` enroll automatically.
+With the installed and trusted SessionStart hook, ordinary chats started at an exact configured repository checkout in `agents/config/factory-observer-projects.json` enroll automatically.
+Each repository has one primary `path` requiring a `.git` directory and at most one optional `linked_checkout` requiring a regular `.git` file; both are explicit standalone-root opt-in policy.
+Omitting `linked_checkout` retains primary-only behavior, and duplicate primary or linked paths, malformed paths and symlinks are rejected.
 Fresh enrollment requires a UUID session and `standalone_root` project ownership, and records that session as the root leader with runtime kind `codex_chat`, a null parent, and one random run ID.
 Existing valid session enrollment is reused unchanged before cwd eligibility, retaining its ownership and run on startup, resume, clear, and compact.
-Fresh enrollment skips subdirectories, unlisted repositories, symlinked roots, and checkouts with a `.git` file instead of a primary `.git` directory.
-Managed worktree chats and child chat sessions require explicit enrollment with their actual session UUID, root, immediate parent, `codex_chat` runtime kind, and role using `factory-observability register-observer` and [the collector's v3 protocol](/Users/ross/Developer/projects/factory-observability/docs/task-event-protocol-v3.md).
+Fresh enrollment skips subdirectories, unlisted repositories, symlinked roots, and all other worktrees outside the exact configured checkout paths.
+Managed worktree chats outside this opt-in and child chat sessions require explicit enrollment with their actual session UUID, root, immediate parent, `codex_chat` runtime kind, and role using `factory-observability register-observer` and [the collector's v3 protocol](/Users/ross/Developer/projects/factory-observability/docs/task-event-protocol-v3.md).
 Collaboration workers retain explicit typed v3 events with runtime kind `collaboration`, their actual root-qualified task paths, and actual root and immediate parent.
 No parent identity is inferred from cwd or branch; native SessionStart documents no factory parent identity.
 Use the installed collector's protocol if the workstation pointer is unavailable, and diagnose a malformed or unsafe context without replacing it.
