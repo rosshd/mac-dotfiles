@@ -1,7 +1,9 @@
 import importlib.machinery
 import importlib.util
 import json
+import os
 from pathlib import Path
+import subprocess
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -53,6 +55,21 @@ class NotificationTests(unittest.TestCase):
         self.assertIn("low", args)
         self.assertNotIn("PRIVATE", str(args))
         self.assertEqual(run.call_count, 1)
+        self.assertEqual(run.call_args.kwargs["env"]["NOTIFY_SKIP_CONFIG"], "1")
+
+    def test_notify_can_skip_private_config_without_changing_default(self):
+        config = self.root / "config" / "notify"
+        config.mkdir(parents=True)
+        sentinel = self.root / "config-was-read"
+        (config / "notify.conf").write_text('touch "' + str(sentinel) + '"\n')
+        environment = {**os.environ, "XDG_CONFIG_HOME": str(config.parent)}
+        command = [str(SCRIPT.with_name("notify")), "--help"]
+        subprocess.run(command, env={**environment, "NOTIFY_SKIP_CONFIG": "1"},
+                       stdout=subprocess.DEVNULL, check=True)
+        self.assertFalse(sentinel.exists())
+        environment.pop("NOTIFY_SKIP_CONFIG", None)
+        subprocess.run(command, env=environment, stdout=subprocess.DEVNULL, check=True)
+        self.assertTrue(sentinel.exists())
 
     @patch.object(module.subprocess, "run")
     def test_decision_and_failed_release_are_urgent(self, run):

@@ -8,7 +8,9 @@ conf="${XDG_CONFIG_HOME:-$HOME/.config}/notify/notify.conf"
 NTFY_SERVER="https://ntfy.sh"
 NTFY_TOPIC=""
 # shellcheck disable=SC1090
-[ -f "$conf" ] && . "$conf"
+if [ "${NOTIFY_SKIP_CONFIG:-0}" != "1" ] && [ -f "$conf" ]; then
+  . "$conf"
+fi
 
 usage() {
   cat <<'USAGE'
